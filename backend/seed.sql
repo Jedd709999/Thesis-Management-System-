@@ -1,0 +1,1 @@
+-- seed.sql: create a superuser placeholder, other seeds should be done via management commands
