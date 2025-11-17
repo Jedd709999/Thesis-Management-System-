@@ -69,6 +69,13 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
+# Google Drive Settings
+# For OAuth 2.0 (recommended for development)
+GOOGLE_CREDENTIALS_FILE = os.path.join(BASE_DIR, 'google_credentials.json')
+
+# For Service Account (alternative)
+# GOOGLE_SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'service-account-key.json')
+
 STATIC_URL = '/static/'
 STATIC_ROOT = '/app/backend/staticfiles'
 MEDIA_URL = '/media/'
@@ -104,3 +111,5 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'noreply@example.com'
+
+

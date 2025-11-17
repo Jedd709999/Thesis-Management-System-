@@ -14,7 +14,8 @@ services:
   backend:
     build: ./backend
     working_dir: /app/backend
-    command: bash -c "python manage.py migrate && gunicorn backend.wsgi:application --bind 0.0.0.0:8000"
+    entrypoint: ["/app/entrypoint.sh"]
+    command: ["gunicorn", "backend.wsgi:application", "--bind", "0.0.0.0:8000"]
     volumes:
       - ./backend:/app
       - staticfiles:/app/backend/staticfiles

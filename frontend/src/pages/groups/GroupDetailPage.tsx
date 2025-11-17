@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import { Users, Leaf } from 'lucide-react';
 import { getGroup, addMember, removeMember, assignAdviser, assignPanels } from '../../api/groupService';
 import api from '../../api/api';
 
@@ -203,8 +204,41 @@ const GroupDetailPage: React.FC = () => {
   }
 
   return (
-    <Container sx={{ mt: 4 }}>
-      <Typography variant="h4">Group: {group.name}</Typography>
+    <Box sx={{ p: 4, backgroundColor: '#F8FAFC' }}>
+      {/* Welcome Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 6 }}>
+        <Box>
+          <Typography variant="h3" sx={{ color: '#1E293B', fontWeight: 600, mb: 1 }}>
+            Group Details
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Users style={{ width: '16px', height: '16px', color: '#10B981' }} />
+            <Typography variant="body1" sx={{ color: '#64748B' }}>
+              Manage your research team and collaboration settings
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{
+            px: 3,
+            py: 1.5,
+            backgroundColor: '#F0FDF4',
+            border: '1px solid #BBF7D0',
+            borderRadius: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <Leaf style={{ width: '16px', height: '16px', color: '#10B981' }} />
+            <Typography variant="body2" sx={{ color: '#065F46', fontWeight: 500 }}>
+              {group.name}
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
+
+      <Container maxWidth="lg" sx={{ px: 0 }}>
+        <Typography variant="h4">Group: {group.name}</Typography>
       <Grid container spacing={2} sx={{ mt: 2 }}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
@@ -241,7 +275,24 @@ const GroupDetailPage: React.FC = () => {
                 </ListItem>
               ))}
               {members.length === 0 && (
-                <Typography sx={{ p: 2 }}>No members</Typography>
+                <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 1, border: '1px solid', borderColor: 'info.main' }}>
+                  <Typography variant="body2" color="info.dark" sx={{ fontWeight: 600, mb: 1 }}>
+                    No members in this group
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    This group currently has no members. Here's what you can do:
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" component="div">
+                    <ul style={{ margin: 0, paddingLeft: '1.5em' }}>
+                      <li>Add members using the dropdown above</li>
+                      <li>Invite students by sharing the group details</li>
+                      <li>Contact your adviser for member recommendations</li>
+                    </ul>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    Adding members will enable collaboration on thesis projects and progress tracking.
+                  </Typography>
+                </Box>
               )}
             </List>
           </Paper>
@@ -387,7 +438,8 @@ const GroupDetailPage: React.FC = () => {
           {snack.msg}
         </Alert>
       </Snackbar>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

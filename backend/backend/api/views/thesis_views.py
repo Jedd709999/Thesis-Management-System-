@@ -1,15 +1,33 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
 from api.models.thesis_models import Thesis
+from api.models.group_models import Group
 from api.serializers.thesis_serializers import ThesisSerializer
-from rest_framework.permissions import IsAuthenticated
+from api.permissions.role_permissions import IsStudent, IsStudentOrAdviserForThesis
 from api.utils.notifications import create_notification
 
 class ThesisViewSet(viewsets.ModelViewSet):
-    queryset = Thesis.objects.all().select_related('group','proposer')
     serializer_class = ThesisSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsStudentOrAdviserForThesis]
+    queryset = Thesis.objects.all()  # Required for router basename
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'ADMIN':
+            # Admins can see all theses
+            return Thesis.objects.all().select_related('group','proposer','group__adviser')
+        elif user.role == 'ADVISER':
+            # Advisers can see all theses (for overview) but can only modify their own
+            return Thesis.objects.all().select_related('group','proposer','group__adviser')
+        elif user.role == 'PANEL':
+            # Panel members can see all theses for review purposes
+            return Thesis.objects.all().select_related('group','proposer','group__adviser')
+        else:  # STUDENT
+            # Students can see all theses (for learning/reference) but can only modify their own
+            return Thesis.objects.all().select_related('group','proposer','group__adviser')
 
     @action(detail=True, methods=['post'])
     def submit(self, request, pk=None):
