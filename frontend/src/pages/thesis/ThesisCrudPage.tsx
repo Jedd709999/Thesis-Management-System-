@@ -236,12 +236,12 @@ export default function ThesisCrudPage() {
       {/* Tabs Navigation */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
         <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
-          <Tab label="My Theses" />
+          <Tab label="My Thesis" />
           <Tab label="Other Students' Theses" />
         </Tabs>
       </Box>
       
-      {/* Tab Content */}
+      {/* My Thesis Tab */}
       {currentTab === 0 && (
         <>
           {loading ? (

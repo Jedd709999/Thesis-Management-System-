@@ -63,7 +63,7 @@ const ENVISysSidebar: React.FC<ENVISysSidebarProps> = ({ userRole, currentPage =
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'thesis', label: 'Thesis', icon: FileText },
-    { id: 'groups', label: 'Groups', icon: Users },
+    { id: 'groups', label: userRole === 'STUDENT' ? 'Group' : 'Groups', icon: Users },
     { id: 'documents', label: 'Documents', icon: FolderOpen },
     { id: 'schedule', label: 'Schedule', icon: Calendar },
     { id: 'notifications', label: 'Notifications', icon: Bell },

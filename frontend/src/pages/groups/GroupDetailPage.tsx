@@ -1,16 +1,35 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useState, useCallback, useContext } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Container, Typography, Box, Paper, Divider, List, ListItem, ListItemText,
-  IconButton, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, Select, InputLabel, FormControl, Chip, OutlinedInput,
-  Snackbar, Alert, Grid, SelectChangeEvent
+  Container,
+  Typography,
+  Paper,
+  Button,
+  Box,
+  Grid,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { Users, Leaf } from 'lucide-react';
-import { getGroup, addMember, removeMember, assignAdviser, assignPanels } from '../../api/groupService';
+import { getGroup, addMember as addMemberToGroup, removeMember as removeMemberFromGroup, assignAdviser, assignPanels } from '../../api/groupService';
 import api from '../../api/api';
+import { AuthContext } from '../../context/AuthContext';
 
 interface User {
   id: number;
@@ -23,176 +42,160 @@ interface User {
 interface Group {
   id: number;
   name: string;
-  members: User[] | number[];
-  adviser: User | number | null;
-  panels: User[] | number[];
-  [key: string]: any;
+  status: string;
+  possible_topics: string;
+  keywords: string;
+  members: User[];
+  adviser: User | null;
+  panels: User[];
 }
 
-type Severity = 'success' | 'error' | 'warning' | 'info';
-
-interface SnackState {
-  open: boolean;
-  msg: string;
-  severity: Severity;
-}
-
-const GroupDetailPage: React.FC = () => {
+export default function GroupDetailPage() {
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const gid = Number(id);
+
   const [group, setGroup] = useState<Group | null>(null);
-  const [members, setMembers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [advisers, setAdvisers] = useState<User[]>([]);
   const [panels, setPanels] = useState<User[]>([]);
-  const [addOpen, setAddOpen] = useState(false);
-  const [searchUser, setSearchUser] = useState('');
-  const [addingUserId, setAddingUserId] = useState<number | null>(null);
   const [selectedAdviser, setSelectedAdviser] = useState<number | null>(null);
   const [selectedPanels, setSelectedPanels] = useState<number[]>([]);
-  const [snack, setSnack] = useState<SnackState>({ 
-    open: false, 
-    msg: '', 
-    severity: 'success' 
-  });
+  const [addOpen, setAddOpen] = useState(false);
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [snack, setSnack] = useState({ open: false, msg: '', severity: 'success' as 'success' | 'error' });
+  const [editTopics, setEditTopics] = useState(false);
+  const [editKeywords, setEditKeywords] = useState(false);
+  const [topicsForm, setTopicsForm] = useState('');
+  const [keywordsForm, setKeywordsForm] = useState('');
 
-  useEffect(() => { 
-    if (!id) return; 
-    load(); 
-  }, [id]);
+  const showSnack = (msg: string, severity: 'success' | 'error' = 'success') => {
+    setSnack({ open: true, msg, severity });
+  };
 
   const load = useCallback(async () => {
+    if (!id) return;
     try {
-      const res = await getGroup(gid);
-      const data = res.data as Group;
+      setLoading(true);
+      const grpRes = await getGroup(gid);
+      const data = grpRes.data;
       setGroup(data);
 
-      // Normalize members
-      if (Array.isArray(data.members) && data.members.length > 0) {
-        if (typeof data.members[0] === 'object') {
-          setMembers(data.members as User[]);
-        } else {
-          const users = await Promise.all(
-            (data.members as number[]).map(uid => 
-              api.get<User>(`users/${uid}/`).then(r => r.data)
-            )
-          );
-          setMembers(users);
-        }
-      } else {
-        setMembers([]);
-      }
-
       // Handle adviser
-      const adviserId = typeof data.adviser === 'object' ? data.adviser.id : data.adviser;
-      setSelectedAdviser(adviserId || null);
+      const adviserId = data.adviser ? (typeof data.adviser === 'object' ? data.adviser.id : data.adviser) : null;
+      setSelectedAdviser(adviserId);
 
       // Handle panels
-      if (Array.isArray(data.panels) && data.panels.length > 0) {
-        if (typeof data.panels[0] === 'object') {
-          const panelUsers = data.panels as User[];
-          setPanels(panelUsers);
-          setSelectedPanels(panelUsers.map(p => p.id));
-        } else {
-          const panelUsers = await Promise.all(
-            (data.panels as number[]).map(uid =>
-              api.get<User>(`users/${uid}/`).then(r => r.data)
-            )
-          );
-          setPanels(panelUsers);
-          setSelectedPanels(panelUsers.map(u => u.id));
-        }
-      } else {
-        setPanels([]);
-        setSelectedPanels([]);
-      }
+      const panelIds = data.panels?.map((p: any) => typeof p === 'object' ? p.id : p) || [];
+      setSelectedPanels(panelIds);
 
       // Load advisers and panels
       const [advRes, pnlRes] = await Promise.all([
-        api.get<{ results?: User[] }>('users/?role=ADVISER'),
-        api.get<{ results?: User[] }>('users/?role=PANEL')
+        api.get<User[]>('users/?role=ADVISER'),
+        api.get<User[]>('users/?role=PANEL')
       ]);
 
-      if (advRes.data.results) {
-        setAdvisers(advRes.data.results);
+      if (advRes.data) {
+        setAdvisers(advRes.data);
       }
 
-      if (pnlRes.data.results) {
-        setPanels(prev => {
-          const panelMap = new Map(prev.map(p => [p.id, p]));
-          pnlRes.data.results?.forEach(panel => {
-            panelMap.set(panel.id, panel);
-          });
-          return Array.from(panelMap.values());
-        });
+      if (pnlRes.data) {
+        setPanels(pnlRes.data);
       }
-    } catch (e) {
-      setSnack({ open: true, msg: 'Failed to load', severity: 'error' });
+    } catch (e: any) {
+      console.error('Load error:', e);
+      showSnack('Failed to load group', 'error');
+    } finally {
+      setLoading(false);
     }
-  }, [gid]);
+  }, [id, gid]);
 
-  const handleRemoveMember = async (userId: number) => {
-    try {
-      await removeMember(gid, userId);
-      await load();
-      setSnack({ open: true, msg: 'Removed', severity: 'success' });
-    } catch (e) {
-      setSnack({ open: true, msg: 'Remove failed', severity: 'error' });
-    }
-  };
-  const handleAddMember = async () => {
-    if (!addingUserId) {
-      setSnack({ open: true, msg: 'Select user', severity: 'error' });
-      return;
-    }
-    try {
-      await addMember(gid, addingUserId);
-      setAddOpen(false);
-      setAddingUserId(null);
-      await load();
-      setSnack({ open: true, msg: 'Added', severity: 'success' });
-    } catch (e) {
-      setSnack({ open: true, msg: 'Add failed', severity: 'error' });
-    }
-  };
+  useEffect(() => {
+    if (!id) return;
+    load();
+  }, [id, load]);
+
   const handleSaveAdviser = async () => {
-    if (selectedAdviser == null) {
-      setSnack({ open: true, msg: 'Select adviser', severity: 'error' });
-      return;
-    }
+    if (!group || selectedAdviser === null) return;
     try {
       await assignAdviser(gid, selectedAdviser);
-      await load();
-      setSnack({ open: true, msg: 'Adviser saved', severity: 'success' });
-    } catch (e) {
-      setSnack({ open: true, msg: 'Save failed', severity: 'error' });
+      showSnack('Adviser updated');
+      load();
+    } catch (e: any) {
+      showSnack('Failed to update adviser', 'error');
     }
   };
+
   const handleSavePanels = async () => {
+    if (!group) return;
     try {
       await assignPanels(gid, selectedPanels);
-      await load();
-      setSnack({ open: true, msg: 'Panels saved', severity: 'success' });
-    } catch (e) {
-      setSnack({ open: true, msg: 'Panels save failed', severity: 'error' });
+      showSnack('Panels updated');
+      load();
+    } catch (e: any) {
+      showSnack('Failed to update panels', 'error');
     }
   };
 
-  const search = async (q: string): Promise<User[]> => {
+  const handleAddMember = async () => {
+    if (!newMemberEmail.trim()) return;
     try {
-      const res = await api.get<{ results?: User[] }>(`users/?search=${encodeURIComponent(q)}`);
-      return res.data.results || [];
-    } catch (e) {
-      return [];
+      // First, we need to find the user by email to get their ID
+      const userRes = await api.get(`users/?email=${newMemberEmail}`);
+      if (!userRes.data || userRes.data.length === 0) {
+        showSnack('User not found with this email', 'error');
+        return;
+      }
+      const userId = userRes.data[0].id;
+      await addMemberToGroup(gid, userId);
+      showSnack('Member added');
+      setAddOpen(false);
+      setNewMemberEmail('');
+      load();
+    } catch (e: any) {
+      showSnack(e.response?.data?.message || 'Failed to add member', 'error');
     }
   };
 
-  const handlePanelChange = (event: SelectChangeEvent<number[]>) => {
-    const value = event.target.value;
-    // Convert all values to numbers to ensure type safety
-    const numericValues = Array.isArray(value) 
-      ? value.map(v => Number(v))
-      : [Number(value)];
-    setSelectedPanels(numericValues);
+  const handleRemoveMember = async (uid: number) => {
+    if (!confirm('Remove this member?')) return;
+    try {
+      await removeMemberFromGroup(gid, uid);
+      showSnack('Member removed');
+      load();
+    } catch (e: any) {
+      showSnack('Failed to remove member', 'error');
+    }
+  };
+
+  const handlePanelChange = (e: any) => {
+    const values = Array.isArray(e.target.value) ? e.target.value : [e.target.value];
+    setSelectedPanels(values.map((v: any) => Number(v)));
+  };
+
+  const handleSaveTopics = async () => {
+    if (!group) return;
+    try {
+      await api.patch(`/groups/${gid}/`, { possible_topics: topicsForm });
+      showSnack('Topics updated');
+      setEditTopics(false);
+      load();
+    } catch (e: any) {
+      showSnack('Failed to update topics', 'error');
+    }
+  };
+
+  const handleSaveKeywords = async () => {
+    if (!group) return;
+    try {
+      await api.patch(`/groups/${gid}/`, { keywords: keywordsForm });
+      showSnack('Keywords updated');
+      setEditKeywords(false);
+      load();
+    } catch (e: any) {
+      showSnack('Failed to update keywords', 'error');
+    }
   };
 
   if (!group) {
@@ -208,17 +211,23 @@ const GroupDetailPage: React.FC = () => {
       {/* Welcome Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 6 }}>
         <Box>
-          <Typography variant="h3" sx={{ color: '#1E293B', fontWeight: 600, mb: 1 }}>
-            Group Details
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Typography variant="h3" sx={{ color: '#1E293B', fontWeight: 600 }}>
+              Environmental Science Research Group: {group?.name || 'Loading...'}
+            </Typography>
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Users style={{ width: '16px', height: '16px', color: '#10B981' }} />
             <Typography variant="body1" sx={{ color: '#64748B' }}>
-              Manage your research team and collaboration settings
+              {group?.members?.length || 0} members
+            </Typography>
+            <Leaf style={{ width: '16px', height: '16px', color: '#10B981' }} />
+            <Typography variant="body1" sx={{ color: '#64748B' }}>
+              {group?.status || 'Loading...'}
             </Typography>
           </Box>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           <Box sx={{
             px: 3,
             py: 1.5,
@@ -229,143 +238,214 @@ const GroupDetailPage: React.FC = () => {
             alignItems: 'center',
             gap: 2
           }}>
-            <Leaf style={{ width: '16px', height: '16px', color: '#10B981' }} />
+            <Users style={{ width: '16px', height: '16px', color: '#10B981' }} />
             <Typography variant="body2" sx={{ color: '#065F46', fontWeight: 500 }}>
-              {group.name}
+              Group Details
             </Typography>
           </Box>
+          <Button
+            variant="contained"
+            startIcon={<span>←</span>}
+            onClick={() => navigate('/groups')}
+            sx={{ 
+              minWidth: 'auto', 
+              backgroundColor: '#10B981', 
+              '&:hover': { backgroundColor: '#059669' },
+              py: 0.75,
+              px: 3
+            }}
+          >
+            Back
+          </Button>
         </Box>
       </Box>
 
-      <Container maxWidth="lg" sx={{ px: 0 }}>
-        <Typography variant="h4">Group: {group.name}</Typography>
       <Grid container spacing={2} sx={{ mt: 2 }}>
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
+          <Paper sx={{ p: 2, mb: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6">Members</Typography>
+              <Typography variant="h6">Possible Research Topics</Typography>
               <Button 
-                startIcon={<PersonAddIcon />} 
-                variant="contained" 
-                onClick={() => setAddOpen(true)}
+                variant="outlined" 
+                size="small"
+                onClick={() => {
+                  setEditTopics(!editTopics);
+                  if (!editTopics) setTopicsForm(group?.possible_topics || '');
+                }}
               >
-                Add
+                {editTopics ? 'Cancel' : 'Edit'}
               </Button>
             </Box>
-            <Divider sx={{ my: 1 }} />
-            <List>
-              {members.map(member => (
-                <ListItem 
-                  key={member.id} 
-                  secondaryAction={
-                    <IconButton 
-                      edge="end" 
-                      onClick={() => handleRemoveMember(member.id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  }
-                >
-                  <ListItemText 
-                    primary={member.first_name 
-                      ? `${member.first_name} ${member.last_name || ''}` 
-                      : member.email} 
-                    secondary={member.email} 
-                  />
-                </ListItem>
-              ))}
-              {members.length === 0 && (
-                <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 1, border: '1px solid', borderColor: 'info.main' }}>
-                  <Typography variant="body2" color="info.dark" sx={{ fontWeight: 600, mb: 1 }}>
-                    No members in this group
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    This group currently has no members. Here's what you can do:
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" component="div">
-                    <ul style={{ margin: 0, paddingLeft: '1.5em' }}>
-                      <li>Add members using the dropdown above</li>
-                      <li>Invite students by sharing the group details</li>
-                      <li>Contact your adviser for member recommendations</li>
-                    </ul>
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    Adding members will enable collaboration on thesis projects and progress tracking.
-                  </Typography>
+            {editTopics ? (
+              <Box>
+                <TextField
+                  multiline
+                  rows={4}
+                  fullWidth
+                  value={topicsForm}
+                  onChange={(e) => setTopicsForm(e.target.value)}
+                  placeholder="Enter topics (one per line):&#10;Climate Change Impact Assessment&#10;Renewable Energy Systems&#10;Biodiversity Conservation"
+                  sx={{ mt: 2 }}
+                />
+                <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                  <Button onClick={handleSaveTopics} variant="contained" size="small" sx={{ backgroundColor: '#10B981', '&:hover': { backgroundColor: '#059669' } }}>Save</Button>
+                  <Button onClick={() => setEditTopics(false)} variant="outlined" size="small">Cancel</Button>
                 </Box>
-              )}
-            </List>
+              </Box>
+            ) : (
+              <Box sx={{ mt: 2 }}>
+                {group.possible_topics ? (
+                  group.possible_topics.split('\n').filter((t: string) => t.trim()).map((topic: string, i: number) => (
+                    <Chip key={i} label={topic.trim()} sx={{ mr: 1, mb: 1 }} />
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No topics specified. Add topics like Climate Change Impact Assessment, Renewable Energy Systems, etc.
+                  </Typography>
+                )}
+              </Box>
+            )}
           </Paper>
         </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6">Keywords</Typography>
+              <Button 
+                variant="outlined" 
+                size="small"
+                onClick={() => {
+                  setEditKeywords(!editKeywords);
+                  if (!editKeywords) setKeywordsForm(group?.keywords || '');
+                }}
+              >
+                {editKeywords ? 'Cancel' : 'Edit'}
+              </Button>
+            </Box>
+            {editKeywords ? (
+              <Box>
+                <TextField
+                  fullWidth
+                  value={keywordsForm}
+                  onChange={(e) => setKeywordsForm(e.target.value)}
+                  placeholder="Enter keywords separated by commas: climate change, renewable energy, biodiversity, water quality"
+                  sx={{ mt: 2 }}
+                />
+                <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                  <Button onClick={handleSaveKeywords} variant="contained" size="small" sx={{ backgroundColor: '#10B981', '&:hover': { backgroundColor: '#059669' } }}>Save</Button>
+                  <Button onClick={() => setEditKeywords(false)} variant="outlined" size="small">Cancel</Button>
+                </Box>
+              </Box>
+            ) : (
+              <Box sx={{ mt: 2 }}>
+                {group.keywords ? (
+                  group.keywords.split(',').filter((k: string) => k.trim()).map((keyword: string, i: number) => (
+                    <Chip key={i} label={keyword.trim()} sx={{ mr: 1, mb: 1 }} />
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No keywords specified. Add keywords like climate change, renewable energy, biodiversity, etc.
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, mb: 2 }}>
             <Typography variant="h6">Adviser</Typography>
-            <FormControl fullWidth sx={{ mt: 1 }}>
-              <InputLabel id="adviser-label">Adviser</InputLabel>
-              <Select 
-                labelId="adviser-label" 
-                value={selectedAdviser ?? ''} 
-                label="Adviser" 
-                onChange={(e) => setSelectedAdviser(e.target.value as number)}
+            <FormControl fullWidth>
+              <InputLabel>Adviser</InputLabel>
+              <Select
+                value={selectedAdviser || ''}
+                label="Adviser"
+                onChange={e => setSelectedAdviser(Number(e.target.value) || null)}
+                disabled={user?.role !== 'ADMIN'}
               >
-                <MenuItem value="">-- none --</MenuItem>
-                {advisers.map(adviser => (
-                  <MenuItem key={adviser.id} value={adviser.id}>
-                    {adviser.first_name 
-                      ? `${adviser.first_name} ${adviser.last_name || ''}` 
-                      : adviser.email}
+                {advisers.map(u => (
+                  <MenuItem key={u.id} value={u.id}>
+                    {u.first_name || u.last_name ? `${u.first_name} ${u.last_name}`.trim() : u.email}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
-            <Button 
-              sx={{ mt: 2 }} 
-              variant="outlined" 
-              onClick={handleSaveAdviser}
-            >
-              Save Adviser
-            </Button>
+            {user?.role === 'ADMIN' && (
+              <Box mt={1}>
+                <Button onClick={handleSaveAdviser} variant="contained" size="small" sx={{ backgroundColor: '#10B981', '&:hover': { backgroundColor: '#059669' } }}>
+                  Save Adviser
+                </Button>
+              </Box>
+            )}
           </Paper>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6">Panels</Typography>
-            <FormControl fullWidth sx={{ mt: 1 }}>
-              <InputLabel id="panels-label">Panels</InputLabel>
-              <Select 
-                labelId="panels-label" 
-                multiple 
-                value={selectedPanels} 
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h6">Panel Members</Typography>
+            <FormControl fullWidth>
+              <InputLabel>Panel Members</InputLabel>
+              <Select
+                multiple
+                value={selectedPanels}
+                label="Panel Members"
                 onChange={handlePanelChange}
-                input={<OutlinedInput label="Panels" />} 
-                renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {(selected as number[]).map(id => {
-                      const u = panels.find(p => p.id === id);
-                      return (
-                        <Chip 
-                          key={id} 
-                          label={u ? (u.first_name ? `${u.first_name} ${u.last_name || ''}` : u.email) : id} 
-                        />
-                      );
-                    })}
-                  </Box>
-                )}
+                disabled={user?.role !== 'ADMIN' && user?.role !== 'ADVISER'}
               >
-                {panels.map(panel => (
-                  <MenuItem key={panel.id} value={panel.id}>
-                    {panel.first_name 
-                      ? `${panel.first_name} ${panel.last_name || ''}` 
-                      : panel.email}
+                {panels.map(u => (
+                  <MenuItem key={u.id} value={u.id}>
+                    {u.first_name || u.last_name ? `${u.first_name} ${u.last_name}`.trim() : u.email}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
-            <Button 
-              sx={{ mt: 2 }} 
-              variant="outlined" 
-              onClick={handleSavePanels}
-            >
-              Save Panels
-            </Button>
+            {(user?.role === 'ADMIN' || user?.role === 'ADVISER') && (
+              <Box mt={1}>
+                <Button onClick={handleSavePanels} variant="contained" size="small" sx={{ backgroundColor: '#10B981', '&:hover': { backgroundColor: '#059669' } }}>
+                  Save Panels
+                </Button>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Members</Typography>
+              {(user?.role === 'ADMIN' || user?.role === 'ADVISER') && (
+                <Button
+                  variant="contained"
+                  startIcon={<PersonAddIcon />}
+                  onClick={() => setAddOpen(true)}
+                  size="small"
+                  sx={{ backgroundColor: '#10B981', '&:hover': { backgroundColor: '#059669' } }}
+                >
+                  Add Member
+                </Button>
+              )}
+            </Box>
+            <List>
+              {group.members?.map(m => (
+                <ListItem key={m.id}>
+                  <ListItemText
+                    primary={m.first_name || m.last_name ? `${m.first_name} ${m.last_name}` : m.email}
+                    secondary={m.email}
+                  />
+                  {(user?.role === 'ADMIN' || user?.role === 'ADVISER') && (
+                    <IconButton edge="end" onClick={() => handleRemoveMember(m.id)}>
+                      <DeleteIcon />
+                    </IconButton>
+                  )}
+                </ListItem>
+              ))}
+              {(!group.members || group.members.length === 0) && (
+                <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                  No members yet
+                </Typography>
+              )}
+            </List>
           </Paper>
         </Grid>
       </Grid>
@@ -378,54 +458,24 @@ const GroupDetailPage: React.FC = () => {
       >
         <DialogTitle>Add Member</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            Search by email or name and press Enter
-          </Typography>
-          <TextField 
-            fullWidth 
-            value={searchUser} 
-            onChange={(e) => setSearchUser(e.target.value)} 
-            onKeyDown={async (e) => {
-              if (e.key === 'Enter') {
-                const results = await search(searchUser);
-                if (results && results.length > 0) {
-                  setAddingUserId(results[0].id);
-                }
-              }
-            }} 
-            placeholder="Search users..."
-            variant="outlined"
-            margin="normal"
+          <TextField
+            autoFocus
+            fullWidth
+            label="Email address"
+            value={newMemberEmail}
+            onChange={e => setNewMemberEmail(e.target.value)}
+            sx={{ mt: 1 }}
           />
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="caption">
-              Selected user ID: {addingUserId || 'None selected'}
-            </Typography>
-          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button 
-            onClick={() => {
-              setAddOpen(false);
-              setSearchUser('');
-              setAddingUserId(null);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            onClick={handleAddMember}
-            disabled={!addingUserId}
-          >
-            Add Member
-          </Button>
+          <Button onClick={() => setAddOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddMember} variant="contained" sx={{ backgroundColor: '#10B981', '&:hover': { backgroundColor: '#059669' } }}>Add</Button>
         </DialogActions>
       </Dialog>
 
       <Snackbar 
         open={snack.open} 
-        autoHideDuration={6000} 
+        autoHideDuration={6000}
         onClose={() => setSnack(prev => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
@@ -438,9 +488,6 @@ const GroupDetailPage: React.FC = () => {
           {snack.msg}
         </Alert>
       </Snackbar>
-      </Container>
     </Box>
   );
-};
-
-export default GroupDetailPage;
+}

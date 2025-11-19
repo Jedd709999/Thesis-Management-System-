@@ -53,7 +53,7 @@ export default function Navbar(){
           { label: 'My Thesis', path: '/thesis' },
           { label: 'Documents', path: '/documents' },
           { label: 'Feedback', path: '/thesis/workflow' },
-          { label: 'Groups', path: '/groups' },
+          { label: 'Group', path: '/groups' },
         ]
       
       case 'ADVISER':

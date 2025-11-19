@@ -2,13 +2,41 @@ from rest_framework import serializers
 from api.models.group_models import Group
 from api.models.user_models import User
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'email', 'first_name', 'last_name', 'role')
+
 class GroupSerializer(serializers.ModelSerializer):
-    members = serializers.PrimaryKeyRelatedField(many=True, queryset=User.objects.all(), required=False)
-    adviser = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(role='ADVISER'), allow_null=True, required=False)
-    panels = serializers.PrimaryKeyRelatedField(many=True, queryset=User.objects.filter(role='PANEL'), required=False)
+    members = UserSerializer(many=True, read_only=True)
+    adviser = UserSerializer(read_only=True, allow_null=True)
+    panels = UserSerializer(many=True, read_only=True)
+    
+    # Write-only fields for updates
+    member_ids = serializers.PrimaryKeyRelatedField(
+        many=True, 
+        queryset=User.objects.all(), 
+        write_only=True, 
+        required=False,
+        source='members'
+    )
+    adviser_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='ADVISER'), 
+        write_only=True, 
+        allow_null=True, 
+        required=False,
+        source='adviser'
+    )
+    panel_ids = serializers.PrimaryKeyRelatedField(
+        many=True, 
+        queryset=User.objects.filter(role='PANEL'), 
+        write_only=True, 
+        required=False,
+        source='panels'
+    )
     class Meta:
         model = Group
-        fields = ('id','name','members','adviser','panels','created_at')
+        fields = ('id','name','status','possible_topics','keywords','members','adviser','panels','member_ids','adviser_id','panel_ids','created_at')
     
     def validate(self, attrs):
         members = attrs.get('members', [])
@@ -32,6 +60,10 @@ class GroupSerializer(serializers.ModelSerializer):
     def create(self, validated):
         members = validated.pop('members', [])
         panels = validated.pop('panels', [])
+        
+        # Ensure status is set, use default if not provided
+        if 'status' not in validated:
+            validated['status'] = 'PENDING'
         
         group = Group.objects.create(**validated)
         if members:

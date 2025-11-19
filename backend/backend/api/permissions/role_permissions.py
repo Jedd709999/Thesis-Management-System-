@@ -72,9 +72,9 @@ class IsAdviserOrPanelForSchedule(permissions.BasePermission):
         # For list view, all authenticated users can access
         if view.action == 'list':
             return request.user and request.user.is_authenticated
-        # For create action, advisers, panel members, and admins can access
+        # For create action, advisers, panel members, students, and admins can access
         if view.action == 'create':
-            return request.user and request.user.role in ['ADVISER', 'PANEL', 'ADMIN']
+            return request.user and request.user.role in ['ADVISER', 'PANEL', 'STUDENT', 'ADMIN']
         # For other actions, advisers, panel members, students, and admins can access
         return request.user and request.user.role in ['ADVISER', 'PANEL', 'STUDENT', 'ADMIN']
     
