@@ -49,7 +49,7 @@ interface Thesis {
   group: string
   group_id?: number
   proposer: number
-  status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED"
+  status: "CONCEPT_SUBMITTED" | "CONCEPT_SCHEDULED" | "CONCEPT_DEFENDED" | "CONCEPT_APPROVED" | "PROPOSAL_SUBMITTED" | "PROPOSAL_SCHEDULED" | "PROPOSAL_DEFENDED" | "PROPOSAL_APPROVED" | "RESEARCH_IN_PROGRESS" | "FINAL_SUBMITTED" | "FINAL_SCHEDULED" | "FINAL_DEFENDED" | "FINAL_APPROVED" | "REVISIONS_REQUIRED" | "REJECTED" | "ARCHIVED"
   adviser_feedback?: string
   created_at: string
   updated_at: string
@@ -98,9 +98,9 @@ export default function ThesisWorkflowPage() {
         return {
           ...thesis,
           // Add mock data for UI fields not provided by API
-          progress: thesis.status === 'APPROVED' ? 100 : 
-                    thesis.status === 'UNDER_REVIEW' ? 75 :
-                    thesis.status === 'SUBMITTED' ? 50 : 25,
+          progress: thesis.status === 'FINAL_APPROVED' ? 100 : 
+                    thesis.status === 'PROPOSAL_APPROVED' ? 75 :
+                    thesis.status === 'CONCEPT_APPROVED' ? 50 : 25,
           adviser: 'Dr. Smith', // Mock adviser - you may want to get this from API
           members: [
             { name: 'Student 1', role: 'Leader' },
@@ -118,8 +118,8 @@ export default function ThesisWorkflowPage() {
           ],
           timeline: [
             { stage: 'Proposal Submitted', date: thesis.created_at, status: 'completed' as const },
-            { stage: 'Initial Review', date: thesis.updated_at, status: thesis.status === 'DRAFT' ? 'pending' as const : 'completed' as const },
-            { stage: 'Final Review', date: thesis.updated_at, status: thesis.status === 'APPROVED' ? 'completed' as const : 'pending' as const }
+            { stage: 'Initial Review', date: thesis.updated_at, status: thesis.status === 'CONCEPT_SUBMITTED' ? 'pending' as const : 'completed' as const },
+            { stage: 'Final Review', date: thesis.updated_at, status: thesis.status === 'FINAL_APPROVED' ? 'completed' as const : 'pending' as const }
           ]
         }
       })
@@ -162,16 +162,20 @@ export default function ThesisWorkflowPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'DRAFT':
+      case 'CONCEPT_SUBMITTED':
         return 'default'
-      case 'SUBMITTED':
+      case 'CONCEPT_APPROVED':
         return 'warning'
-      case 'UNDER_REVIEW':
+      case 'PROPOSAL_APPROVED':
         return 'info'
-      case 'APPROVED':
+      case 'FINAL_APPROVED':
         return 'success'
       case 'REJECTED':
         return 'error'
+      case 'REVISIONS_REQUIRED':
+        return 'warning'
+      case 'ARCHIVED':
+        return 'default'
       default:
         return 'default'
     }
@@ -179,16 +183,20 @@ export default function ThesisWorkflowPage() {
 
   const getStatusBorderColor = (status: string) => {
     switch (status) {
-      case 'DRAFT':
+      case 'CONCEPT_SUBMITTED':
         return 'border-grey-200'
-      case 'SUBMITTED':
+      case 'CONCEPT_APPROVED':
         return 'border-blue-200'
-      case 'UNDER_REVIEW':
+      case 'PROPOSAL_APPROVED':
         return 'border-yellow-200'
-      case 'APPROVED':
+      case 'FINAL_APPROVED':
         return 'border-green-200'
       case 'REJECTED':
         return 'border-red-200'
+      case 'REVISIONS_REQUIRED':
+        return 'border-orange-200'
+      case 'ARCHIVED':
+        return 'border-purple-200'
       default:
         return 'border-grey-200'
     }
@@ -256,11 +264,16 @@ export default function ThesisWorkflowPage() {
                       onChange={(e) => setFilterStatus(e.target.value)}
                     >
                       <MenuItem value="all">All Status</MenuItem>
-                      <MenuItem value="DRAFT">Draft</MenuItem>
-                      <MenuItem value="SUBMITTED">Submitted</MenuItem>
-                      <MenuItem value="UNDER_REVIEW">Under Review</MenuItem>
-                      <MenuItem value="APPROVED">Approved</MenuItem>
+                      <MenuItem value="CONCEPT_SUBMITTED">Concept Submitted</MenuItem>
+                      <MenuItem value="CONCEPT_APPROVED">Concept Approved</MenuItem>
+                      <MenuItem value="PROPOSAL_SUBMITTED">Proposal Submitted</MenuItem>
+                      <MenuItem value="PROPOSAL_APPROVED">Proposal Approved</MenuItem>
+                      <MenuItem value="RESEARCH_IN_PROGRESS">Research In Progress</MenuItem>
+                      <MenuItem value="FINAL_SUBMITTED">Final Submitted</MenuItem>
+                      <MenuItem value="FINAL_APPROVED">Final Approved</MenuItem>
+                      <MenuItem value="REVISIONS_REQUIRED">Revisions Required</MenuItem>
                       <MenuItem value="REJECTED">Rejected</MenuItem>
+                      <MenuItem value="ARCHIVED">Archived</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -538,7 +551,7 @@ export default function ThesisWorkflowPage() {
                   >
                     Add Document
                   </Button>
-                  {selectedThesis.status === 'DRAFT' && (
+                  {selectedThesis.status === 'CONCEPT_SUBMITTED' && (
                     <Button
                       variant="contained"
                       startIcon={<Send />}
@@ -549,7 +562,7 @@ export default function ThesisWorkflowPage() {
                       Submit for Review
                     </Button>
                   )}
-                  {selectedThesis.status === 'SUBMITTED' && (
+                  {selectedThesis.status === 'CONCEPT_APPROVED' && (
                     <Box sx={{ display: 'flex', gap: 2 }}>
                       <Button
                         variant="contained"

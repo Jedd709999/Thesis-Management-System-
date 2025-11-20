@@ -7,8 +7,8 @@ import json
 import sys
 
 # Configuration
-BASE_URL = "http://localhost:8000/api"
-ADMIN_EMAIL = "admin12@email.com"
+BASE_URL = "http://localhost:8001/api"
+ADMIN_EMAIL = "admin@test.com"
 ADMIN_PASSWORD = "admin123"
 
 def login_admin():

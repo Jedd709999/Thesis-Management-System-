@@ -58,6 +58,9 @@ reset-db:
 run:
 	python manage.py runserver
 
+daphne:
+	daphne -b 127.0.0.1 -p 8000 backend.asgi:application
+
 shell:
 	python manage.py shell
 

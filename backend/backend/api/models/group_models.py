@@ -20,13 +20,13 @@ class GroupManager(models.Manager):
         return self.filter(query)
     
     def search_by_topics(self, topics):
-        """Search groups by possible topics (case-insensitive)"""
+        """Search groups by proposed topic titles (case-insensitive)"""
         if not topics:
             return self.none()
         
         topic_queries = []
         for topic in topics.split():
-            topic_queries.append(Q(possible_topics__icontains=topic))
+            topic_queries.append(Q(proposed_topic_title__icontains=topic))
         
         query = topic_queries.pop()
         for q in topic_queries:
@@ -42,7 +42,8 @@ class GroupManager(models.Manager):
         return self.filter(
             Q(name__icontains=query) |
             Q(keywords__icontains=query) |
-            Q(possible_topics__icontains=query)
+            Q(proposed_topic_title__icontains=query) |
+            Q(abstract__icontains=query)
         )
 
 class Group(models.Model):
@@ -56,8 +57,11 @@ class Group(models.Model):
     
     name = models.CharField(max_length=128)
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default='PENDING')
-    possible_topics = models.TextField(help_text="List of possible research topics, one per line", blank=True)
+    proposed_topic_title = models.TextField(help_text="Proposed topic title for the research", blank=True)
+    abstract = models.TextField(help_text="Brief abstract describing the proposed research topic", blank=True)
     keywords = models.CharField(max_length=500, help_text="Comma-separated keywords for search and tagging", blank=True)
+    rejection_reason = models.TextField(help_text="Reason for rejection if status is REJECTED", blank=True)
+    leader = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='led_groups')
     members = models.ManyToManyField(User, blank=True)
     adviser = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='advised_groups')
     panels = models.ManyToManyField(User, related_name='panel_groups', blank=True)
@@ -86,9 +90,9 @@ class Group(models.Model):
         return []
     
     def get_topics_list(self):
-        """Return possible topics as a list"""
-        if self.possible_topics:
-            return [topic.strip() for topic in self.possible_topics.split('\n') if topic.strip()]
+        """Return proposed topic titles as a list"""
+        if self.proposed_topic_title:
+            return [topic.strip() for topic in self.proposed_topic_title.split('\n') if topic.strip()]
         return []
     
     def set_keywords_from_list(self, keywords_list):
@@ -96,5 +100,5 @@ class Group(models.Model):
         self.keywords = ', '.join(keywords_list)
     
     def set_topics_from_list(self, topics_list):
-        """Set possible topics from a list"""
-        self.possible_topics = '\n'.join(topics_list)
+        """Set proposed topic titles from a list"""
+        self.proposed_topic_title = '\n'.join(topics_list)

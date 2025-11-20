@@ -27,6 +27,7 @@ export default function AppRoutes(){
       {/* Routes available to multiple roles */}
       <Route path="/groups" element={<RoleBasedRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}><MainLayout><GroupListPage/></MainLayout></RoleBasedRoute>} />
       <Route path="/groups/:id" element={<RoleBasedRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}><MainLayout><GroupDetailPage/></MainLayout></RoleBasedRoute>} />
+      <Route path="/groups/:id/edit" element={<RoleBasedRoute allowedRoles={['ADMIN', 'STUDENT']}><MainLayout><GroupDetailPage editMode={true}/></MainLayout></RoleBasedRoute>} />
       
       {/* Thesis management routes */}
       <Route path="/thesis" element={<RoleBasedRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}><MainLayout><ThesisCrudPage/></MainLayout></RoleBasedRoute>} />

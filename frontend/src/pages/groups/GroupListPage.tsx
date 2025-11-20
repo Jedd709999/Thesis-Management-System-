@@ -1,13 +1,59 @@
-import React, { useEffect, useState } from 'react'
-import { Container, Typography, Button, Dialog, TextField, Box, List, ListItem, ListItemText, FormControl, InputLabel, Select, MenuItem, OutlinedInput, Chip, InputAdornment, Tabs, Tab, Grid, Paper, LinearProgress, Alert } from '@mui/material'
-import { Users, Leaf, Search, Plus as Add, Users as Group } from 'lucide-react'
-import { listGroups, createGroup, getCurrentUserGroups } from '../../api/groupService'
+import React, { useEffect, useState } from 'react';
+import { 
+  Typography, 
+  Button, 
+  TextField, 
+  Box, 
+  Paper, 
+  Chip, 
+  LinearProgress, 
+  InputAdornment, 
+  Select, 
+  MenuItem, 
+  FormControl, 
+  InputLabel,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  Avatar,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Tabs,
+  Tab,
+  Divider,
+  Alert
+} from '@mui/material';
+import { 
+  Search, 
+  Add, 
+  Edit, 
+  Delete, 
+  Visibility, 
+  Check, 
+  Clear, 
+  PersonAdd,
+  Assignment,
+  Close,
+  Groups
+} from '@mui/icons-material';
+import { listGroups, createGroup, getCurrentUserGroups, assignAdviser } from '../../api/groupService'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/api'
 
 interface GroupData {
   name: string
-  possible_topics?: string
+  proposed_topic_title?: string
+  abstract?: string
   keywords?: string
   adviser?: number
   members?: number[]
@@ -16,11 +62,14 @@ interface GroupData {
 interface Group {
   id: number
   name: string
-  possible_topics?: string
+  proposed_topic_title?: string
+  abstract?: string
   keywords?: string
+  leader?: number | User | null
   members?: number[] | User[]
   adviser?: number | User | null
   panels?: number[] | User[]
+  status?: string
   [key: string]: any
 }
 
@@ -39,7 +88,13 @@ export default function GroupListPage(){
   const [pendingProposals, setPendingProposals] = useState<Group[]>([])
   const [pendingProposalsForStudents, setPendingProposalsForStudents] = useState<Group[]>([])
   const [open, setOpen] = useState(false)
-  const [formData, setFormData] = useState({ name: '', possible_topics: '', keywords: '', adviser: '', members: [] as number[] })
+  const [assignAdviserOpen, setAssignAdviserOpen] = useState(false)
+  const [rejectProposalOpen, setRejectProposalOpen] = useState(false)
+  const [selectedGroupForRejection, setSelectedGroupForRejection] = useState<Group | null>(null)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [selectedGroupForAdviser, setSelectedGroupForAdviser] = useState<Group | null>(null)
+  const [selectedAdviserId, setSelectedAdviserId] = useState<number | null>(null)
+  const [formData, setFormData] = useState({ name: '', proposed_topic_title: '', abstract: '', keywords: '', adviser: '', members: [] as number[] })
   const [advisers, setAdvisers] = useState<User[]>([])
   const [students, setStudents] = useState<User[]>([])
   const [currentUser, setCurrentUser] = useState<User | null>(null)
@@ -157,13 +212,24 @@ export default function GroupListPage(){
         return;
       }
       
-      // Set some basic mock data for advisers and students for now
-      setAdvisers([
-        { id: 1, first_name: 'Dr. John', last_name: 'Smith', email: 'john.smith@university.edu', role: 'ADVISER' }
-      ]);
-      setStudents([
-        { id: 2, first_name: 'Alice', last_name: 'Johnson', email: 'alice.j@university.edu', role: 'STUDENT' }
-      ]);
+      // Load actual users from API
+      try {
+        console.log('Loading advisers...');
+        const advisersRes = await api.get('users/?role=ADVISER');
+        console.log('Advisers response:', advisersRes.data);
+        setAdvisers(advisersRes.data);
+        
+        console.log('Loading students...');
+        const studentsRes = await api.get('users/?role=STUDENT');
+        console.log('Students response:', studentsRes.data);
+        setStudents(studentsRes.data);
+        
+      } catch (usersError) {
+        console.error('Failed to load users:', usersError);
+        // Set empty arrays if API fails
+        setAdvisers([]);
+        setStudents([]);
+      }
       
     } catch (error) {
       console.error('Failed to load users:', error);
@@ -173,7 +239,7 @@ export default function GroupListPage(){
 
   useEffect(()=>{
     loadUsers();
-  },[searchQuery, searchType, currentTab])
+  },[])
 
   // Load groups only when currentUser is available
   useEffect(()=>{
@@ -181,17 +247,24 @@ export default function GroupListPage(){
     if (currentUser) {
       load();
     }
-  },[currentUser])
+  },[currentUser, currentTab, searchQuery, searchType])
   
   async function handleCreate(){ 
-    if (!formData.name) return; 
+    if (!formData.name) {
+      alert('Group name is required');
+      return; 
+    }
     
     // Check if current user is a student and already has an active group
     if (currentUser && currentUser.role === 'STUDENT') {
       if (myGroups.length > 0) {
         const hasPendingGroup = myGroups.some(group => group.status === 'PENDING');
+        const hasRejectedGroup = myGroups.some(group => group.status === 'REJECTED');
+        
         if (hasPendingGroup) {
           alert('You already have a pending group proposal. Please wait for admin approval before creating a new one.');
+        } else if (hasRejectedGroup) {
+          alert('You have a rejected group proposal. Please review the rejection reason in your group details before creating a new one.');
         } else {
           alert('You can only be a member of one active research group. Please leave your current group before creating a new one.');
         }
@@ -199,29 +272,45 @@ export default function GroupListPage(){
       }
     }
     
-    // Automatically include current user as member if they're a student
-    let members = [...formData.members];
-    if (currentUser && currentUser.role === 'STUDENT') {
-      if (!members.includes(currentUser.id)) {
-        members.push(currentUser.id);
-        console.log('Added current user as member:', currentUser.id);
-      }
-    }
-    
     const groupData = {
       name: formData.name,
-      possible_topics: formData.possible_topics || undefined,
+      proposed_topic_title: formData.proposed_topic_title || undefined,
+      abstract: formData.abstract || undefined,
       keywords: formData.keywords || undefined,
       adviser: formData.adviser ? Number(formData.adviser) : undefined,
-      members: members
+      members: formData.members && formData.members.length > 0 ? formData.members : undefined
     };
     
     console.log('Creating group with data:', groupData);
-    await createGroup(groupData); 
-    setFormData({ name: '', possible_topics: '', keywords: '', adviser: '', members: [] }); 
-    setOpen(false); 
-    load() 
+    try {
+      await createGroup(groupData); 
+      setFormData({ name: '', proposed_topic_title: '', abstract: '', keywords: '', adviser: '', members: [] }); 
+      setOpen(false); 
+      load();
+      alert('Group proposal submitted successfully! It is now pending admin approval.');
+    } catch (error: any) {
+      console.error('Failed to create group:', error);
+      const errorMessage = error.response?.data?.detail || error.response?.data?.error || error.message || 'Failed to create group proposal';
+      alert(`Error: ${errorMessage}`);
+    }
   }
+
+  // Helper function to check if user is group leader
+  const isGroupLeader = (group: Group, user: User | null) => {
+    if (!user || !group.leader) return false;
+    return typeof group.leader === 'object' ? group.leader.id === user.id : group.leader === user.id;
+  };
+
+  // Helper function to check if user is group member
+  const isGroupMember = (group: Group, user: User | null) => {
+    if (!user || !group.members) return false;
+    return group.members.some((member: any) => 
+      typeof member === 'object' ? member.id === user.id : member === user.id
+    );
+  };
+
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
 
   return (
     <Box sx={{ p: 4, backgroundColor: '#F8FAFC' }}>
@@ -232,7 +321,7 @@ export default function GroupListPage(){
             Environmental Science Research Groups
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Users style={{ width: '16px', height: '16px', color: '#10B981' }} />
+            <Groups style={{ width: '16px', height: '16px', color: '#10B981' }} />
             <Typography variant="body1" sx={{ color: '#64748B' }}>
               Manage and collaborate with your research teams
             </Typography>
@@ -249,7 +338,7 @@ export default function GroupListPage(){
             alignItems: 'center',
             gap: 2
           }}>
-            <Leaf style={{ width: '16px', height: '16px', color: '#10B981' }} />
+            <Groups style={{ width: '16px', height: '16px', color: '#10B981' }} />
             <Typography variant="body2" sx={{ color: '#065F46', fontWeight: 500 }}>
               Team Collaboration
             </Typography>
@@ -272,8 +361,9 @@ export default function GroupListPage(){
               },
               px: 3
             }}
+            data-testid="propose-group-button-top"
           >
-            Propose Group
+            Propose New Group
           </Button>
         </Box>
       </Box>
@@ -302,7 +392,7 @@ export default function GroupListPage(){
           ) : myGroups.length === 0 ? (
             <Paper sx={{ p: 6, textAlign: 'center', border: '2px dashed #CBD5E1' }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                <Users style={{ fontSize: 64, color: '#CBD5E1' }} />
+                <Groups style={{ fontSize: 64, color: '#CBD5E1' }} />
                 <Box>
                   <Typography variant="h5" sx={{ color: '#475569', fontWeight: 600, mb: 1 }}>
                     No Group Yet
@@ -327,8 +417,9 @@ export default function GroupListPage(){
               px: 3,
               boxShadow: '0 6px 20px 0 rgba(16, 185, 129, 0.4)',
             }}
+            data-testid="propose-group-button"
           >
-            Propose Group
+            Propose Your First Group
           </Button>
                 </Box>
               </Box>
@@ -339,67 +430,154 @@ export default function GroupListPage(){
                 <Alert severity="info" sx={{ mb: 3 }}>
                   {myGroups.some(group => group.status === 'PENDING') 
                     ? "You have a pending group proposal awaiting admin approval. You'll be notified once it's approved."
+                    : myGroups.some(group => group.status === 'REJECTED')
+                    ? "You have a rejected group proposal. Check the group details to see the rejection reason and resubmit an updated proposal."
                     : "You are currently a member of one research group. As a student, you can only be a member of one active group at a time."
                   }
                 </Alert>
               )}
-              <Grid container spacing={3}>
-              {myGroups.map(group => (
-                <Grid item xs={12} md={6} lg={4} key={group.id}>
-                  <Paper sx={{ p: 3, border: '1px solid #e2e8f0', '&:hover': { boxShadow: 3, cursor: 'pointer' } }} onClick={() => navigate(`/groups/${group.id}`)}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Users style={{ marginRight: 8, color: '#10B981' }} />
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                        {group.name}
-                      </Typography>
-                      {group.status === 'PENDING' && (
-                        <Chip 
-                          label="Pending" 
-                          size="small" 
-                          color="warning" 
-                          sx={{ ml: 2, fontSize: '0.75rem' }}
-                        />
-                      )}
-                    </Box>
-                    
-                    {group.status === 'PENDING' && (
-                      <Alert severity="info" sx={{ mb: 2 }}>
-                        Your group proposal is pending admin approval. You'll be notified once it's approved.
-                      </Alert>
-                    )}
-                    
-                    {group.possible_topics && (
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="subtitle2" sx={{ mb: 1, color: '#64748b' }}>Topics:</Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {group.possible_topics.split('\n').filter(t => t.trim()).map((topic, idx) => (
-                            <Chip key={idx} label={topic.trim()} size="small" variant="outlined" color="primary" />
-                          ))}
-                        </Box>
-                      </Box>
-                    )}
-                    
-                    {group.keywords && (
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="subtitle2" sx={{ mb: 1, color: '#64748b' }}>Keywords:</Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {group.keywords.split(',').map(k => k.trim()).filter(k => k).map((keyword, idx) => (
-                            <Chip key={idx} label={keyword} size="small" color="secondary" />
-                          ))}
-                        </Box>
-                      </Box>
-                    )}
-                    
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {Array.isArray(group.members) ? group.members.length : 0} members
-                      </Typography>
-                      <Button size="small" variant="outlined">View Details</Button>
-                    </Box>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
+              
+              {/* Table view for My Groups */}
+              <TableContainer component={Paper} sx={{ mb: 4 }}>
+                <Table sx={{ minWidth: 650 }} aria-label="groups table">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: '#f1f5f9' }}>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Group</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Topic Title</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Adviser</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {myGroups.map((group) => (
+                      <TableRow 
+                        key={group.id} 
+                        sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { backgroundColor: '#f8fafc' } }}
+                      >
+                        <TableCell component="th" scope="row">
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Groups style={{ marginRight: 8, color: '#10B981' }} />
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>{group.name}</Typography>
+                            {group.status === 'PENDING' && (
+                              <Chip 
+                                label="Pending" 
+                                size="small" 
+                                color="warning" 
+                                sx={{ ml: 2, fontSize: '0.7rem' }}
+                              />
+                            )}
+                            {group.status === 'REJECTED' && (
+                              <Chip 
+                                label="Rejected" 
+                                size="small" 
+                                color="error" 
+                                sx={{ ml: 2, fontSize: '0.7rem' }}
+                              />
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          {group.proposed_topic_title ? (
+                            <Typography variant="body2">{group.proposed_topic_title}</Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">No topic specified</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {group.adviser ? (
+                            <Typography variant="body2">
+                              {typeof group.adviser === 'object' 
+                                ? (group.adviser.first_name || group.adviser.last_name 
+                                    ? `${group.adviser.first_name} ${group.adviser.last_name}`.trim() 
+                                    : group.adviser.email)
+                                : typeof group.adviser === 'number'
+                                  ? (() => {
+                                      const adviser = advisers.find(a => a.id === group.adviser);
+                                      return adviser 
+                                        ? (adviser.first_name || adviser.last_name 
+                                            ? `${adviser.first_name} ${adviser.last_name}`.trim() 
+                                            : adviser.email)
+                                        : 'Adviser assigned';
+                                    })()
+                                  : 'Adviser assigned'}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">No adviser</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <IconButton 
+                              size="small" 
+                              color="primary"
+                              onClick={() => {
+                                setSelectedGroup(group);
+                                setViewDetailsOpen(true);
+                              }}
+                            >
+                              <Visibility fontSize="small" />
+                            </IconButton>
+                            {currentUser?.role === 'STUDENT' && isGroupLeader(group, currentUser) && group.status === 'PENDING' && (
+                              <IconButton 
+                                size="small" 
+                                color="error"
+                                onClick={async () => {
+                                  if (window.confirm('Are you sure you want to delete your group proposal? This action cannot be undone.')) {
+                                    try {
+                                      await api.delete(`groups/${group.id}/`);
+                                      load();
+                                    } catch (error) {
+                                      console.error('Failed to delete group:', error);
+                                      alert('Failed to delete group proposal');
+                                    }
+                                  }
+                                }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            )}
+                            {currentUser?.role === 'STUDENT' && isGroupMember(group, currentUser) && !isGroupLeader(group, currentUser) && (
+                              <IconButton 
+                                size="small" 
+                                color="warning"
+                                onClick={async () => {
+                                  if (window.confirm('Are you sure you want to leave this group?')) {
+                                    try {
+                                      await api.post(`groups/${group.id}/leave/`);
+                                      load();
+                                    } catch (error: any) {
+                                      alert(error.response?.data?.error || 'Failed to leave group');
+                                    }
+                                  }
+                                }}
+                              >
+                                <Clear fontSize="small" />
+                              </IconButton>
+                            )}
+                            {group.status === 'REJECTED' && (
+                              <IconButton 
+                                size="small" 
+                                color="success"
+                                onClick={async () => {
+                                  try {
+                                    await api.patch(`groups/${group.id}/`, { status: 'PENDING' });
+                                    load();
+                                  } catch (error) {
+                                    console.error('Failed to resubmit proposal:', error);
+                                    alert('Failed to resubmit proposal');
+                                  }
+                                }}
+                              >
+                                <Check fontSize="small" />
+                              </IconButton>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </>
           )}
         </>
@@ -420,14 +598,42 @@ export default function GroupListPage(){
           ) : otherGroups.length === 0 ? (
             <Paper sx={{ p: 6, textAlign: 'center', border: '2px dashed #CBD5E1' }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                <Users style={{ fontSize: 64, color: '#CBD5E1' }} />
+                <Groups style={{ fontSize: 64, color: '#CBD5E1' }} />
                 <Box>
                   <Typography variant="h5" sx={{ color: '#475569', fontWeight: 600, mb: 1 }}>
                     No Other Groups Available
                   </Typography>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
                     There are no other research groups available to view at this time.
                   </Typography>
+                  {currentUser?.role === 'STUDENT' && (
+                    <Button
+                      variant="contained"
+                      startIcon={<Add />}
+                      onClick={() => {
+                        setCurrentTab(0); // Switch to "My Group" tab
+                        setTimeout(() => {
+                          const proposeButton = document.querySelector('[data-testid="propose-group-button"]') as HTMLButtonElement;
+                          if (proposeButton) {
+                            proposeButton.click();
+                          } else {
+                            // Fallback: open the dialog directly
+                            setOpen(true);
+                          }
+                        }, 100);
+                      }}
+                      sx={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        '&:hover': { background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' },
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        px: 3,
+                        boxShadow: '0 6px 20px 0 rgba(16, 185, 129, 0.4)',
+                      }}
+                    >
+                      Propose Your Own Group
+                    </Button>
+                  )}
                 </Box>
               </Box>
             </Paper>
@@ -471,49 +677,108 @@ export default function GroupListPage(){
                 </Box>
               </Paper>
               
-              <Grid container spacing={3}>
-                {otherGroups.map(group => (
-                  <Grid item xs={12} md={6} lg={4} key={group.id}>
-                    <Paper sx={{ p: 3, border: '1px solid #e2e8f0', '&:hover': { boxShadow: 3, cursor: 'pointer' } }} onClick={() => navigate(`/groups/${group.id}`)}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <Users style={{ marginRight: 8, color: '#10B981' }} />
-                        <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                          {group.name}
-                        </Typography>
-                      </Box>
-                      
-                      {group.possible_topics && (
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 1, color: '#64748b' }}>Topics:</Typography>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {group.possible_topics.split('\n').filter(t => t.trim()).map((topic, idx) => (
-                              <Chip key={idx} label={topic.trim()} size="small" variant="outlined" color="primary" />
-                            ))}
+              {/* Table view for Other Groups */}
+              <TableContainer component={Paper}>
+                <Table sx={{ minWidth: 650 }} aria-label="other groups table">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: '#f1f5f9' }}>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Group</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Topic Title</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Adviser</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {otherGroups.map((group) => (
+                      <TableRow 
+                        key={group.id} 
+                        sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { backgroundColor: '#f8fafc' } }}
+                      >
+                        <TableCell component="th" scope="row">
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Groups style={{ marginRight: 8, color: '#10B981' }} />
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>{group.name}</Typography>
                           </Box>
-                        </Box>
-                      )}
-                      
-                      {group.keywords && (
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 1, color: '#64748b' }}>Keywords:</Typography>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {group.keywords.split(',').map(k => k.trim()).filter(k => k).map((keyword, idx) => (
-                              <Chip key={idx} label={keyword} size="small" color="secondary" />
-                            ))}
+                        </TableCell>
+                        <TableCell>
+                          {group.proposed_topic_title ? (
+                            <Typography variant="body2">{group.proposed_topic_title}</Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">No topic specified</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {group.adviser ? (
+                            <Typography variant="body2">
+                              {typeof group.adviser === 'object' 
+                                ? (group.adviser.first_name || group.adviser.last_name 
+                                    ? `${group.adviser.first_name} ${group.adviser.last_name}`.trim() 
+                                    : group.adviser.email)
+                                : typeof group.adviser === 'number'
+                                  ? (() => {
+                                      const adviser = advisers.find(a => a.id === group.adviser);
+                                      return adviser 
+                                        ? (adviser.first_name || adviser.last_name 
+                                            ? `${adviser.first_name} ${adviser.last_name}`.trim() 
+                                            : adviser.email)
+                                        : 'Adviser assigned';
+                                    })()
+                                  : 'Adviser assigned'}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">No adviser</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <IconButton 
+                              size="small" 
+                              color="primary"
+                              onClick={() => {
+                                setSelectedGroup(group);
+                                setViewDetailsOpen(true);
+                              }}
+                            >
+                              <Visibility fontSize="small" />
+                            </IconButton>
+                            {currentUser?.role === 'STUDENT' && (
+                              <IconButton 
+                                size="small" 
+                                color="success"
+                                onClick={async () => {
+                                  // Request to join group functionality
+                                  alert('Request to join group functionality coming soon');
+                                }}
+                              >
+                                <PersonAdd fontSize="small" />
+                              </IconButton>
+                            )}
+                            {currentUser?.role === 'ADMIN' && (
+                              <IconButton 
+                                size="small" 
+                                color="error"
+                                onClick={async () => {
+                                  if (window.confirm('Are you sure you want to delete this group? This action cannot be undone.')) {
+                                    try {
+                                      await api.delete(`groups/${group.id}/`);
+                                      load();
+                                    } catch (error) {
+                                      console.error('Failed to delete group:', error);
+                                      alert('Failed to delete group');
+                                    }
+                                  }
+                                }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            )}
                           </Box>
-                        </Box>
-                      )}
-                      
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {Array.isArray(group.members) ? group.members.length : 0} members
-                        </Typography>
-                        <Button size="small" variant="outlined">View Details</Button>
-                      </Box>
-                    </Paper>
-                  </Grid>
-                ))}
-              </Grid>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </>
           )}
         </>
@@ -534,7 +799,7 @@ export default function GroupListPage(){
           ) : pendingProposals.length === 0 ? (
             <Paper sx={{ p: 6, textAlign: 'center', border: '2px dashed #CBD5E1' }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                <Users style={{ fontSize: 64, color: '#CBD5E1' }} />
+                <Groups style={{ fontSize: 64, color: '#CBD5E1' }} />
                 <Box>
                   <Typography variant="h5" sx={{ color: '#475569', fontWeight: 600, mb: 1 }}>
                     No Pending Group Proposals
@@ -550,168 +815,153 @@ export default function GroupListPage(){
               <Typography variant="h6" sx={{ mb: 3, color: '#1e293b' }}>
                 Pending Group Proposals ({pendingProposals.length})
               </Typography>
-              <Grid container spacing={3}>
-                {pendingProposals.map(group => (
-                  <Grid item xs={12} md={6} lg={4} key={group.id}>
-                    <Paper sx={{ p: 3, border: '1px solid #fbbf24', bgcolor: '#fffbeb', '&:hover': { boxShadow: 3 } }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <Users style={{ marginRight: 8, color: '#f59e0b' }} />
-                        <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                          {group.name}
-                        </Typography>
-                        <Chip 
-                          label="Pending" 
-                          size="small" 
-                          color="warning" 
-                          sx={{ ml: 2, fontSize: '0.75rem' }}
-                        />
-                      </Box>
-                      
-                      {group.possible_topics && (
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 1, color: '#64748b' }}>Topics:</Typography>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {group.possible_topics.split('\n').filter(t => t.trim()).map((topic, idx) => (
-                              <Chip key={idx} label={topic.trim()} size="small" variant="outlined" color="primary" />
-                            ))}
+              
+              {/* Table view for Pending Proposals */}
+              <TableContainer component={Paper}>
+                <Table sx={{ minWidth: 650 }} aria-label="pending proposals table">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: '#fffbeb' }}>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Group</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Topic Title</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Adviser</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pendingProposals.map((group) => (
+                      <TableRow 
+                        key={group.id} 
+                        sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { backgroundColor: '#fffbeb' } }}
+                      >
+                        <TableCell component="th" scope="row">
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Groups style={{ marginRight: 8, color: '#f59e0b' }} />
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>{group.name}</Typography>
+                            <Chip 
+                              label="Pending" 
+                              size="small" 
+                              color="warning" 
+                              sx={{ ml: 2, fontSize: '0.7rem' }}
+                            />
                           </Box>
-                        </Box>
-                      )}
-                      
-                      {group.keywords && (
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 1, color: '#64748b' }}>Keywords:</Typography>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {group.keywords.split(',').map(k => k.trim()).filter(k => k).map((keyword, idx) => (
-                              <Chip key={idx} label={keyword} size="small" color="secondary" />
-                            ))}
+                        </TableCell>
+                        <TableCell>
+                          {group.proposed_topic_title ? (
+                            <Typography variant="body2">{group.proposed_topic_title}</Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">No topic specified</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {group.adviser ? (
+                            <Typography variant="body2">
+                              {typeof group.adviser === 'object' 
+                                ? (group.adviser.first_name || group.adviser.last_name 
+                                    ? `${group.adviser.first_name} ${group.adviser.last_name}`.trim() 
+                                    : group.adviser.email)
+                                : typeof group.adviser === 'number'
+                                  ? (() => {
+                                      const adviser = advisers.find(a => a.id === group.adviser);
+                                      return adviser 
+                                        ? (adviser.first_name || adviser.last_name 
+                                            ? `${adviser.first_name} ${adviser.last_name}`.trim() 
+                                            : adviser.email)
+                                        : 'Adviser assigned';
+                                    })()
+                                  : 'Adviser assigned'}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">No adviser</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <IconButton 
+                              size="small" 
+                              color="primary"
+                              onClick={() => {
+                                setSelectedGroup(group);
+                                setViewDetailsOpen(true);
+                              }}
+                            >
+                              <Visibility fontSize="small" />
+                            </IconButton>
+                            <IconButton 
+                              size="small" 
+                              color="success"
+                              onClick={async () => {
+                                try {
+                                  await api.post(`groups/${group.id}/approve/`);
+                                  // Refresh the proposals list
+                                  loadPendingProposals();
+                                  // Also refresh main groups list
+                                  load();
+                                } catch (error) {
+                                  console.error('Failed to approve group:', error);
+                                  alert('Failed to approve group proposal');
+                                }
+                              }}
+                            >
+                              <Check fontSize="small" />
+                            </IconButton>
+                            <IconButton 
+                              size="small" 
+                              color="error"
+                              onClick={() => {
+                                setSelectedGroupForRejection(group);
+                                setRejectionReason('');
+                                setRejectProposalOpen(true);
+                              }}
+                            >
+                              <Clear fontSize="small" />
+                            </IconButton>
+                            <IconButton 
+                              size="small" 
+                              color="info"
+                              onClick={() => {
+                                // Open adviser assignment dialog
+                                setSelectedGroupForAdviser(group);
+                                setSelectedAdviserId(group.adviser ? (typeof group.adviser === 'object' ? group.adviser.id : group.adviser) : null);
+                                setAssignAdviserOpen(true);
+                              }}
+                            >
+                              <Assignment fontSize="small" />
+                            </IconButton>
                           </Box>
-                        </Box>
-                      )}
-                      
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {Array.isArray(group.members) ? group.members.length : 0} members
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <Button 
-                            size="small" 
-                            variant="outlined" 
-                            onClick={() => navigate(`/groups/${group.id}`)}
-                          >
-                            View Details
-                          </Button>
-                        </Box>
-                      </Box>
-                      
-                      <Box sx={{ display: 'flex', gap: 1, mt: 2, pt: 2, borderTop: '1px solid #fbbf24' }}>
-                        <Button 
-                          size="small" 
-                          variant="contained" 
-                          color="success"
-                          onClick={async () => {
-                            try {
-                              await api.post(`groups/${group.id}/approve/`);
-                              // Refresh the proposals list
-                              loadPendingProposals();
-                              // Also refresh main groups list
-                              load();
-                            } catch (error) {
-                              console.error('Failed to approve group:', error);
-                              alert('Failed to approve group proposal');
-                            }
-                          }}
-                          sx={{ flex: 1 }}
-                        >
-                          Approve
-                        </Button>
-                        <Button 
-                          size="small" 
-                          variant="contained" 
-                          color="error"
-                          onClick={async () => {
-                            if (window.confirm('Are you sure you want to reject this group proposal?')) {
-                              try {
-                                await api.post(`groups/${group.id}/reject/`);
-                                // Refresh the proposals list
-                                loadPendingProposals();
-                                // Also refresh main groups list
-                                load();
-                              } catch (error) {
-                                console.error('Failed to reject group:', error);
-                                alert('Failed to reject group proposal');
-                              }
-                            }
-                          }}
-                          sx={{ flex: 1 }}
-                        >
-                          Reject
-                        </Button>
-                      </Box>
-                    </Paper>
-                  </Grid>
-                ))}
-              </Grid>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </>
           )}
         </>
       )}
       
-      <Dialog open={open} onClose={()=>setOpen(false)} maxWidth="sm" fullWidth>
-        <Box sx={{ p: 4, minHeight: '500px', display: 'flex', flexDirection: 'column' }}>
-          <Typography variant="h5" sx={{ mb: 1, fontWeight: 600, color: '#1e293b' }}>
-            Propose Research Group
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-            Set up a new research group proposal for thesis collaboration and progress tracking.
+      <Dialog open={assignAdviserOpen} onClose={() => setAssignAdviserOpen(false)} maxWidth="sm" fullWidth>
+        <Box sx={{ p: 4 }}>
+          <Typography variant="h5" sx={{ mb: 2, fontWeight: 600, color: '#1e293b' }}>
+            Assign Adviser
           </Typography>
           
-          {currentUser?.role === 'STUDENT' && myGroups.length > 0 && (
-            <Alert severity="warning" sx={{ mb: 3 }}>
-              {myGroups.some(group => group.status === 'PENDING')
-                ? "You already have a pending group proposal. Please wait for admin approval before creating a new one."
-                : "You can only be a member of one active research group. Please leave your current group before creating a new one."}
-            </Alert>
+          {selectedGroupForAdviser && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" sx={{ color: '#1e293b', mb: 1 }}>
+                {selectedGroupForAdviser.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {selectedGroupForAdviser.proposed_topic_title || 'No topic specified'}
+              </Typography>
+            </Box>
           )}
           
-          <TextField 
-            fullWidth 
-            label="Group Name"
-            placeholder="e.g., Climate Change Research Team"
-            value={formData.name}
-            onChange={(e) => setFormData({...formData, name: e.target.value})}
-            sx={{ mb: 3 }}
-            helperText="Give your research group a descriptive name"
-          />
-          
-          <TextField
-            fullWidth
-            label="Possible Research Topics"
-            placeholder="Climate Change Impact Assessment&#10;Renewable Energy Systems&#10;Biodiversity Conservation&#10;Water Quality Management&#10;Sustainable Agriculture"
-            value={formData.possible_topics}
-            onChange={(e) => setFormData({...formData, possible_topics: e.target.value})}
-            multiline
-            rows={4}
-            sx={{ mb: 3 }}
-            helperText="List potential research topics for your group proposal (one per line)"
-          />
-          
-          <TextField
-            fullWidth
-            label="Keywords"
-            placeholder="climate change, renewable energy, biodiversity, water quality, sustainability, environmental impact"
-            value={formData.keywords}
-            onChange={(e) => setFormData({...formData, keywords: e.target.value})}
-            sx={{ mb: 3 }}
-            helperText="Comma-separated keywords for search and tagging"
-          />
-          
           <FormControl fullWidth sx={{ mb: 3 }}>
-            <InputLabel>Adviser</InputLabel>
+            <InputLabel>Select Adviser</InputLabel>
             <Select
-              value={formData.adviser}
-              label="Adviser"
-              onChange={(e) => setFormData({...formData, adviser: e.target.value === '' ? '' : String(e.target.value)})}
+              value={selectedAdviserId || ''}
+              label="Select Adviser"
+              onChange={(e) => setSelectedAdviserId(e.target.value === '' ? null : Number(e.target.value))}
             >
               <MenuItem value="">
                 <em>None</em>
@@ -724,82 +974,361 @@ export default function GroupListPage(){
                 </MenuItem>
               ))}
             </Select>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1 }}>
-              Optional: Select your preferred adviser. Final adviser assignment will be confirmed by the department. (Debug: {advisers.length} advisers loaded)
-            </Typography>
           </FormControl>
           
-          <FormControl fullWidth sx={{ mb: 4 }}>
-            <InputLabel>Members</InputLabel>
-            <Select
-              multiple
-              value={formData.members}
-              label="Members"
-              onChange={(e) => {
-                const value = e.target.value;
-                setFormData({...formData, members: typeof value === 'string' ? [Number(value)] : value.map(Number)});
-              }}
-              input={<OutlinedInput label="Members" />}
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.map((value) => {
-                    const student = students.find(s => s.id === value);
-                    return (
-                      <Chip
-                        key={value}
-                        label={student ? (
-                          student.first_name ? `${student.first_name} ${student.last_name || ''}` : student.email
-                        ) : value}
-                        size="small"
-                      />
-                    );
-                  })}
-                </Box>
-              )}
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    maxHeight: 200,
-                    '& .MuiMenuItem-root': {
-                      height: 'auto',
-                      py: 1
-                    }
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+            <Button onClick={() => setAssignAdviserOpen(false)} sx={{ minWidth: 100 }}>
+              Cancel
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={async () => {
+                if (selectedGroupForAdviser && selectedAdviserId) {
+                  try {
+                    await assignAdviser(selectedGroupForAdviser.id, selectedAdviserId);
+                    setAssignAdviserOpen(false);
+                    loadPendingProposals();
+                    load();
+                  } catch (error) {
+                    console.error('Failed to assign adviser:', error);
+                    alert('Failed to assign adviser');
                   }
                 }
               }}
+              disabled={!selectedGroupForAdviser || !selectedAdviserId}
+              sx={{ 
+                minWidth: 120,
+                backgroundColor: '#3b82f6',
+                '&:hover': { backgroundColor: '#2563eb' },
+                '&:disabled': {
+                  backgroundColor: '#94a3b8',
+                  color: '#64748b'
+                }
+              }}
             >
-              {students.map(student => (
-                <MenuItem key={student.id} value={student.id}>
-                  <Box sx={{ width: '100%', lineHeight: 1.4 }}>
-                    {student.first_name ? `${student.first_name} ${student.last_name || ''}` : student.email}
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1 }}>
-              {currentUser?.role === 'STUDENT' 
-                ? "Optional: Select additional students to add as group members (You're automatically included)"
-                : "Optional: Select students to add as group members"
-              }
-            </Typography>
-          </FormControl>
+              Assign
+            </Button>
+          </Box>
+        </Box>
+      </Dialog>
+      
+      <Dialog open={rejectProposalOpen} onClose={() => setRejectProposalOpen(false)} maxWidth="sm" fullWidth>
+        <Box sx={{ p: 4 }}>
+          <Typography variant="h5" sx={{ mb: 2, fontWeight: 600, color: '#1e293b' }}>
+            Reject Group Proposal
+          </Typography>
           
-          <Box sx={{ mt: 'auto', display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+          {selectedGroupForRejection && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" sx={{ color: '#1e293b', mb: 1 }}>
+                {selectedGroupForRejection.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {selectedGroupForRejection.proposed_topic_title || 'No topic specified'}
+              </Typography>
+            </Box>
+          )}
+          
+          <TextField
+            fullWidth
+            label="Rejection Reason (Optional)"
+            placeholder="Enter the reason for rejecting this group proposal..."
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            multiline
+            rows={4}
+            sx={{ mb: 3 }}
+            helperText="Optionally provide a detailed reason for rejecting the group proposal"
+          />
+          
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+            <Button onClick={() => setRejectProposalOpen(false)} sx={{ minWidth: 100 }}>
+              Cancel
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={async () => {
+                if (selectedGroupForRejection) {
+                  try {
+                    const payload: any = {};
+                    if (rejectionReason) {
+                      payload.rejection_reason = rejectionReason;
+                    }
+                    await api.patch(`groups/${selectedGroupForRejection.id}/reject/`, payload);
+                    setRejectProposalOpen(false);
+                    setRejectionReason('');
+                    loadPendingProposals();
+                    load();
+                  } catch (error) {
+                    console.error('Failed to reject group proposal:', error);
+                    alert('Failed to reject group proposal');
+                  }
+                }
+              }}
+              sx={{ 
+                minWidth: 120,
+                backgroundColor: '#ef4444',
+                '&:hover': { backgroundColor: '#dc2626' }
+              }}
+            >
+              Reject
+            </Button>
+          </Box>
+        </Box>
+      </Dialog>
+
+      <Dialog open={viewDetailsOpen} onClose={() => setViewDetailsOpen(false)} maxWidth="md" fullWidth>
+        <Box sx={{ p: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: '#1e293b' }}>
+              Group Details
+            </Typography>
+            <IconButton onClick={() => setViewDetailsOpen(false)}>
+              <Close />
+            </IconButton>
+          </Box>
+          
+          {selectedGroup && (
+            <Box>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="h6" sx={{ color: '#1e293b', mb: 2 }}>Group Information</Typography>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">Group Name</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>{selectedGroup.name}</Typography>
+                  </Box>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">Status</Typography>
+                    <Chip 
+                      label={selectedGroup.status} 
+                      size="small" 
+                      color={selectedGroup.status === 'APPROVED' ? 'success' : selectedGroup.status === 'PENDING' ? 'warning' : selectedGroup.status === 'REJECTED' ? 'error' : 'default'}
+                      sx={{ fontSize: '0.75rem' }}
+                    />
+                  </Box>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">Topic Title</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      {selectedGroup.proposed_topic_title || 'No topic specified'}
+                    </Typography>
+                  </Box>
+                  {selectedGroup.abstract && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Abstract</Typography>
+                      <Typography variant="body2">{selectedGroup.abstract}</Typography>
+                    </Box>
+                  )}
+                  {selectedGroup.keywords && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Keywords</Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                        {selectedGroup.keywords.split(',').map((keyword, index) => (
+                          <Chip 
+                            key={index} 
+                            label={keyword.trim()} 
+                            size="small" 
+                            variant="outlined" 
+                            sx={{ fontSize: '0.75rem' }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+                  {selectedGroup.rejection_reason && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">Rejection Reason</Typography>
+                      <Typography variant="body2" sx={{ fontStyle: 'italic' }}>{selectedGroup.rejection_reason}</Typography>
+                    </Box>
+                  )}
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="h6" sx={{ color: '#1e293b', mb: 2 }}>Group Leader</Typography>
+                  {selectedGroup.leader ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, p: 2, backgroundColor: '#f8fafc', borderRadius: 2 }}>
+                      <Avatar sx={{ width: 48, height: 48, fontSize: '1.2rem', bgcolor: '#10b981' }}>
+                        {typeof selectedGroup.leader === 'object' 
+                          ? (selectedGroup.leader.first_name?.charAt(0) || selectedGroup.leader.email.charAt(0))
+                          : 'L'}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                          {typeof selectedGroup.leader === 'object' && selectedGroup.leader !== null
+                            ? (selectedGroup.leader.first_name || selectedGroup.leader.last_name 
+                                ? `${selectedGroup.leader.first_name} ${selectedGroup.leader.last_name}`.trim() 
+                                : selectedGroup.leader.email)
+                            : 'Leader'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Proposed this group
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3, p: 2, backgroundColor: '#f8fafc', borderRadius: 2 }}>No leader assigned</Typography>
+                  )}
+                  
+                  <Typography variant="h6" sx={{ color: '#1e293b', mb: 2 }}>Members</Typography>
+                  {selectedGroup.members && selectedGroup.members.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {selectedGroup.members
+                        .filter((member: any) => {
+                          // Exclude the leader from the members list
+                          if (typeof selectedGroup.leader === 'object' && selectedGroup.leader !== null) {
+                            // Leader is an object, compare IDs
+                            return member.id !== (selectedGroup.leader as User).id;
+                          } else if (typeof selectedGroup.leader === 'number') {
+                            // Leader is an ID, compare directly
+                            return member.id !== selectedGroup.leader;
+                          }
+                          // If leader is null or undefined, include all members
+                          return true;
+                        })
+                        .map((member: any) => (
+                          <Box key={member.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar sx={{ width: 32, height: 32, fontSize: '0.8rem' }}>
+                              {member.first_name?.charAt(0) || member.email.charAt(0)}
+                            </Avatar>
+                            <Typography variant="body2">
+                              {member.first_name || member.last_name 
+                                ? `${member.first_name} ${member.last_name}`.trim() 
+                                : member.email}
+                            </Typography>
+                          </Box>
+                        ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">No other members</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="h6" sx={{ color: '#1e293b', mb: 2 }}>Adviser</Typography>
+                  {selectedGroup.adviser ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Avatar sx={{ width: 32, height: 32, fontSize: '0.8rem' }}>
+                        {typeof selectedGroup.adviser === 'object' 
+                          ? (selectedGroup.adviser.first_name?.charAt(0) || selectedGroup.adviser.email.charAt(0))
+                          : 'A'}
+                      </Avatar>
+                      <Typography variant="body2">
+                        {typeof selectedGroup.adviser === 'object' 
+                          ? (selectedGroup.adviser.first_name || selectedGroup.adviser.last_name 
+                              ? `${selectedGroup.adviser.first_name} ${selectedGroup.adviser.last_name}`.trim() 
+                              : selectedGroup.adviser.email)
+                          : 'Adviser'}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">No adviser assigned</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="h6" sx={{ color: '#1e293b', mb: 2 }}>Panel Members</Typography>
+                  {selectedGroup.panels && selectedGroup.panels.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {selectedGroup.panels.map((panel) => (
+                        <Box key={panel.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Avatar sx={{ width: 32, height: 32, fontSize: '0.8rem' }}>
+                            {panel.first_name?.charAt(0) || panel.email.charAt(0)}
+                          </Avatar>
+                          <Typography variant="body2">
+                            {panel.first_name || panel.last_name 
+                              ? `${panel.first_name} ${panel.last_name}`.trim() 
+                              : panel.email}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">No panel members assigned</Typography>
+                  )}
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </Box>
+      </Dialog>
+      
+      {/* Group Creation Dialog */}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+        <Box sx={{ p: 4 }}>
+          <Typography variant="h5" sx={{ mb: 3, fontWeight: 600, color: '#1e293b' }}>
+            Propose New Research Group
+          </Typography>
+          
+          <TextField
+            fullWidth
+            label="Group Name"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            sx={{ mb: 2 }}
+            required
+          />
+          
+          <TextField
+            fullWidth
+            label="Proposed Topic Title"
+            value={formData.proposed_topic_title || ''}
+            onChange={(e) => setFormData({ ...formData, proposed_topic_title: e.target.value })}
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            fullWidth
+            label="Abstract"
+            value={formData.abstract || ''}
+            onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
+            multiline
+            rows={4}
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            fullWidth
+            label="Keywords (comma separated)"
+            value={formData.keywords || ''}
+            onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
+            helperText="Enter keywords related to your research topic, separated by commas"
+            sx={{ mb: 3 }}
+          />
+          
+          {advisers.length > 0 && (
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel>Preferred Adviser (Optional)</InputLabel>
+              <Select
+                value={formData.adviser || ''}
+                label="Preferred Adviser (Optional)"
+                onChange={(e) => setFormData({ ...formData, adviser: e.target.value })}
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {advisers
+                  .filter(adviser => adviser.role === 'ADVISER')
+                  .map((adviser) => (
+                    <MenuItem key={adviser.id} value={adviser.id}>
+                      {adviser.first_name && adviser.last_name 
+                        ? `${adviser.first_name} ${adviser.last_name}`
+                        : adviser.first_name || adviser.last_name || adviser.email}
+                    </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+          )}
+          
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
             <Button onClick={() => setOpen(false)} sx={{ minWidth: 100 }}>
               Cancel
             </Button>
             <Button 
               variant="contained" 
               onClick={handleCreate}
-              disabled={!formData.name.trim() || (currentUser?.role === 'STUDENT' && myGroups.length > 0)}
+              disabled={!formData.name.trim()}
               sx={{ 
                 minWidth: 120,
-                backgroundColor: '#10B981',
-                '&:hover': { backgroundColor: '#059669' },
-                borderRadius: 2,
-                textTransform: 'none',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                '&:hover': { background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' },
                 '&:disabled': {
-                  backgroundColor: '#94a3b8',
+                  background: '#94a3b8',
                   color: '#64748b'
                 }
               }}

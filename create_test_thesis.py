@@ -66,7 +66,7 @@ def create_thesis(token, group_id):
         "title": "Test Thesis for Google Drive Upload",
         "abstract": "This is a test thesis created specifically for testing Google Drive upload functionality in the Thesis Management System.",
         "group": group_id,
-        "status": "DRAFT"
+        "status": "CONCEPT_SUBMITTED"
     }
     
     try:

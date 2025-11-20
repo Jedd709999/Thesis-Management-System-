@@ -48,12 +48,15 @@ import {
 } from '@mui/icons-material'
 import { listThesis, getAllTheses, createThesis } from '../../api/thesisService'
 import { getCurrentUserGroups } from '../../api/groupService'
+import api from '../../api/api'
 
 interface Thesis {
   id: number
   title: string
   status: string
   abstract?: string
+  keywords?: string
+  adviser_feedback?: string
   lastUpdated?: string
   progress?: number
   adviser?: string
@@ -74,20 +77,32 @@ interface UserGroup {
   name: string
 }
 
+interface User {
+  id: number
+  email: string
+  first_name?: string
+  last_name?: string
+  role: string
+}
+
 export default function ThesisCrudPage() {
   const [theses, setTheses] = useState<Thesis[]>([])
   const [allTheses, setAllTheses] = useState<Thesis[]>([])
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [abstract, setAbstract] = useState('')
+  const [keywords, setKeywords] = useState('')
   const [userGroups, setUserGroups] = useState<UserGroup[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedThesis, setSelectedThesis] = useState<Thesis | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterAdviser, setFilterAdviser] = useState<string>('all')
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [reviewFeedback, setReviewFeedback] = useState('')
   const [loading, setLoading] = useState(true)
   const [currentTab, setCurrentTab] = useState(0)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
 
   const load = async () => {
     try {
@@ -119,6 +134,17 @@ export default function ThesisCrudPage() {
 
   useEffect(() => {
     load()
+    // Load current user
+    const loadCurrentUser = async () => {
+      try {
+        const currentUserRes = await api.get('users/me/');
+        const user = currentUserRes.data;
+        setCurrentUser(user);
+      } catch (error) {
+        console.error('Failed to get current user:', error);
+      }
+    };
+    loadCurrentUser();
   }, [])
 
   async function handleCreate() {
@@ -129,15 +155,40 @@ export default function ThesisCrudPage() {
       await createThesis({ 
         title, 
         abstract, 
+        keywords: keywords || undefined,
         group_id: parseInt(selectedGroupId) 
       })
       setOpen(false)
       setTitle('')
       setAbstract('')
+      setKeywords('')
       load()
     } catch (error) {
       console.error('Error creating thesis:', error)
     }
+  }
+
+  async function handleReview(action: string) {
+    try {
+      if (!selectedThesis) return
+      
+      await api.post(`thesis/${selectedThesis.id}/adviser_review/`, {
+        action,
+        feedback: reviewFeedback
+      })
+      
+      setReviewOpen(false)
+      setReviewFeedback('')
+      load()
+    } catch (error) {
+      console.error('Error reviewing thesis:', error)
+    }
+  }
+
+  const openReviewDialog = (thesis: Thesis) => {
+    setSelectedThesis(thesis)
+    setReviewFeedback('')
+    setReviewOpen(true)
   }
 
   const getStatusIcon = (status: string) => {
@@ -159,10 +210,16 @@ export default function ThesisCrudPage() {
         return 'default'
       case 'submitted':
         return 'warning'
+      case 'topic_approved':
+        return 'info'
+      case 'under_review':
+        return 'warning'
       case 'approved':
         return 'success'
       case 'rejected':
         return 'error'
+      case 'revision_requested':
+        return 'warning'
       default:
         return 'default'
     }
@@ -228,7 +285,7 @@ export default function ThesisCrudPage() {
               px: 3
             }}
           >
-            Create Thesis
+            {currentUser?.role === 'STUDENT' ? 'Create Topic Proposal' : 'Create Thesis'}
           </Button>
         </Box>
       </Box>
@@ -459,26 +516,71 @@ export default function ThesisCrudPage() {
                             >
                               <Visibility fontSize="small" />
                             </IconButton>
-                            <IconButton 
-                              size="small" 
-                              color="info"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                // Handle edit
-                              }}
-                            >
-                              <Edit fontSize="small" />
-                            </IconButton>
-                            <IconButton 
-                              size="small" 
-                              color="error"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                // Handle delete
-                              }}
-                            >
-                              <Delete fontSize="small" />
-                            </IconButton>
+                            {currentUser?.role === 'STUDENT' && (
+                              <>
+                                <IconButton 
+                                  size="small" 
+                                  color="info"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    // Handle edit for students
+                                    setOpen(true)
+                                    setTitle(thesis.title)
+                                    setAbstract(thesis.abstract || '')
+                                    setKeywords(thesis.keywords || '')
+                                    setSelectedThesis(thesis)
+                                  }}
+                                >
+                                  <Edit fontSize="small" />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  color="success"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    // Handle view documents for students
+                                    alert('Document management functionality coming soon')
+                                  }}
+                                >
+                                  <Description fontSize="small" />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  color="warning"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    // Handle view progress for students
+                                    alert('Progress tracking functionality coming soon')
+                                  }}
+                                >
+                                  <Timeline fontSize="small" />
+                                </IconButton>
+                              </>
+                            )}
+                            {currentUser?.role !== 'STUDENT' && (
+                              <>
+                                <IconButton 
+                                  size="small" 
+                                  color="info"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    // Handle edit
+                                  }}
+                                >
+                                  <Edit fontSize="small" />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  color="error"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    // Handle delete
+                                  }}
+                                >
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </>
+                            )}
                           </Box>
                         </TableCell>
                       </TableRow>
@@ -575,15 +677,43 @@ export default function ThesisCrudPage() {
                               />
                             </TableCell>
                             <TableCell>
-                              <IconButton 
-                                size="small" 
-                                onClick={() => {
-                                  setSelectedThesis(thesis)
-                                  setViewDetailsOpen(true)
-                                }}
-                              >
-                                <Visibility fontSize="small" />
-                              </IconButton>
+                              <Box sx={{ display: 'flex', gap: 1 }}>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={() => {
+                                    setSelectedThesis(thesis)
+                                    setViewDetailsOpen(true)
+                                  }}
+                                >
+                                  <Visibility fontSize="small" />
+                                </IconButton>
+                                {currentUser?.role === 'STUDENT' && (
+                                  <>
+                                    <IconButton 
+                                      size="small" 
+                                      color="success"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        // Handle view documents for students
+                                        alert('Document management functionality coming soon')
+                                      }}
+                                    >
+                                      <Description fontSize="small" />
+                                    </IconButton>
+                                    <IconButton 
+                                      size="small" 
+                                      color="warning"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        // Handle view progress for students
+                                        alert('Progress tracking functionality coming soon')
+                                      }}
+                                    >
+                                      <Timeline fontSize="small" />
+                                    </IconButton>
+                                  </>
+                                )}
+                              </Box>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -607,7 +737,7 @@ export default function ThesisCrudPage() {
           sx: { borderRadius: 2 }
         }}
       >
-        <DialogTitle>Create New Thesis</DialogTitle>
+        <DialogTitle>{currentUser?.role === 'STUDENT' ? 'Create New Topic Proposal' : 'Create New Thesis'}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -628,6 +758,17 @@ export default function ThesisCrudPage() {
             variant="outlined"
             value={abstract}
             onChange={(e) => setAbstract(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Keywords"
+            fullWidth
+            variant="outlined"
+            value={keywords}
+            onChange={(e) => setKeywords(e.target.value)}
+            placeholder="e.g., machine learning, artificial intelligence, data science"
+            helperText="Enter comma-separated keywords for your topic proposal"
             sx={{ mb: 2 }}
           />
           
@@ -679,7 +820,7 @@ export default function ThesisCrudPage() {
             onClick={handleCreate}
             disabled={userGroups.length === 0 || !title.trim()}
           >
-            Create Thesis
+            {currentUser?.role === 'STUDENT' ? 'Create Topic Proposal' : 'Create Thesis'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -745,6 +886,45 @@ export default function ThesisCrudPage() {
                 </Box>
               )}
 
+              {/* Keywords Section */}
+              {selectedThesis.keywords && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                    Keywords
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {selectedThesis.keywords.split(',').map((keyword, index) => (
+                      <Chip
+                        key={index}
+                        label={keyword.trim()}
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Adviser Feedback Section */}
+              {selectedThesis.adviser_feedback && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                    Adviser Feedback
+                  </Typography>
+                  <Box sx={{ 
+                    p: 2, 
+                    backgroundColor: '#F5F5F5', 
+                    border: '1px solid #E0E0E0',
+                    borderRadius: 1
+                  }}>
+                    <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                      {selectedThesis.adviser_feedback}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
               {/* Progress Section */}
               <Box sx={{ mb: 3 }}>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -780,6 +960,74 @@ export default function ThesisCrudPage() {
           <Button onClick={() => setViewDetailsOpen(false)}>
             Close
           </Button>
+          
+          {/* Adviser Review Actions */}
+          {currentUser?.role === 'ADVISER' && selectedThesis && (
+            <>
+              {selectedThesis.status === 'CONCEPT_SUBMITTED' && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={() => openReviewDialog(selectedThesis)}
+                  startIcon={<Visibility />}
+                >
+                  Review Proposal
+                </Button>
+              )}
+              {selectedThesis.status === 'CONCEPT_APPROVED' && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => openReviewDialog(selectedThesis)}
+                  startIcon={<Visibility />}
+                >
+                  Review Full Thesis
+                </Button>
+              )}
+            </>
+          )}
+          
+          {/* Student can resubmit if revision requested */}
+          {currentUser?.role === 'STUDENT' && selectedThesis?.status === 'REVISIONS_REQUIRED' && (
+            <Button
+              variant="contained"
+              onClick={() => {
+                setViewDetailsOpen(false)
+                setOpen(true)
+                setTitle(selectedThesis.title)
+                setAbstract(selectedThesis.abstract || '')
+                setKeywords(selectedThesis.keywords || '')
+              }}
+              startIcon={<Edit />}
+            >
+              Resubmit Proposal
+            </Button>
+          )}
+          
+          {/* Student action buttons */}
+          {currentUser?.role === 'STUDENT' && selectedThesis && (
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<Description />}
+                onClick={() => {
+                  alert('Document management functionality coming soon')
+                }}
+              >
+                View Documents
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Timeline />}
+                onClick={() => {
+                  alert('Progress tracking functionality coming soon')
+                }}
+              >
+                View Progress
+              </Button>
+            </>
+          )}
+          
           <Button
             variant="contained"
             startIcon={<Edit />}
@@ -790,6 +1038,90 @@ export default function ThesisCrudPage() {
           >
             Edit Thesis
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Adviser Review Dialog */}
+      <Dialog 
+        open={reviewOpen} 
+        onClose={() => setReviewOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2 }
+        }}
+      >
+        <DialogTitle>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Review Topic Proposal
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            "{selectedThesis?.title}"
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Feedback"
+            fullWidth
+            multiline
+            rows={4}
+            variant="outlined"
+            value={reviewFeedback}
+            onChange={(e) => setReviewFeedback(e.target.value)}
+            placeholder="Provide your feedback and comments..."
+            sx={{ mb: 3 }}
+          />
+          
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Choose an action:
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setReviewOpen(false)}>
+            Cancel
+          </Button>
+          
+          {selectedThesis?.status === 'CONCEPT_SUBMITTED' && (
+            <>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={() => handleReview('reject')}
+                disabled={!reviewFeedback.trim()}
+              >
+                Reject
+              </Button>
+              <Button
+                variant="contained"
+                color="warning"
+                onClick={() => handleReview('request_revision')}
+                disabled={!reviewFeedback.trim()}
+              >
+                Request Revision
+              </Button>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={() => handleReview('approve_topic')}
+                disabled={!reviewFeedback.trim()}
+              >
+                Approve Topic
+              </Button>
+            </>
+          )}
+          
+          {selectedThesis?.status === 'CONCEPT_APPROVED' && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => handleReview('approve_thesis')}
+              disabled={!reviewFeedback.trim()}
+            >
+              Send to Panel
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

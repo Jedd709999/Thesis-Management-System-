@@ -25,4 +25,4 @@ RUN chmod +x /app/entrypoint.sh
 
 # Run the application
 ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["gunicorn", "backend.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "backend.asgi:application"]

@@ -122,16 +122,16 @@ export default function Dashboard(){
       case 'ADVISER':
         return [
           { label: 'Advised Theses', value: theses.length.toString(), icon: FileText, color: '#10B981', bgColor: '#D1FAE5' },
-          { label: 'Pending Reviews', value: theses.filter(t => t.status === 'SUBMITTED').length.toString(), icon: Clock, color: '#F59E0B', bgColor: '#FEF3C7' },
-          { label: 'Approved', value: theses.filter(t => t.status === 'APPROVED').length.toString(), icon: CheckCircle, color: '#3B82F6', bgColor: '#DBEAFE' },
+          { label: 'Pending Reviews', value: theses.filter(t => t.status === 'CONCEPT_SUBMITTED').length.toString(), icon: Clock, color: '#F59E0B', bgColor: '#FEF3C7' },
+          { label: 'Approved', value: theses.filter(t => t.status === 'FINAL_APPROVED').length.toString(), icon: CheckCircle, color: '#3B82F6', bgColor: '#DBEAFE' },
           { label: 'Students', value: groups.reduce((acc, g) => acc + (g.members?.length || 0), 0).toString(), icon: Users, color: '#8B5CF6', bgColor: '#EDE9FE' },
         ];
       case 'PANEL':
         return [
           { label: 'Assigned Theses', value: theses.length.toString(), icon: FileText, color: '#10B981', bgColor: '#D1FAE5' },
-          { label: 'To Review', value: theses.filter(t => t.status === 'UNDER_REVIEW').length.toString(), icon: Clock, color: '#F59E0B', bgColor: '#FEF3C7' },
+          { label: 'To Review', value: theses.filter(t => t.status === 'PROPOSAL_APPROVED').length.toString(), icon: Clock, color: '#F59E0B', bgColor: '#FEF3C7' },
           { label: 'Upcoming Defenses', value: schedules.filter(s => new Date(s.start_at) > new Date()).length.toString(), icon: Calendar, color: '#3B82F6', bgColor: '#DBEAFE' },
-          { label: 'Reviewed', value: theses.filter(t => ['APPROVED', 'REJECTED'].includes(t.status)).length.toString(), icon: CheckCircle, color: '#8B5CF6', bgColor: '#EDE9FE' },
+          { label: 'Reviewed', value: theses.filter(t => ['FINAL_APPROVED', 'REJECTED'].includes(t.status)).length.toString(), icon: CheckCircle, color: '#8B5CF6', bgColor: '#EDE9FE' },
         ];
       default:
         return [

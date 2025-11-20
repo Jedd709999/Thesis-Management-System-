@@ -42,17 +42,35 @@ class ThesisViewSet(viewsets.ModelViewSet):
         thesis = self.get_object()
         action = request.data.get('action')
         feedback = request.data.get('feedback','')
-        if action == 'approve':
-            thesis.status = 'UNDER_REVIEW'
+        
+        if action == 'approve_topic':
+            # Approve the topic proposal - status becomes CONCEPT_APPROVED
+            thesis.status = 'CONCEPT_APPROVED'
+            thesis.adviser_feedback = feedback
+            thesis.save()
+            create_notification(thesis.proposer, f'Topic proposal approved: {thesis.title}', body='Your topic has been approved. You can now start working on the full thesis.')
+            return Response(self.get_serializer(thesis).data)
+        elif action == 'request_revision':
+            # Request revision for the topic proposal
+            thesis.status = 'REVISIONS_REQUIRED'
+            thesis.adviser_feedback = feedback
+            thesis.save()
+            create_notification(thesis.proposer, f'Revision requested for topic: {thesis.title}', body=feedback)
+            return Response(self.get_serializer(thesis).data)
+        elif action == 'reject':
+            # Reject the topic proposal
+            thesis.status = 'REJECTED'
+            thesis.adviser_feedback = feedback
+            thesis.save()
+            create_notification(thesis.proposer, f'Topic proposal rejected: {thesis.title}', body=feedback)
+            return Response(self.get_serializer(thesis).data)
+        elif action == 'approve_thesis':
+            # Approve the full thesis (after topic was approved)
+            thesis.status = 'PROPOSAL_APPROVED'
             thesis.adviser_feedback = feedback
             thesis.save()
             for p in thesis.group.panels.all():
                 create_notification(p, f'Thesis ready for panel review: {thesis.title}', link=f'/thesis/{thesis.id}')
             return Response(self.get_serializer(thesis).data)
-        elif action == 'reject':
-            thesis.status = 'REJECTED'
-            thesis.adviser_feedback = feedback
-            thesis.save()
-            create_notification(thesis.proposer, f'Thesis rejected by adviser: {thesis.title}', body=feedback)
-            return Response(self.get_serializer(thesis).data)
+            
         return Response({'detail':'invalid action'}, status=status.HTTP_400_BAD_REQUEST)

@@ -11,7 +11,7 @@ class ThesisSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Thesis
-        fields = ('id','title','abstract','group','group_id','proposer','adviser','status','adviser_feedback','progress','created_at','updated_at')
+        fields = ('id','title','abstract','keywords','group','group_id','proposer','adviser','status','adviser_feedback','progress','created_at','updated_at')
         read_only_fields = ('status','proposer','created_at','updated_at')
     
     def get_group(self, obj):
@@ -40,11 +40,22 @@ class ThesisSerializer(serializers.ModelSerializer):
     def get_progress(self, obj):
         """Calculate progress based on thesis status"""
         status_progress = {
-            'DRAFT': 25,
-            'SUBMITTED': 50,
-            'UNDER_REVIEW': 75,
-            'APPROVED': 100,
-            'REJECTED': 0
+            'CONCEPT_SUBMITTED': 10,
+            'CONCEPT_SCHEDULED': 15,
+            'CONCEPT_DEFENDED': 20,
+            'CONCEPT_APPROVED': 25,
+            'PROPOSAL_SUBMITTED': 30,
+            'PROPOSAL_SCHEDULED': 35,
+            'PROPOSAL_DEFENDED': 40,
+            'PROPOSAL_APPROVED': 50,
+            'RESEARCH_IN_PROGRESS': 75,
+            'FINAL_SUBMITTED': 80,
+            'FINAL_SCHEDULED': 85,
+            'FINAL_DEFENDED': 90,
+            'FINAL_APPROVED': 100,
+            'REVISIONS_REQUIRED': 45,
+            'REJECTED': 0,
+            'ARCHIVED': 100
         }
         return status_progress.get(obj.status, 0)
     

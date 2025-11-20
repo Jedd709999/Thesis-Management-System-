@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.db import models
 from api.models.group_models import Group
 from api.models.user_models import User
+from api.models.thesis_models import Thesis
 from api.serializers.group_serializers import GroupSerializer
 from api.permissions.role_permissions import IsAdviserForGroup, IsGroupMemberOrAdmin
 
@@ -32,8 +33,8 @@ class GroupViewSet(viewsets.ModelViewSet):
     def get_object(self):
         print(f"DEBUG: get_object called for pk={self.kwargs.get('pk')}, action: {self.action}")
         
-        # For approve and reject actions, always use unfiltered queryset
-        if self.action in ['approve', 'reject']:
+        # For approve, reject, assign_adviser, assign_panel, and remove_panel actions, always use unfiltered queryset
+        if self.action in ['approve', 'reject', 'assign_adviser', 'assign_panel', 'remove_panel']:
             print(f"DEBUG: Using unfiltered queryset for {self.action}")
             queryset = Group.objects.all()
             obj = get_object_or_404(queryset, pk=self.kwargs.get('pk'))
@@ -50,8 +51,8 @@ class GroupViewSet(viewsets.ModelViewSet):
             raise
     
     def get_queryset(self):
-        # For approve and reject actions, don't filter at all
-        if self.action in ['approve', 'reject']:
+        # For approve, reject, assign_adviser, assign_panel, and remove_panel actions, don't filter at all
+        if self.action in ['approve', 'reject', 'assign_adviser', 'assign_panel', 'remove_panel']:
             print(f"DEBUG: {self.action} action - using unfiltered queryset")
             return Group.objects.all()
         
@@ -126,6 +127,24 @@ class GroupViewSet(viewsets.ModelViewSet):
             print(f"DEBUG: Found group: {group.name}, Status: {group.status}")
             if group.status != 'PENDING':
                 return Response({'error': 'Only pending groups can be approved'}, status=400)
+            
+            # Create a thesis record when approving the group
+            # Get the leader as the proposer, or the first member if no leader
+            proposer = group.leader if group.leader else (group.members.first() if group.members.exists() else request.user)
+            
+            # Check if a thesis already exists for this group to prevent duplicates
+            if hasattr(group, 'thesis'):
+                return Response({'error': 'A thesis already exists for this group'}, status=400)
+            
+            # Create thesis with group information
+            thesis = Thesis.objects.create(
+                title=group.proposed_topic_title or f"Thesis for {group.name}",
+                abstract=group.abstract or "",
+                keywords=group.keywords or "",
+                group=group,
+                proposer=proposer,
+                status='DRAFT'
+            )
             
             group.status = 'APPROVED'
             group.save()
@@ -225,22 +244,34 @@ class GroupViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def assign_adviser(self, request, pk=None):
         """Assign an adviser to a group (Admin only)"""
+        print(f"DEBUG: assign_adviser called for pk={pk}")
+        print(f"DEBUG: User: {request.user.email}, Role: {request.user.role}")
+        
         if request.user.role != 'ADMIN':
+            print(f"DEBUG: User is not admin, returning 403")
             return Response({'error': 'Only admins can assign advisers'}, status=status.HTTP_403_FORBIDDEN)
         
+        print(f"DEBUG: About to call get_object()")
         group = self.get_object()
+        print(f"DEBUG: Found group: {group.name if group else 'None'}")
         adviser_id = request.data.get('adviser_id')
+        print(f"DEBUG: adviser_id from request: {adviser_id}")
         
         if not adviser_id:
+            print(f"DEBUG: adviser_id is required, returning 400")
             return Response({'error': 'adviser_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             adviser = User.objects.get(pk=adviser_id, role='ADVISER')
+            print(f"DEBUG: Found adviser: {adviser.email}")
         except User.DoesNotExist:
+            print(f"DEBUG: Adviser not found, returning 404")
             return Response({'error': 'Adviser not found or user is not an adviser'}, status=status.HTTP_404_NOT_FOUND)
         
+        print(f"DEBUG: About to assign adviser to group")
         group.adviser = adviser
         group.save()
+        print(f"DEBUG: Adviser assigned successfully")
         
         serializer = self.get_serializer(group)
         return Response(serializer.data)

@@ -36,7 +36,7 @@ class GroupSerializer(serializers.ModelSerializer):
     )
     class Meta:
         model = Group
-        fields = ('id','name','status','possible_topics','keywords','members','adviser','panels','member_ids','adviser_id','panel_ids','created_at')
+        fields = ('id','name','status','proposed_topic_title','abstract','keywords','rejection_reason','leader','members','adviser','panels','member_ids','adviser_id','panel_ids','created_at')
     
     def validate(self, attrs):
         members = attrs.get('members', [])
@@ -65,7 +65,17 @@ class GroupSerializer(serializers.ModelSerializer):
         if 'status' not in validated:
             validated['status'] = 'PENDING'
         
+        # Set the leader as the user making the request
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            validated['leader'] = request.user
+        
         group = Group.objects.create(**validated)
+        
+        # Add the leader as a member if they're not already in the members list
+        if validated['leader'] and validated['leader'] not in members:
+            members.append(validated['leader'])
+            
         if members:
             group.members.set(members)
         if panels:
@@ -76,7 +86,17 @@ class GroupSerializer(serializers.ModelSerializer):
     def update(self, instance, validated):
         # Handle the update normally
         for attr, value in validated.items():
-            if attr == 'members':
+            # Special handling for status changes by students
+            if attr == 'status' and self.context['request'].user.role == 'STUDENT':
+                # Students can only change status from REJECTED back to PENDING
+                if instance.status == 'REJECTED' and value == 'PENDING':
+                    setattr(instance, attr, value)
+                    # Clear the rejection reason when resubmitting
+                    instance.rejection_reason = ''
+                else:
+                    # For all other status changes, ignore the request
+                    continue
+            elif attr == 'members':
                 instance.members.set(value)
             elif attr == 'panels':
                 instance.panels.set(value)
