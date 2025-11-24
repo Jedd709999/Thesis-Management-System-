@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'corsheaders',
 
     'api',
+    'backend',  # Add this line
 ]
 
 MIDDLEWARE = [
@@ -33,14 +34,17 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'api.middleware.audit_middleware.AuditMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
 
+import os
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, '..', 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

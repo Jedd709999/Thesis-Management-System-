@@ -45,7 +45,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -117,6 +117,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom user model
 AUTH_USER_MODEL = 'api.User'
+
+# Custom authentication backends
+AUTHENTICATION_BACKENDS = [
+    'api.auth_backends.UUIDCompatibleModelBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
 
 # REST Framework configuration
 REST_FRAMEWORK = {

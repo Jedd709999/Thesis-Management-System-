@@ -1,7 +1,7 @@
 from rest_framework import permissions
 from api.models.group_models import Group
 from api.models.thesis_models import Thesis
-from api.models.schedule_models import DefenseSchedule
+from api.models.schedule_models import OralDefenseSchedule
 
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -159,6 +159,49 @@ class IsAdviserForGroup(permissions.BasePermission):
             request.user in group.members.all()
         )
 
+class IsGroupLeaderOrAdmin(permissions.BasePermission):
+    """
+    Permission class that allows only group leaders or admins to perform actions.
+    """
+    def has_permission(self, request, view):
+        # Allow admins to do anything
+        if request.user.role == 'ADMIN':
+            return True
+            
+        # For create action, allow students to create groups (they'll be the leader)
+        if view.action == 'create':
+            return request.user.role == 'STUDENT'
+            
+        # For group member operations, check if the user is the group leader
+        group_id = view.kwargs.get('group_id') or view.kwargs.get('pk')
+        if not group_id:
+            return False
+            
+        try:
+            from api.models.group_models import Group, GroupMember
+            # Check if the user is the leader of the group
+            return Group.objects.filter(
+                id=group_id,
+                leader=request.user
+            ).exists()
+        except (ValueError, Group.DoesNotExist):
+            return False
+    
+    def has_object_permission(self, request, view, obj):
+        # Allow admins to do anything
+        if request.user.role == 'ADMIN':
+            return True
+            
+        # For group member objects, check if the user is the group leader
+        if hasattr(obj, 'group'):
+            return obj.group.leader == request.user
+            
+        # For group objects, check if the user is the leader
+        if hasattr(obj, 'leader'):
+            return obj.leader == request.user
+            
+        return False
+
 class CanManageNotifications(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         # Users can only manage their own notifications
@@ -198,20 +241,15 @@ class IsStudentOwner(permissions.BasePermission):
         return bool(request.user and request.user.role == 'STUDENT')
     
     def has_object_permission(self, request, view, obj):
-        return obj.proposer == request.user if hasattr(obj, 'proposer') else False
+        # Students can only access their own objects
+        return obj.user == request.user
 
-class IsAdviserOrReadOnly(permissions.BasePermission):
+class IsAdviserOwner(permissions.BasePermission):
     def has_permission(self, request, view):
-        return (
-            request.method in permissions.SAFE_METHODS or
-            (request.user and request.user.role in ['ADVISER', 'ADMIN'])
-        )
+        return bool(request.user and request.user.role == 'ADVISER')
     
     def has_object_permission(self, request, view, obj):
-        if request.method in permissions.SAFE_METHODS:
+        # Advisers can only access objects related to their groups
+        if hasattr(obj, 'group') and obj.group.adviser == request.user:
             return True
-            
-        if request.user.role == 'ADMIN':
-            return True
-            
-        return request.user == obj.group.adviser if hasattr(obj, 'group') else False
+        return False

@@ -5,7 +5,7 @@ DEBUG = True
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
+        'NAME': 'test_db.sqlite3',
     }
 }
 
@@ -15,6 +15,9 @@ class DisableMigrations:
         return True
     
     def __getitem__(self, item):
+        # Don't disable migrations for contenttypes and auth apps as they're needed
+        if item in ['contenttypes', 'auth']:
+            return None
         return None
 
 MIGRATION_MODULES = DisableMigrations()
@@ -60,3 +63,6 @@ LOGGING = {
         'level': 'CRITICAL',
     },
 }
+
+# Disable audit logging during tests
+DISABLE_AUDIT_LOGGING = True

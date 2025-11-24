@@ -1,80 +1,324 @@
+import uuid
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+from django.db.models import Q, F
 from .group_models import Group
+from .thesis_models import Thesis
+from .user_models import User
+from .document_models import Document
 
-class DefenseSchedule(models.Model):
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='schedules')
-    start_at = models.DateTimeField()
-    end_at = models.DateTimeField()
-    location = models.CharField(max_length=256, blank=True)
-    created_by = models.ForeignKey('api.User', on_delete=models.SET_NULL, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+class SoftDeleteManager(models.Manager):
+    """Manager to handle soft deletes."""
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+
+class OralDefenseSchedule(models.Model):
+    """Represents a scheduled oral defense for a thesis."""
+    STATUS_CHOICES = [
+        ('scheduled', 'Scheduled'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+        ('rescheduled', 'Rescheduled'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    thesis = models.ForeignKey(
+        Thesis,
+        on_delete=models.CASCADE,
+        related_name='oral_defense_schedules'
+    )
+    title = models.CharField(max_length=255, blank=True, help_text="Title for the defense session")
+    start = models.DateTimeField(help_text="Scheduled start time of the defense")
+    end = models.DateTimeField(help_text="Scheduled end time of the defense")
+    location = models.CharField(max_length=500, blank=True, help_text="Physical or virtual location")
+    meeting_url = models.URLField(blank=True, help_text="Meeting URL for virtual defenses")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='scheduled',
+        help_text="Current status of the defense"
+    )
+    notes = models.TextField(blank=True, help_text="Additional notes about the defense")
+    organizer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='organized_defenses',
+        help_text="User who scheduled this defense"
+    )
+    panel_members = models.ManyToManyField(
+        User,
+        related_name='panel_defenses',
+        blank=True,
+        help_text="Panel members for this defense"
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    
+    objects = SoftDeleteManager()
+    all_objects = models.Manager()  # Includes soft-deleted objects
 
     class Meta:
-        ordering = ['start_at']
+        ordering = ['start']
+        verbose_name = 'Oral Defense Schedule'
+        verbose_name_plural = 'Oral Defense Schedules'
         constraints = [
             models.CheckConstraint(
-                check=models.Q(start_at__lt=models.F('end_at')),
-                name='start_before_end'
+                check=Q(start__lt=F('end')),
+                name='defense_start_before_end'
             )
         ]
-
+    
+    def __str__(self):
+        return f"Defense for {self.thesis} at {self.start}"
+    
     def clean(self):
-        if self.start_at >= self.end_at:
-            raise ValidationError('Start time must be before end time')
+        if self.start >= self.end:
+            raise ValidationError('Defense end time must be after start time')
         
+        # Check for scheduling conflicts with panel members
         if self.pk:
-            existing_conflicts = self.check_conflicts(self.group, self.start_at, self.end_at, exclude_id=self.pk)
+            conflicts = self.check_panel_availability(self.start, self.end, exclude_id=self.pk)
         else:
-            existing_conflicts = self.check_conflicts(self.group, self.start_at, self.end_at)
-        
-        if existing_conflicts:
-            conflict_details = []
-            for conflict in existing_conflicts:
-                conflict_details.append(
-                    f"Group {conflict.group.name} has schedule from {conflict.start_at} to {conflict.end_at}"
-                )
-            raise ValidationError(f'Scheduling conflict detected: {"; ".join(conflict_details)}')
-
+            conflicts = self.check_panel_availability(self.start, self.end)
+            
+        if conflicts:
+            conflict_details = [
+                f"{user.get_full_name() or user.email} is not available at the scheduled time"
+                for user in conflicts
+            ]
+            raise ValidationError("Scheduling conflicts: " + "; ".join(conflict_details))
+    
     def save(self, *args, **kwargs):
-        self.clean()
+        self.full_clean()
         super().save(*args, **kwargs)
-
-    @staticmethod
-    def check_conflicts(group, start_at, end_at, exclude_id=None):
-        from django.db.models import Q
-        adviser = group.adviser
-        panels = group.panels.all()
+    
+    def delete(self, *args, **kwargs):
+        self.deleted_at = timezone.now()
+        self.status = 'cancelled'
+        self.save()
+    
+    def hard_delete(self, *args, **kwargs):
+        super().delete(*args, **kwargs)
+    
+    def check_panel_availability(self, start, end, exclude_id=None):
+        """Check if panel members are available at the given time."""
+        from datetime import time
         
-        overlapping = DefenseSchedule.objects.filter(
-            Q(start_at__lt=end_at) & Q(end_at__gt=start_at)
-        )
+        # Get the day of week (0=Monday, 6=Sunday)
+        day_of_week = start.weekday()
+        start_time = start.time()
+        end_time = end.time()
         
-        if exclude_id:
-            overlapping = overlapping.exclude(id=exclude_id)
-        
+        # Check each panel member's availability
         conflicts = []
-        for schedule in overlapping:
-            if (schedule.group.adviser == adviser or 
-                schedule.group.panels.filter(id__in=panels.values_list('id', flat=True)).exists()):
-                conflicts.append(schedule)
+        for member in self.panel_members.all():
+            # Check if member has any availability records
+            if not member.availabilities.exists():
+                continue  # No availability set, assume available
+                
+            # Check member's availability for this day and time
+            available = member.availabilities.filter(
+                day_of_week=day_of_week,
+                start_time__lte=start_time,
+                end_time__gte=end_time
+            ).exists()
+            
+            if not available:
+                conflicts.append(member)
+                
         return conflicts
 
-    @staticmethod
-    def validate_schedule_availability(group, start_at, end_at, exclude_id=None):
-        conflicts = DefenseSchedule.check_conflicts(group, start_at, end_at, exclude_id)
-        if conflicts:
-            return {
-                'has_conflicts': True,
-                'conflicts': [
-                    {
-                        'id': conflict.id,
-                        'group': conflict.group.name,
-                        'start_at': conflict.start_at,
-                        'end_at': conflict.end_at,
-                        'location': conflict.location
-                    }
-                    for conflict in conflicts
-                ]
-            }
-        return {'has_conflicts': False, 'conflicts': []}
+
+class ApprovalSheet(models.Model):
+    """Represents an approval sheet for a defense."""
+    DECISION_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('needs_revision', 'Needs Revision'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    schedule = models.ForeignKey(
+        OralDefenseSchedule,
+        on_delete=models.CASCADE,
+        related_name='approval_sheets'
+    )
+    panel_member = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='approval_sheets',
+        help_text="Panel member who is approving"
+    )
+    decision = models.CharField(
+        max_length=20,
+        choices=DECISION_CHOICES,
+        default='pending',
+        help_text="Approval decision"
+    )
+    comments = models.TextField(blank=True, help_text="Reviewer's comments")
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approval_sheets',
+        help_text="Approval document if uploaded"
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('schedule', 'panel_member')
+        ordering = ['-submitted_at', '-created_at']
+    
+    def __str__(self):
+        return f"Approval by {self.panel_member} for {self.schedule}"
+    
+    def save(self, *args, **kwargs):
+        if self.decision != 'pending' and not self.submitted_at:
+            self.submitted_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
+class Evaluation(models.Model):
+    """Evaluation of a thesis defense by a panel member."""
+    RECOMMENDATION_CHOICES = [
+        ('pass', 'Pass'),
+        ('pass_with_revision', 'Pass with Revisions'),
+        ('fail', 'Fail'),
+        ('conditional_pass', 'Conditional Pass'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    schedule = models.ForeignKey(
+        OralDefenseSchedule,
+        on_delete=models.CASCADE,
+        related_name='evaluations'
+    )
+    evaluator = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='evaluations',
+        help_text="Panel member who provided the evaluation"
+    )
+    rubric_scores = models.JSONField(
+        default=dict,
+        help_text="Scores for each criterion in the evaluation rubric"
+    )
+    total_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Total score calculated from rubric"
+    )
+    recommendation = models.CharField(
+        max_length=20,
+        choices=RECOMMENDATION_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Overall recommendation"
+    )
+    comments = models.TextField(blank=True, help_text="Detailed feedback")
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='evaluations',
+        help_text="Evaluation document if uploaded"
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('schedule', 'evaluator')
+        ordering = ['-submitted_at', '-created_at']
+    
+    def __str__(self):
+        return f"Evaluation by {self.evaluator} for {self.schedule}"
+    
+    def save(self, *args, **kwargs):
+        if self.recommendation and not self.submitted_at:
+            self.submitted_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
+class PanelMemberAvailability(models.Model):
+    """Availability schedule for panel members."""
+    DAYS_OF_WEEK = [
+        (0, 'Monday'),
+        (1, 'Tuesday'),
+        (2, 'Wednesday'),
+        (3, 'Thursday'),
+        (4, 'Friday'),
+        (5, 'Saturday'),
+        (6, 'Sunday'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='availabilities',
+        help_text="Panel member"
+    )
+    day_of_week = models.PositiveSmallIntegerField(
+        choices=DAYS_OF_WEEK,
+        help_text="Day of the week"
+    )
+    start_time = models.TimeField(help_text="Start time of availability")
+    end_time = models.TimeField(help_text="End time of availability")
+    is_recurring = models.BooleanField(
+        default=True,
+        help_text="Whether this availability repeats weekly"
+    )
+    valid_from = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Start date of this availability (null means indefinitely)"
+    )
+    valid_until = models.DateField(
+        null=True,
+        blank=True,
+        help_text="End date of this availability (null means indefinitely)"
+    )
+    notes = models.TextField(blank=True, help_text="Additional notes")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name_plural = 'Panel Member Availabilities'
+        ordering = ['user', 'day_of_week', 'start_time']
+        unique_together = ('user', 'day_of_week', 'start_time', 'end_time')
+    
+    def __str__(self):
+        return f"{self.user} - {self.get_day_of_week_display()} {self.start_time}-{self.end_time}"
+    
+    def clean(self):
+        if self.start_time >= self.end_time:
+            raise ValidationError('End time must be after start time')
+        
+        if self.valid_from and self.valid_until and self.valid_from > self.valid_until:
+            raise ValidationError('Valid until date must be after valid from date')
+    
+    def is_available_on(self, date):
+        """Check if this availability applies to the given date."""
+        if self.day_of_week != date.weekday():
+            return False
+            
+        if self.valid_from and date < self.valid_from:
+            return False
+            
+        if self.valid_until and date > self.valid_until:
+            return False
+            
+        return True

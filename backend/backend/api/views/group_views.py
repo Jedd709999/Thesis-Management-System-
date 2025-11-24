@@ -1,18 +1,80 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.viewsets import GenericViewSet
 from django.shortcuts import get_object_or_404
-from django.db import models
-from api.models.group_models import Group
+from django.db import models, transaction
+from api.models.group_models import Group, GroupMember
 from api.models.user_models import User
 from api.models.thesis_models import Thesis
-from api.serializers.group_serializers import GroupSerializer
-from api.permissions.role_permissions import IsAdviserForGroup, IsGroupMemberOrAdmin
+from api.serializers.group_serializers import GroupSerializer, GroupMemberSerializer
+from api.permissions.role_permissions import IsAdviserForGroup, IsGroupMemberOrAdmin, IsGroupLeaderOrAdmin
 
 print("DEBUG: group_views.py module loaded!")
 
+class GroupMemberViewSet(mixins.ListModelMixin,
+                        mixins.CreateModelMixin,
+                        mixins.RetrieveModelMixin,
+                        mixins.UpdateModelMixin,
+                        mixins.DestroyModelMixin,
+                        GenericViewSet):
+    """
+    API endpoint for managing group members.
+    """
+    serializer_class = GroupMemberSerializer
+    permission_classes = [permissions.IsAuthenticated, IsGroupLeaderOrAdmin]
+    
+    def get_queryset(self):
+        group_id = self.kwargs.get('group_id')
+        return GroupMember.objects.filter(group_id=group_id).select_related('user')
+    
+    def perform_create(self, serializer):
+        group = get_object_or_404(Group, id=self.kwargs['group_id'])
+        serializer.save(group=group)
+        
+        # If this is the first member, make them the leader
+        if not group.leader and group.members.count() == 1:
+            group.leader = serializer.instance.user
+            serializer.instance.role_in_group = 'leader'
+            serializer.instance.save()
+            group.save()
+        elif group.leader == serializer.instance.user:
+            # If this member is already the leader, make sure their role is set to leader
+            serializer.instance.role_in_group = 'leader'
+            serializer.instance.save()
+    
+    @action(detail=True, methods=['post'])
+    def set_role(self, request, group_id, pk=None):
+        """Set a member's role in the group."""
+        member = self.get_object()
+        role = request.data.get('role')
+        
+        if role not in dict(GroupMember.ROLES).keys():
+            return Response(
+                {'error': 'Invalid role'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # If setting role to leader, update the group's leader field
+        if role == 'leader':
+            member.group.leader = member.user
+            member.group.save()
+        # If removing leader role from current leader, clear the group's leader field
+        elif member.role_in_group == 'leader' and role != 'leader':
+            member.group.leader = None
+            member.group.save()
+            
+        member.role_in_group = role
+        member.save()
+        
+        return Response(GroupMemberSerializer(member).data)
+
+
 class GroupViewSet(viewsets.ModelViewSet):
-    queryset = Group.objects.all().prefetch_related('members','panels')
+    """
+    API endpoint for managing research groups.
+    """
+    queryset = Group.objects.all().prefetch_related('group_memberships__user', 'panels')
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdviserForGroup, IsGroupMemberOrAdmin]
     
@@ -20,15 +82,80 @@ class GroupViewSet(viewsets.ModelViewSet):
         print("DEBUG: GroupViewSet initialized!")
         super().__init__(*args, **kwargs)
     
-    def perform_create(self, serializer):
-        # Set status based on user role
+    def create(self, request, *args, **kwargs):
+        print("DEBUG: GroupViewSet create called")
+        print("DEBUG: Request data:", request.data)
+        print("DEBUG: Request user:", request.user)
+        print("DEBUG: Request user role:", getattr(request.user, 'role', 'No role'))
+        return super().create(request, *args, **kwargs)
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
         user = self.request.user
+        
+        # If user is a student, only show their groups
         if user.role == 'STUDENT':
-            serializer.save(status='PENDING')
-        elif user.role in ['ADMIN', 'ADVISER']:
-            serializer.save(status='APPROVED')
-        else:
-            serializer.save(status='PENDING')
+            return queryset.filter(
+                models.Q(members=user) | 
+                models.Q(leader=user)
+            ).distinct()
+            
+        # If user is an adviser, show groups they advise
+        elif user.role == 'ADVISER':
+            return queryset.filter(
+                models.Q(adviser=user) |
+                models.Q(panels=user)
+            ).distinct()
+            
+        # Admin can see all groups
+        elif user.role == 'ADMIN':
+            return queryset
+            
+        return queryset.none()
+        
+    def get_serializer_context(self):
+        """
+        Extra context provided to the serializer class.
+        """
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        print(f"DEBUG: perform_create called for user {user.email} (ID: {user.id}) with role {user.role}")
+        
+        try:
+            # Prepare data for group creation
+            validated_data = serializer.validated_data.copy()
+            print("DEBUG: validated_data:", validated_data)
+            
+            # Set status based on user role
+            if user.role == 'STUDENT':
+                validated_data['status'] = 'PENDING'
+            elif user.role in ['ADMIN', 'ADVISER']:
+                validated_data['status'] = 'APPROVED'
+            else:
+                validated_data['status'] = 'PENDING'
+                
+            print("DEBUG: Final validated_data:", validated_data)
+            # Save the group first
+            group = serializer.save(**validated_data)
+            print("DEBUG: Group saved with ID:", group.id)
+            
+            # Add the current user as a member if they're a student and not already a member
+            if user.role == 'STUDENT' and user not in group.members.all():
+                group.members.add(user)
+                group.save()
+                print("DEBUG: Added current user as member")
+            
+            print("DEBUG: perform_create completed successfully")
+        except Exception as e:
+            print("DEBUG: Exception in perform_create:", str(e))
+            print("DEBUG: Exception type:", type(e))
+            import traceback
+            print("DEBUG: Traceback:", traceback.format_exc())
+            raise
     
     def get_object(self):
         print(f"DEBUG: get_object called for pk={self.kwargs.get('pk')}, action: {self.action}")
@@ -138,9 +265,9 @@ class GroupViewSet(viewsets.ModelViewSet):
             
             # Create thesis with group information
             thesis = Thesis.objects.create(
-                title=group.proposed_topic_title or f"Thesis for {group.name}",
-                abstract=group.abstract or "",
-                keywords=group.keywords or "",
+                title=group.name,
+                abstract="",
+                keywords="",
                 group=group,
                 proposer=proposer,
                 status='DRAFT'

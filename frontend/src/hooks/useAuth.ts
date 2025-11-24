@@ -37,6 +37,7 @@ export const useAuth = () => {
     login: context.setUser,
     logout: context.logout,
     refreshToken: context.refreshToken,
+    checkAuthStatus: context.checkAuthStatus,
     
     // Token utilities
     getAccessToken: getAccessToken,

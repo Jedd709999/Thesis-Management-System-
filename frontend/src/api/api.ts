@@ -28,96 +28,84 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
   failedQueue = []
 }
 
-// Request interceptor to add access token
+// Request interceptor to add auth token
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('access_token')
+    const token = localStorage.getItem('access_token');
+    
+    // Add the auth token to requests
     if (token) {
-      if (!config.headers) config.headers = new AxiosHeaders()
-      config.headers.set('Authorization', `Bearer ${token}`)
-      console.log('Adding auth header to:', config.url)
-    } else {
-      console.log('No token found for:', config.url)
+      if (!config.headers) config.headers = new AxiosHeaders();
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
-    return config
+    
+    return config;
   },
-  (error) => Promise.reject(error)
-)
+  (error) => {
+    console.error('API Interceptor: Request error:', error);
+    return Promise.reject(error);
+  }
+);
 
 // Response interceptor to handle token refresh
 api.interceptors.response.use(
   (response) => {
-    console.log('API response:', response.config.url, 'Status:', response.status)
-    return response
-  }, // Return successful responses as-is
+    console.log('API response:', response.config.url, 'Status:', response.status);
+    return response;
+  },
   async (error: AxiosError) => {
-    console.error('API error:', error.config?.url, 'Status:', error.response?.status, 'Data:', error.response?.data)
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     
-    // Check if this is a 401 error and we haven't already retried
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      // If we're already refreshing, queue this request
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject })
-        }).then((token) => {
-          if (originalRequest.headers) {
-            if (!originalRequest.headers) originalRequest.headers = new AxiosHeaders()
-            originalRequest.headers.set('Authorization', `Bearer ${token}`)
-          }
-          return api(originalRequest)
-        }).catch((err) => {
-          return Promise.reject(err)
-        })
-      }
-
-      originalRequest._retry = true
-      isRefreshing = true
-
-      try {
-        const refreshToken = localStorage.getItem('refresh_token')
-        if (!refreshToken) {
-          throw new Error('No refresh token available')
-        }
-
-        // Attempt to refresh the token
-        const response = await axios.post(`${API_BASE}auth/refresh/`, {
-          refresh: refreshToken
-        })
-
-        const { access } = response.data
-        localStorage.setItem('access_token', access)
-        
-        // Update the authorization header for the original request
-        if (originalRequest.headers) {
-          if (!originalRequest.headers) originalRequest.headers = new AxiosHeaders()
-          originalRequest.headers.set('Authorization', `Bearer ${access}`)
-        }
-
-        // Process any queued requests with the new token
-        processQueue(null, access)
-        
-        // Retry the original request
-        return api(originalRequest)
-      } catch (refreshError) {
-        // Refresh failed, clear tokens and redirect to login
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        
-        // Process queued requests with the error
-        processQueue(refreshError as AxiosError, null)
-        
-        // Redirect to login page
-        window.location.href = '/login'
-        
-        return Promise.reject(refreshError)
-      } finally {
-        isRefreshing = false
-      }
+    // Don't retry if it's not a 401 or if it's a login/refresh request
+    if (
+      error.response?.status !== 401 || 
+      originalRequest.url?.includes('auth/login') || 
+      originalRequest.url?.includes('auth/refresh')
+    ) {
+      return Promise.reject(error);
     }
 
-    // For other errors, just reject
-    return Promise.reject(error)
+    // If we've already retried, reject
+    if (originalRequest._retry) {
+      console.log('Already retried with new token, logging out...');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+
+    // Mark that we're retrying
+    originalRequest._retry = true;
+    
+    try {
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+
+      // Get new access token
+      const response = await axios.post(`${API_BASE}auth/refresh/`, {
+        refresh: refreshToken
+      });
+
+      const { access } = response.data;
+      localStorage.setItem('access_token', access);
+      
+      // Update the authorization header
+      if (originalRequest.headers) {
+        originalRequest.headers['Authorization'] = `Bearer ${access}`;
+      }
+
+      // Retry the original request
+      return api(originalRequest);
+    } catch (refreshError) {
+      console.error('Failed to refresh token:', refreshError);
+      // Clear tokens and redirect to login
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      window.location.href = '/login';
+      return Promise.reject(refreshError);
+    }
   }
 )
 

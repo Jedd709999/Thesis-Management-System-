@@ -1,644 +1,325 @@
-import React, { useState } from 'react'
-import { Box, Typography, Button, Avatar, TextField, Switch, Chip, Card, CardContent, Divider, Grid, IconButton } from '@mui/material'
-import { Person, Shield, Link as LinkIcon, DarkMode, ViewComfy, Notifications, Nature, Upload, Edit, Settings } from '@mui/icons-material'
-import { useAuth } from '../../hooks/useAuth'
+import { User, Lock, Link as LinkIcon, Moon, Shield, Bell, Leaf } from 'lucide-react';
+import { Card, Button, Badge, Avatar, AvatarFallback, Switch } from '../../components/ui';
 
-export default function SettingsPage() {
-  const { user } = useAuth()
-  const [formData, setFormData] = useState({
-    firstName: user?.first_name || '',
-    lastName: user?.last_name || '',
-    email: user?.email || '',
-    department: '',
-    bio: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  })
+interface SettingsProps {
+  userRole: 'student' | 'adviser' | 'panel' | 'admin';
+}
 
-  const [notificationSettings, setNotificationSettings] = useState({
-    emailNotifications: true,
-    thesisUpdates: true,
-    documentComments: true,
-    scheduleReminders: true
-  })
-
-  const [appearanceSettings, setAppearanceSettings] = useState({
-    darkMode: false,
-    compactView: false
-  })
-
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
-
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'ADMIN':
-        return { backgroundColor: '#F3E8FF', color: '#7C3AED', border: '1px solid #D8B4FE' }
-      case 'ADVISER':
-        return { backgroundColor: '#DBEAFE', color: '#2563EB', border: '1px solid #93C5FD' }
-      case 'PANEL':
-        return { backgroundColor: '#FEF3C7', color: '#D97706', border: '1px solid #FCD34D' }
+export function Settings({ userRole }: SettingsProps) {
+  const getRoleBadgeColor = () => {
+    switch (userRole) {
+      case 'admin':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'adviser':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'panel':
+        return 'bg-amber-100 text-amber-800 border-amber-200';
       default:
-        return { backgroundColor: '#DCFCE7', color: '#16A34A', border: '1px solid #86EFAC' }
+        return 'bg-green-100 text-green-800 border-green-200';
     }
-  }
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  const handleNotificationChange = (field: string, value: boolean) => {
-    setNotificationSettings(prev => ({ ...prev, [field]: value }))
-  }
-
-  const handleAppearanceChange = (field: string, value: boolean) => {
-    setAppearanceSettings(prev => ({ ...prev, [field]: value }))
-  }
-
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
-  }
+  };
 
   return (
-    <Box sx={{ p: 4, backgroundColor: '#F8FAFC' }}>
+    <div className="p-8 space-y-6">
       {/* Header */}
-      <Box sx={{ mb: 6 }}>
-        <Typography variant="h3" sx={{ color: '#1E293B', fontWeight: 600, mb: 1 }}>
-          Settings
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Settings sx={{ width: 16, height: 16, color: '#10B981' }} />
-          <Typography variant="body1" sx={{ color: '#64748B' }}>
-            Manage your account preferences and system settings
-          </Typography>
-        </Box>
-      </Box>
+      <div>
+        <h1 className="text-3xl text-slate-900 mb-2">Settings</h1>
+        <p className="text-slate-600">Manage your account preferences and system settings</p>
+      </div>
 
-      <Grid container spacing={4}>
-        {/* Main Settings */}
-        <Grid item xs={12} lg={8}>
-          <Card sx={{ border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <CardContent sx={{ p: 4 }}>
-              {/* Profile Settings */}
-              <Box sx={{ mb: 6 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                  <Person sx={{ color: '#10B981' }} />
-                  <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 600 }}>
-                    Profile Settings
-                  </Typography>
-                </Box>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Profile Settings */}
+        <Card className="lg:col-span-2 p-6 border-0 shadow-sm space-y-6">
+          <div>
+            <h2 className="text-slate-900 mb-6 flex items-center gap-2">
+              <User className="w-5 h-5 text-green-600" />
+              Profile Settings
+            </h2>
 
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, mb: 4, pb: 4, borderBottom: '1px solid #E2E8F0' }}>
-                  <Avatar
-                    sx={{
-                      width: 80,
-                      height: 80,
-                      backgroundColor: '#F0FDF4',
-                      color: '#10B981',
-                      fontSize: '1.5rem',
-                      fontWeight: 600
-                    }}
-                  >
-                    {getInitials(formData.firstName, formData.lastName)}
-                  </Avatar>
-                  <Box sx={{ flex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                      <Typography variant="h6" sx={{ color: '#1E293B' }}>
-                        {`${formData.firstName} ${formData.lastName}`}
-                      </Typography>
-                      <Chip
-                        label={user?.role || 'STUDENT'}
-                        size="small"
-                        sx={getRoleBadgeColor(user?.role || 'STUDENT')}
-                      />
-                    </Box>
-                    <Typography variant="body2" sx={{ color: '#64748B', mb: 2 }}>
-                      {formData.email}
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Upload />}
-                      sx={{
-                        borderColor: '#E2E8F0',
-                        color: '#64748B',
-                        '&:hover': {
-                          borderColor: '#CBD5E1',
-                          backgroundColor: '#F8FAFC'
-                        }
-                      }}
-                    >
-                      Change Avatar
-                    </Button>
-                  </Box>
-                </Box>
+            <div className="flex items-start gap-6 mb-6 pb-6 border-b border-slate-200">
+              <Avatar className="w-20 h-20">
+                <AvatarFallback className="bg-green-100 text-green-800 text-xl">
+                  JS
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-slate-900">John Smith</h3>
+                  <Badge variant="secondary" className={`border ${getRoleBadgeColor()}`}>
+                    {userRole}
+                  </Badge>
+                </div>
+                <p className="text-sm text-slate-600 mb-3">jsmith@university.edu</p>
+                <Button variant="outline" size="sm">
+                  Change Avatar
+                </Button>
+              </div>
+            </div>
 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="First Name"
-                        value={formData.firstName}
-                        onChange={(e) => handleInputChange('firstName', e.target.value)}
-                        fullWidth
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: '#CBD5E1' },
-                            '&.Mui-focused fieldset': { borderColor: '#10B981' }
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="Last Name"
-                        value={formData.lastName}
-                        onChange={(e) => handleInputChange('lastName', e.target.value)}
-                        fullWidth
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: '#CBD5E1' },
-                            '&.Mui-focused fieldset': { borderColor: '#10B981' }
-                          }
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-
-                  <TextField
-                    label="Email Address"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    fullWidth
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#CBD5E1' },
-                        '&.Mui-focused fieldset': { borderColor: '#10B981' }
-                      }
-                    }}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-700 mb-2">First Name</label>
+                  <input
+                    type="text"
+                    defaultValue="John"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
-
-                  <TextField
-                    label="Department"
-                    value={formData.department}
-                    onChange={(e) => handleInputChange('department', e.target.value)}
-                    fullWidth
-                    placeholder="Environmental Science"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#CBD5E1' },
-                        '&.Mui-focused fieldset': { borderColor: '#10B981' }
-                      }
-                    }}
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-700 mb-2">Last Name</label>
+                  <input
+                    type="text"
+                    defaultValue="Smith"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
+                </div>
+              </div>
 
-                  <TextField
-                    label="Bio"
-                    multiline
-                    rows={3}
-                    value={formData.bio}
-                    onChange={(e) => handleInputChange('bio', e.target.value)}
-                    fullWidth
-                    placeholder="Graduate student researching climate change impacts on biodiversity."
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#CBD5E1' },
-                        '&.Mui-focused fieldset': { borderColor: '#10B981' }
-                      }
-                    }}
-                  />
+              <div>
+                <label className="block text-sm text-slate-700 mb-2">Email Address</label>
+                <input
+                  type="email"
+                  defaultValue="jsmith@university.edu"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
 
-                  <Button
-                    variant="contained"
-                    sx={{
-                      backgroundColor: '#059669',
-                      '&:hover': { backgroundColor: '#047857' },
-                      alignSelf: 'flex-start',
-                      px: 4
-                    }}
-                  >
-                    Save Changes
-                  </Button>
-                </Box>
-              </Box>
+              <div>
+                <label className="block text-sm text-slate-700 mb-2">Department</label>
+                <input
+                  type="text"
+                  defaultValue="Environmental Science"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
 
-              {/* Security Settings */}
-              <Box sx={{ pt: 4, borderTop: '1px solid #E2E8F0' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                  <Shield sx={{ color: '#10B981' }} />
-                  <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 600 }}>
-                    Security Settings
-                  </Typography>
-                </Box>
+              <div>
+                <label className="block text-sm text-slate-700 mb-2">Bio</label>
+                <textarea
+                  rows={3}
+                  defaultValue="Graduate student researching climate change impacts on biodiversity."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+                ></textarea>
+              </div>
 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <TextField
-                    label="Current Password"
+              <Button className="bg-green-700 hover:bg-green-800 text-white">
+                Save Changes
+              </Button>
+            </div>
+          </div>
+
+          {/* Security */}
+          <div className="pt-6 border-t border-slate-200">
+            <h2 className="text-slate-900 mb-6 flex items-center gap-2">
+              <Lock className="w-5 h-5 text-green-600" />
+              Security
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-700 mb-2">Current Password</label>
+                <input
+                  type="password"
+                  placeholder="Enter current password"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-700 mb-2">New Password</label>
+                  <input
                     type="password"
-                    value={formData.currentPassword}
-                    onChange={(e) => handleInputChange('currentPassword', e.target.value)}
-                    fullWidth
-                    placeholder="Enter current password"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#CBD5E1' },
-                        '&.Mui-focused fieldset': { borderColor: '#10B981' }
-                      }
-                    }}
+                    placeholder="Enter new password"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-700 mb-2">Confirm Password</label>
+                  <input
+                    type="password"
+                    placeholder="Confirm new password"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
 
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="New Password"
-                        type="password"
-                        value={formData.newPassword}
-                        onChange={(e) => handleInputChange('newPassword', e.target.value)}
-                        fullWidth
-                        placeholder="Enter new password"
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: '#CBD5E1' },
-                            '&.Mui-focused fieldset': { borderColor: '#10B981' }
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="Confirm Password"
-                        type="password"
-                        value={formData.confirmPassword}
-                        onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                        fullWidth
-                        placeholder="Confirm new password"
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: '#CBD5E1' },
-                            '&.Mui-focused fieldset': { borderColor: '#10B981' }
-                          }
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
+              <Button variant="outline">Change Password</Button>
 
-                  <Button
-                    variant="outlined"
-                    sx={{
-                      borderColor: '#E2E8F0',
-                      color: '#64748B',
-                      '&:hover': {
-                        borderColor: '#CBD5E1',
-                        backgroundColor: '#F8FAFC'
-                      },
-                      alignSelf: 'flex-start'
-                    }}
-                  >
-                    Change Password
+              <div className="pt-4 border-t border-slate-200">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="text-sm text-slate-900">Two-Factor Authentication</p>
+                      <p className="text-xs text-slate-600">Add an extra layer of security</p>
+                    </div>
+                  </div>
+                  <Switch />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Connected Apps */}
+          <div className="pt-6 border-t border-slate-200">
+            <h2 className="text-slate-900 mb-6 flex items-center gap-2">
+              <LinkIcon className="w-5 h-5 text-green-600" />
+              Connected Apps
+            </h2>
+
+            <div className="space-y-3">
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-slate-200">
+                      <svg className="w-6 h-6" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-900">Google Workspace</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                          Connected
+                        </Badge>
+                        <span className="text-xs text-slate-500">jsmith@university.edu</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    Disconnect
                   </Button>
+                </div>
+              </div>
 
-                  <Box sx={{ pt: 2, borderTop: '1px solid #E2E8F0' }}>
-                    <Card sx={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-                      <CardContent sx={{ p: 3 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Shield sx={{ color: '#10B981' }} />
-                            <Box>
-                              <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 500 }}>
-                                Two-Factor Authentication
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: '#64748B' }}>
-                                Add an extra layer of security
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <Switch
-                            checked={twoFactorEnabled}
-                            onChange={(e) => setTwoFactorEnabled(e.target.checked)}
-                            sx={{
-                              '& .MuiSwitch-switchBase.Mui-checked': {
-                                color: '#10B981'
-                              },
-                              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                backgroundColor: '#86EFAC'
-                              }
-                            }}
-                          />
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Box>
-                </Box>
-              </Box>
-
-              {/* Connected Apps */}
-              <Box sx={{ pt: 4, borderTop: '1px solid #E2E8F0' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                  <LinkIcon sx={{ color: '#10B981' }} />
-                  <Typography variant="h5" sx={{ color: '#1E293B', fontWeight: 600 }}>
-                    Connected Apps
-                  </Typography>
-                </Box>
-
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Card sx={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-                    <CardContent sx={{ p: 3 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Box sx={{ width: 40, height: 40, backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Box sx={{ width: 24, height: 24, backgroundColor: '#4285F4', borderRadius: '50%' }} />
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 500 }}>
-                              Google Workspace
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                              <Chip
-                                label="Connected"
-                                size="small"
-                                sx={{
-                                  backgroundColor: '#DCFCE7',
-                                  color: '#16A34A',
-                                  fontSize: '11px',
-                                  height: 20
-                                }}
-                              />
-                              <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                                {formData.email}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          sx={{
-                            borderColor: '#E2E8F0',
-                            color: '#64748B',
-                            '&:hover': {
-                              borderColor: '#CBD5E1',
-                              backgroundColor: '#F8FAFC'
-                            }
-                          }}
-                        >
-                          Disconnect
-                        </Button>
-                      </Box>
-                    </CardContent>
-                  </Card>
-
-                  <Card sx={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', opacity: 0.6 }}>
-                    <CardContent sx={{ p: 3 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Box sx={{ width: 40, height: 40, backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <LinkIcon sx={{ color: '#94A3B8', fontSize: 20 }} />
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 500 }}>
-                              OneDrive
-                            </Typography>
-                            <Chip
-                              label="Not Connected"
-                              size="small"
-                              sx={{
-                                backgroundColor: '#F1F5F9',
-                                color: '#64748B',
-                                fontSize: '11px',
-                                height: 20,
-                                mt: 0.5
-                              }}
-                            />
-                          </Box>
-                        </Box>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          disabled
-                          sx={{
-                            borderColor: '#E2E8F0',
-                            color: '#94A3B8'
-                          }}
-                        >
-                          Connect
-                        </Button>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 opacity-60">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-slate-200">
+                      <LinkIcon className="w-5 h-5 text-slate-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-900">OneDrive</p>
+                      <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs mt-1">
+                        Not Connected
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" disabled>
+                    Connect
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
 
         {/* Sidebar Settings */}
-        <Grid item xs={12} lg={4}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {/* Appearance */}
-            <Card sx={{ border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <DarkMode sx={{ color: '#10B981' }} />
-                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 600 }}>
-                    Appearance
-                  </Typography>
-                </Box>
+        <div className="space-y-6">
+          {/* Appearance */}
+          <Card className="p-6 border-0 shadow-sm">
+            <h2 className="text-slate-900 mb-6 flex items-center gap-2">
+              <Moon className="w-5 h-5 text-green-600" />
+              Appearance
+            </h2>
 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Card sx={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-                    <CardContent sx={{ p: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box>
-                          <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 500 }}>
-                            Dark Mode
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: '#64748B' }}>
-                            Switch to dark theme
-                          </Typography>
-                        </Box>
-                        <Switch
-                          checked={appearanceSettings.darkMode}
-                          onChange={(e) => handleAppearanceChange('darkMode', e.target.checked)}
-                          sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#10B981'
-                            },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#86EFAC'
-                            }
-                          }}
-                        />
-                      </Box>
-                    </CardContent>
-                  </Card>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="text-sm text-slate-900">Dark Mode</p>
+                  <p className="text-xs text-slate-600">Switch to dark theme</p>
+                </div>
+                <Switch />
+              </div>
 
-                  <Card sx={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-                    <CardContent sx={{ p: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box>
-                          <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 500 }}>
-                            Compact View
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: '#64748B' }}>
-                            Reduce spacing
-                          </Typography>
-                        </Box>
-                        <Switch
-                          checked={appearanceSettings.compactView}
-                          onChange={(e) => handleAppearanceChange('compactView', e.target.checked)}
-                          sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#10B981'
-                            },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#86EFAC'
-                            }
-                          }}
-                        />
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Box>
-              </CardContent>
-            </Card>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="text-sm text-slate-900">Compact View</p>
+                  <p className="text-xs text-slate-600">Reduce spacing</p>
+                </div>
+                <Switch />
+              </div>
+            </div>
+          </Card>
 
-            {/* Notifications */}
-            <Card sx={{ border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Notifications sx={{ color: '#10B981' }} />
-                  <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 600 }}>
-                    Notifications
-                  </Typography>
-                </Box>
+          {/* Notifications */}
+          <Card className="p-6 border-0 shadow-sm">
+            <h2 className="text-slate-900 mb-6 flex items-center gap-2">
+              <Bell className="w-5 h-5 text-green-600" />
+              Notifications
+            </h2>
 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 500 }}>
-                        Email Notifications
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#64748B' }}>
-                        Receive updates via email
-                      </Typography>
-                    </Box>
-                    <Switch
-                      checked={notificationSettings.emailNotifications}
-                      onChange={(e) => handleNotificationChange('emailNotifications', e.target.checked)}
-                      sx={{
-                        '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#10B981'
-                        },
-                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#86EFAC'
-                        }
-                      }}
-                    />
-                  </Box>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-900">Email Notifications</p>
+                  <p className="text-xs text-slate-600">Receive updates via email</p>
+                </div>
+                <Switch defaultChecked />
+              </div>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 500 }}>
-                        Thesis Updates
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#64748B' }}>
-                        Notify about thesis changes
-                      </Typography>
-                    </Box>
-                    <Switch
-                      checked={notificationSettings.thesisUpdates}
-                      onChange={(e) => handleNotificationChange('thesisUpdates', e.target.checked)}
-                      sx={{
-                        '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#10B981'
-                        },
-                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#86EFAC'
-                        }
-                      }}
-                    />
-                  </Box>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-900">Thesis Updates</p>
+                  <p className="text-xs text-slate-600">Notify about thesis changes</p>
+                </div>
+                <Switch defaultChecked />
+              </div>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 500 }}>
-                        Document Comments
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#64748B' }}>
-                        Alert on new comments
-                      </Typography>
-                    </Box>
-                    <Switch
-                      checked={notificationSettings.documentComments}
-                      onChange={(e) => handleNotificationChange('documentComments', e.target.checked)}
-                      sx={{
-                        '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#10B981'
-                        },
-                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#86EFAC'
-                        }
-                      }}
-                    />
-                  </Box>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-900">Document Comments</p>
+                  <p className="text-xs text-slate-600">Alert on new comments</p>
+                </div>
+                <Switch defaultChecked />
+              </div>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ color: '#1E293B', fontWeight: 500 }}>
-                        Schedule Reminders
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#64748B' }}>
-                        Defense date reminders
-                      </Typography>
-                    </Box>
-                    <Switch
-                      checked={notificationSettings.scheduleReminders}
-                      onChange={(e) => handleNotificationChange('scheduleReminders', e.target.checked)}
-                      sx={{
-                        '& .MuiSwitch-switchBase.Mui-checked': {
-                          color: '#10B981'
-                        },
-                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                          backgroundColor: '#86EFAC'
-                        }
-                      }}
-                    />
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-900">Schedule Reminders</p>
+                  <p className="text-xs text-slate-600">Defense date reminders</p>
+                </div>
+                <Switch defaultChecked />
+              </div>
+            </div>
+          </Card>
 
-            {/* System Info */}
-            <Card sx={{ border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)' }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Nature sx={{ color: '#047857', fontSize: 32 }} />
-                  <Box>
-                    <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 600 }}>
-                      ENVISys
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#047857' }}>
-                      Version 1.0.0
-                    </Typography>
-                  </Box>
-                </Box>
-                <Typography variant="caption" sx={{ color: '#047857', mb: 2, display: 'block' }}>
-                  Environmental Science Thesis Management System
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                  <Typography variant="caption" sx={{ color: '#047857' }}>
-                    © 2025 Environmental Science Department
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#047857' }}>
-                    University Research System
-                  </Typography>
-                </Box>
-              </CardContent>
-            </Card>
-          </Box>
-        </Grid>
-      </Grid>
-    </Box>
-  )
+          {/* System Info */}
+          <Card className="p-6 border-0 shadow-sm bg-gradient-to-br from-green-50 to-green-100">
+            <div className="flex items-center gap-3 mb-4">
+              <Leaf className="w-8 h-8 text-green-700" />
+              <div>
+                <h3 className="text-slate-900">ENVISys</h3>
+                <p className="text-xs text-green-700">Version 1.0.0</p>
+              </div>
+            </div>
+            <p className="text-xs text-green-800 mb-4">
+              Environmental Science Thesis Management System
+            </p>
+            <div className="space-y-2 text-xs text-green-700">
+              <p>© 2025 Environmental Science Department</p>
+              <p>University Research System</p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
 }

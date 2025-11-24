@@ -1,24 +1,57 @@
 from rest_framework import serializers
-from api.models.group_models import Group
+from api.models.group_models import Group, GroupMember
 from api.models.user_models import User
+from api.models.thesis_models import Thesis
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'email', 'first_name', 'last_name', 'role')
+        read_only_fields = ('email', 'first_name', 'last_name', 'role')
+
+class GroupMemberSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='STUDENT'),
+        write_only=True,
+        source='user'
+    )
+    role_in_group_display = serializers.CharField(source='get_role_in_group_display', read_only=True)
+
+    class Meta:
+        model = GroupMember
+        fields = ('id', 'user', 'user_id', 'role_in_group', 'role_in_group_display', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'created_at', 'updated_at', 'group')
+
+class ThesisSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Thesis
+        fields = ('id', 'title', 'status')
 
 class GroupSerializer(serializers.ModelSerializer):
-    members = UserSerializer(many=True, read_only=True)
+    group_members = GroupMemberSerializer(source='group_memberships', many=True, read_only=True)
     adviser = UserSerializer(read_only=True, allow_null=True)
     panels = UserSerializer(many=True, read_only=True)
+    thesis = ThesisSerializer(read_only=True, allow_null=True)
+    
+    def __init__(self, *args, **kwargs):
+        print("DEBUG: GroupSerializer initialized")
+        super().__init__(*args, **kwargs)
+        print("DEBUG: GroupSerializer instance:", self)
+        if hasattr(self, 'context') and 'request' in self.context:
+            print("DEBUG: Request in context:", self.context['request'])
     
     # Write-only fields for updates
-    member_ids = serializers.PrimaryKeyRelatedField(
-        many=True, 
-        queryset=User.objects.all(), 
-        write_only=True, 
+    member_ids = serializers.ListField(
+        child=serializers.CharField(),  # Changed from IntegerField to CharField for UUIDs
+        write_only=True,
         required=False,
-        source='members'
+        help_text="List of user IDs to be added as members"
+    )
+    leader_id = serializers.CharField(  # Changed from IntegerField to CharField for UUIDs
+        write_only=True,
+        required=False,
+        help_text="ID of the group leader"
     )
     adviser_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role='ADVISER'), 
@@ -34,74 +67,240 @@ class GroupSerializer(serializers.ModelSerializer):
         required=False,
         source='panels'
     )
+    
     class Meta:
         model = Group
-        fields = ('id','name','status','proposed_topic_title','abstract','keywords','rejection_reason','leader','members','adviser','panels','member_ids','adviser_id','panel_ids','created_at')
+        fields = [
+            'id', 'name', 'status', 'possible_topics', 'rejection_reason', 
+            'leader', 'group_members', 'adviser', 'panels', 'member_ids', 
+            'adviser_id', 'panel_ids', 'thesis', 'created_at', 'updated_at', 'leader_id'
+        ]
+        read_only_fields = ['status', 'created_at', 'updated_at']
+    
+    def is_valid(self, raise_exception=False):
+        print("DEBUG: GroupSerializer is_valid called")
+        print("DEBUG: Initial data:", self.initial_data)
+        try:
+            result = super().is_valid(raise_exception=raise_exception)
+            print("DEBUG: Validation result:", result)
+            if not result:
+                print("DEBUG: Validation errors:", self.errors)
+            return result
+        except Exception as e:
+            print("DEBUG: Exception during validation:", str(e))
+            print("DEBUG: Exception type:", type(e))
+            raise
     
     def validate(self, attrs):
-        members = attrs.get('members', [])
-        
-        # For partial updates, if members is not provided, get current members
-        if self.partial and 'members' not in attrs and self.instance:
-            members = list(self.instance.members.all())
-        
-        # Check if any student members are already in another group
-        for member in members:
-            if member.role == 'STUDENT':
-                existing_groups = Group.objects.filter(members=member)
-                # Exclude current group if updating
-                if self.instance:
-                    existing_groups = existing_groups.exclude(id=self.instance.id)
-                if existing_groups.exists():
-                    raise serializers.ValidationError(f"Student {member.email} is already a member of another group")
-        
-        return attrs
-    
-    def create(self, validated):
-        members = validated.pop('members', [])
-        panels = validated.pop('panels', [])
-        
-        # Ensure status is set, use default if not provided
-        if 'status' not in validated:
-            validated['status'] = 'PENDING'
-        
-        # Set the leader as the user making the request
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            validated['leader'] = request.user
-        
-        group = Group.objects.create(**validated)
-        
-        # Add the leader as a member if they're not already in the members list
-        if validated['leader'] and validated['leader'] not in members:
-            members.append(validated['leader'])
+        print("DEBUG: Validating group data:", attrs)
+        try:
+            # Ensure possible_topics is provided
+            if not attrs.get('possible_topics'):
+                print("DEBUG: possible_topics validation failed")
+                raise serializers.ValidationError({
+                    'possible_topics': 'Possible topics must be provided.'
+                })
+                
+            # Ensure member_ids are provided when creating a new group
+            if self.instance is None and 'member_ids' not in attrs:
+                print("DEBUG: member_ids validation failed")
+                raise serializers.ValidationError({
+                    'member_ids': 'At least one member must be provided.'
+                })
+                
+            member_ids = attrs.get('member_ids', [])
+            print("DEBUG: member_ids:", member_ids)
             
-        if members:
-            group.members.set(members)
-        if panels:
-            group.panels.set(panels)
-        group.save()
-        return group
-    
-    def update(self, instance, validated):
-        # Handle the update normally
-        for attr, value in validated.items():
-            # Special handling for status changes by students
-            if attr == 'status' and self.context['request'].user.role == 'STUDENT':
-                # Students can only change status from REJECTED back to PENDING
-                if instance.status == 'REJECTED' and value == 'PENDING':
-                    setattr(instance, attr, value)
-                    # Clear the rejection reason when resubmitting
-                    instance.rejection_reason = ''
+            # For partial updates, if member_ids is not provided, get current members
+            if self.partial and 'member_ids' not in attrs and self.instance:
+                member_ids = list(self.instance.members.values_list('id', flat=True))
+            
+            # Check if any student members are already in another group
+            error_messages = []
+            for user_id in member_ids:
+                try:
+                    # user_id is already a UUID string, no conversion needed
+                    user = User.objects.get(pk=user_id)
+                    print(f"DEBUG: Checking user {user.email} (ID: {user_id}) with role {user.role}")
+                    if user.role == 'STUDENT':
+                        existing_groups = Group.objects.filter(members=user)
+                        # Exclude current group if updating
+                        if self.instance:
+                            existing_groups = existing_groups.exclude(id=self.instance.id)
+                        if existing_groups.exists():
+                            print(f"DEBUG: Student {user.email} is already in another group")
+                            error_messages.append(f"Student {user.first_name} {user.last_name} ({user.email}) is already a member of another group")
+                except User.DoesNotExist:
+                    print(f"DEBUG: User with ID {user_id} does not exist")
+                    raise serializers.ValidationError(f"User with ID {user_id} does not exist")
+            
+            # If we found any students already in groups, raise a validation error
+            if error_messages:
+                # Create a more user-friendly error message
+                if len(error_messages) == 1:
+                    message = error_messages[0]
                 else:
-                    # For all other status changes, ignore the request
-                    continue
-            elif attr == 'members':
-                instance.members.set(value)
-            elif attr == 'panels':
-                instance.panels.set(value)
-            else:
-                setattr(instance, attr, value)
-        
-        instance.save()
-        return instance
+                    message = "The following students are already members of other groups:\n" + "\n".join(error_messages)
+                
+                raise serializers.ValidationError({
+                    'member_ids': message,
+                    'non_field_errors': message  # Also add to non_field_errors for broader compatibility
+                })
+            
+            print("DEBUG: Validation passed")
+            return attrs
+        except Exception as e:
+            print("DEBUG: Exception in validate method:", str(e))
+            print("DEBUG: Exception type:", type(e))
+            raise
+    
+    def create(self, validated_data):
+        print("DEBUG: Creating group with validated_data:", validated_data)
+        try:
+            # Extract special fields that need separate handling
+            member_ids = validated_data.pop('member_ids', [])
+            adviser = validated_data.pop('adviser', None)
+            panel_ids = validated_data.pop('panel_ids', [])  # Fixed: was 'panels', should be 'panel_ids'
+            leader_id = validated_data.pop('leader_id', None)
+            
+            print("DEBUG: Extracted member_ids:", member_ids)
+            print("DEBUG: Extracted adviser:", adviser)
+            print("DEBUG: Extracted panel_ids:", panel_ids)
+            print("DEBUG: Extracted leader_id:", leader_id)
+            
+            # Handle empty string adviser_id
+            if adviser == '':
+                adviser = None
+                print("DEBUG: Set empty adviser to None")
+            
+            # Create the group
+            group = Group.objects.create(**validated_data)
+            print("DEBUG: Group created with ID:", group.id)
+            
+            # Set leader if provided
+            if leader_id:
+                try:
+                    # leader_id is already a UUID string, no conversion needed
+                    leader_user = User.objects.get(pk=leader_id)
+                    group.leader = leader_user
+                    print("DEBUG: Set leader to user ID:", leader_id)
+                except User.DoesNotExist:
+                    print(f"DEBUG: Leader user with ID {leader_id} does not exist")
+                    raise serializers.ValidationError(f"Leader user with ID {leader_id} does not exist")
+            
+            # Add members with their roles
+            if member_ids:
+                # The first member is the leader if not specified
+                leader_added = False
+                for i, user_id in enumerate(member_ids):
+                    role = 'member'
+                    # If no leader was explicitly set and this is the first member, make them leader
+                    if not group.leader and i == 0:
+                        role = 'leader'  # Set role to leader for the first member
+                        try:
+                            # user_id is already a UUID string, no conversion needed
+                            user = User.objects.get(pk=user_id)
+                            group.leader = user
+                            leader_added = True
+                            print("DEBUG: Set leader to user ID:", user_id)
+                        except User.DoesNotExist:
+                            print(f"DEBUG: Leader user with ID {user_id} does not exist")
+                            raise serializers.ValidationError(f"Leader user with ID {user_id} does not exist")
+                    
+                    try:
+                        # user_id is already a UUID string, no conversion needed
+                        user = User.objects.get(pk=user_id)
+                        GroupMember.objects.create(
+                            group=group,
+                            user=user,
+                            role_in_group=role
+                        )
+                        print("DEBUG: Added member with user ID:", user_id, "with role:", role)
+                    except User.DoesNotExist:
+                        print(f"DEBUG: Member user with ID {user_id} does not exist")
+                        raise serializers.ValidationError(f"Member user with ID {user_id} does not exist")
+                
+                if leader_added:
+                    group.save()
+                    print("DEBUG: Saved group with leader")
+            
+            # Add adviser if provided
+            if adviser:
+                # Handle adviser_id being a string
+                if isinstance(adviser, str):
+                    if adviser:  # Check if adviser is not empty
+                        try:
+                            adviser = User.objects.get(pk=adviser)
+                            print("DEBUG: Set adviser from string ID:", adviser)
+                        except User.DoesNotExist:
+                            print(f"DEBUG: Adviser user with ID {adviser} does not exist")
+                            raise serializers.ValidationError(f"Adviser user with ID {adviser} does not exist")
+                    else:
+                        # Empty string adviser ID
+                        adviser = None
+                        print("DEBUG: Set empty adviser string to None")
+                
+                if adviser:
+                    group.adviser = adviser
+                    group.save()
+                    print("DEBUG: Set adviser and saved group")
+                
+            # Add panels if provided
+            if panel_ids:
+                # Convert panel IDs to User objects
+                panel_users = []
+                for panel_id in panel_ids:
+                    try:
+                        # panel_id is already a UUID string, no conversion needed
+                        if panel_id:  # Check if panel_id is not empty
+                            panel_user = User.objects.get(pk=panel_id)
+                            panel_users.append(panel_user)
+                        else:
+                            print(f"DEBUG: Skipping empty panel ID: {panel_id}")
+                    except User.DoesNotExist:
+                        print(f"DEBUG: Panel user with ID {panel_id} does not exist")
+                        raise serializers.ValidationError(f"Panel user with ID {panel_id} does not exist")
+                
+                group.panels.set(panel_users)
+                print("DEBUG: Set panels and saved group")
+            
+            print("DEBUG: Group creation completed successfully")
+            return group
+        except Exception as e:
+            print("DEBUG: Exception in create method:", str(e))
+            print("DEBUG: Exception type:", type(e))
+            import traceback
+            print("DEBUG: Traceback:", traceback.format_exc())
+            raise
+    
+    def update(self, instance, validated_data):
+        print("DEBUG: Updating group with validated_data:", validated_data)
+        try:
+            # Handle the update normally
+            for attr, value in validated_data.items():
+                # Special handling for status changes by students
+                if attr == 'status' and self.context['request'].user.role == 'STUDENT':
+                    # Students can only change status from REJECTED back to PENDING
+                    if instance.status == 'REJECTED' and value == 'PENDING':
+                        setattr(instance, attr, value)
+                        # Clear the rejection reason when resubmitting
+                        instance.rejection_reason = ''
+                    else:
+                        # For all other status changes, ignore the request
+                        continue
+                elif attr == 'members':
+                    instance.members.set(value)
+                elif attr == 'panels':
+                    instance.panels.set(value)
+                else:
+                    setattr(instance, attr, value)
+            
+            instance.save()
+            print("DEBUG: Group update completed successfully")
+            return instance
+        except Exception as e:
+            print("DEBUG: Exception in update method:", str(e))
+            print("DEBUG: Exception type:", type(e))
+            import traceback
+            print("DEBUG: Traceback:", traceback.format_exc())
+            raise

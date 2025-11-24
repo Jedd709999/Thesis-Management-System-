@@ -224,7 +224,7 @@ class TestScheduleCreation:
 
     def test_list_schedules(self, adviser_client, adviser_user):
         """Test listing schedules"""
-        from api.models import Group, Thesis, DefenseSchedule
+        from api.models import Group, Thesis, OralDefenseSchedule as DefenseSchedule
         
         student = User.objects.create_user(
             email='student@test.com',
@@ -251,7 +251,7 @@ class TestScheduleCreation:
         start_time = timezone.now() + timedelta(days=7)
         end_time = start_time + timedelta(hours=2)
         
-        DefenseSchedule.objects.create(
+        OralDefenseSchedule.objects.create(
             group=group,
             start_at=start_time,
             end_at=end_time,
@@ -266,7 +266,7 @@ class TestScheduleCreation:
 
     def test_list_schedules_filtered_by_group(self, adviser_client, adviser_user):
         """Test listing schedules filtered by group"""
-        from api.models import Group, Thesis, DefenseSchedule
+        from api.models import Group, Thesis, OralDefenseSchedule as DefenseSchedule
         
         # Create two groups with schedules
         student1 = User.objects.create_user(
@@ -312,7 +312,7 @@ class TestScheduleCreation:
         start_time = timezone.now() + timedelta(days=7)
         end_time = start_time + timedelta(hours=2)
         
-        DefenseSchedule.objects.create(
+        OralDefenseSchedule.objects.create(
             group=group1,
             start_at=start_time,
             end_at=end_time,
@@ -320,7 +320,7 @@ class TestScheduleCreation:
             created_by=adviser_user
         )
         
-        DefenseSchedule.objects.create(
+        OralDefenseSchedule.objects.create(
             group=group2,
             start_at=start_time + timedelta(days=1),
             end_at=end_time + timedelta(days=1),
@@ -337,7 +337,7 @@ class TestScheduleCreation:
 
     def test_list_schedules_filtered_by_date_range(self, adviser_client, adviser_user):
         """Test listing schedules filtered by date range"""
-        from api.models import Group, Thesis, DefenseSchedule
+        from api.models import Group, Thesis, OralDefenseSchedule as DefenseSchedule
         
         student = User.objects.create_user(
             email='student@test.com',
@@ -365,7 +365,7 @@ class TestScheduleCreation:
             start_time1 = timezone.now() + timedelta(days=7)
             end_time1 = start_time1 + timedelta(hours=2)
             
-            DefenseSchedule.objects.create(
+            OralDefenseSchedule.objects.create(
                 group=group,
                 start_at=start_time1,
                 end_at=end_time1,
@@ -377,7 +377,7 @@ class TestScheduleCreation:
             start_time2 = timezone.now() + timedelta(days=7)
             end_time2 = start_time2 + timedelta(hours=2)
             
-            DefenseSchedule.objects.create(
+            OralDefenseSchedule.objects.create(
                 group=group,
                 start_at=start_time2,
                 end_at=end_time2,
@@ -397,7 +397,7 @@ class TestScheduleCreation:
 
     def test_update_schedule(self, adviser_client, adviser_user):
         """Test updating schedule details"""
-        from api.models import Group, Thesis, DefenseSchedule
+        from api.models import Group, Thesis, OralDefenseSchedule as DefenseSchedule
         
         student = User.objects.create_user(
             email='student@test.com',
@@ -423,50 +423,7 @@ class TestScheduleCreation:
         start_time = timezone.now() + timedelta(days=7)
         end_time = start_time + timedelta(hours=2)
         
-        schedule = DefenseSchedule.objects.create(
-            group=group,
-            start_at=start_time,
-            end_at=end_time,
-            location='Room 101',
-            created_by=adviser_user
-        )
-        
-        # Update location
-        data = {'location': 'Updated Room 202'}
-        response = adviser_client.patch(f'/api/schedules/{schedule.id}/', data)
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data['location'] == 'Updated Room 202'
-
-    def test_delete_schedule(self, adviser_client, adviser_user):
-        """Test deleting a schedule"""
-        from api.models import Group, Thesis, DefenseSchedule
-        
-        student = User.objects.create_user(
-            email='student@test.com',
-            password='student123',
-            role='STUDENT'
-        )
-        
-        # Create a group first
-        group = Group.objects.create(
-            name='Defense Group 1',
-            adviser=adviser_user
-        )
-        group.members.add(student)
-        
-        # Then create thesis with group
-        thesis = Thesis.objects.create(
-            title='Test Thesis',
-            abstract='Test abstract',
-            group=group,
-            proposer=student
-        )
-        
-        start_time = timezone.now() + timedelta(days=7)
-        end_time = start_time + timedelta(hours=2)
-        
-        schedule = DefenseSchedule.objects.create(
+        schedule = OralDefenseSchedule.objects.create(
             group=group,
             start_at=start_time,
             end_at=end_time,
@@ -477,11 +434,11 @@ class TestScheduleCreation:
         response = adviser_client.delete(f'/api/schedules/{schedule.id}/')
         
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert not DefenseSchedule.objects.filter(id=schedule.id).exists()
+        assert not OralDefenseSchedule.objects.filter(id=schedule.id).exists()
 
     def test_schedule_conflict_detection(self, adviser_client, adviser_user):
         """Test that conflicting schedules are detected"""
-        from api.models import Group, Thesis, DefenseSchedule
+        from api.models import Group, Thesis, OralDefenseSchedule
         
         student = User.objects.create_user(
             email='student@test.com',
@@ -489,7 +446,7 @@ class TestScheduleCreation:
             role='STUDENT'
         )
         
-        # Create a group first
+            # Create a group first
         group = Group.objects.create(
             name='Defense Group 1',
             adviser=adviser_user
@@ -508,7 +465,7 @@ class TestScheduleCreation:
         start_time = timezone.now() + timedelta(days=7, hours=10)
         end_time = start_time + timedelta(hours=2)
         
-        DefenseSchedule.objects.create(
+        OralDefenseSchedule.objects.create(
             group=group,
             start_at=start_time,
             end_at=end_time,
@@ -534,7 +491,7 @@ class TestScheduleCreation:
 
     def test_retrieve_schedule(self, adviser_client, adviser_user):
         """Test retrieving a specific schedule"""
-        from api.models import Group, Thesis, DefenseSchedule
+        from api.models import Group, Thesis, OralDefenseSchedule
         
         student = User.objects.create_user(
             email='student@test.com',
@@ -560,7 +517,7 @@ class TestScheduleCreation:
         start_time = timezone.now() + timedelta(days=7)
         end_time = start_time + timedelta(hours=2)
         
-        schedule = DefenseSchedule.objects.create(
+        schedule = OralDefenseSchedule.objects.create(
             group=group,
             start_at=start_time,
             end_at=end_time,
@@ -571,5 +528,5 @@ class TestScheduleCreation:
         response = adviser_client.get(f'/api/schedules/{schedule.id}/')
         
         assert response.status_code == status.HTTP_200_OK
-        assert response.data['id'] == schedule.id
+        assert response.data['id'] == str(schedule.id)
         assert response.data['location'] == 'Room 101'

@@ -351,3 +351,35 @@ class TestDocumentUpload:
         # This might fail if Google Drive integration requires authentication
         # but the endpoint should exist
         assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED]
+
+    def test_concept_paper_upload_updates_thesis_status(self, authenticated_client, sample_pdf, student_user):
+        """Test that uploading a concept paper updates thesis status to CONCEPT_SUBMITTED"""
+        from api.models import Thesis, Group
+        group = Group.objects.create(
+            name='Test Group 12',
+            adviser=student_user
+        )
+        group.members.add(student_user)
+        thesis = Thesis.objects.create(
+            title='Test Thesis 12',
+            abstract='Test abstract',
+            group=group,
+            proposer=student_user,
+            status='CONCEPT_SCHEDULED'  # Start with a different status
+        )
+        
+        data = {
+            'thesis': thesis.id,
+            'file': sample_pdf,
+            'document_type': 'CONCEPT_PAPER',
+            'provider': 'local'
+        }
+        
+        response = authenticated_client.post('/api/documents/', data, format='multipart')
+        
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['document_type'] == 'CONCEPT_PAPER'
+        
+        # Refresh thesis from database
+        thesis.refresh_from_db()
+        assert thesis.status == 'CONCEPT_SUBMITTED'

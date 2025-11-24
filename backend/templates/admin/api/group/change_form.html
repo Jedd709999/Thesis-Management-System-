@@ -1,0 +1,53 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block after_field_sets %}
+{{ block.super }}
+
+{% if show_add_member and original %}
+<div class="inline-group">
+    <div class="tabular inline-related last-related">
+        <fieldset class="module">
+            <h2>{% trans 'Add Members to Group' %}</h2>
+            <div class="items">
+                <form method="post" action="{% url 'admin:api_group_add_members' original.pk %}">
+                    {% csrf_token %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 2em;"></th>
+                                <th>{% trans 'Name' %}</th>
+                                <th>{% trans 'Email' %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in available_students %}
+                            <tr class="form-row">
+                                <td>
+                                    <input type="checkbox" name="users" value="{{ user.id }}" id="user_{{ user.id }}">
+                                </td>
+                                <td>
+                                    <label for="user_{{ user.id }}" style="font-weight: normal;">
+                                        {{ user.get_full_name|default:user.get_username }}
+                                    </label>
+                                </td>
+                                <td>{{ user.email }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr class="form-row">
+                                <td colspan="3">{% trans 'No available students' %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="submit-row" style="padding: 10px 0;">
+                        <input type="submit" value="{% trans 'Add Selected Members' %}" class="default" name="_add_members">
+                    </div>
+                </form>
+            </div>
+        </fieldset>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
