@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
 import { fetchGroup } from '../../api/groupService';
-import { Group } from '../../types';
+import { Group, GroupMember } from '../../types/group';
 
 interface GroupDetailProps {
   groupId: string | null;
@@ -23,8 +23,74 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
     const loadGroup = async () => {
       try {
         setLoading(true);
-        const fetchedGroup = await fetchGroup(groupId);
-        setGroup(fetchedGroup);
+        const fetchedGroup: any = await fetchGroup(groupId);
+        
+        // Transform the group data to ensure members are properly structured
+        // Extract members from group_members field (sent by backend) or members field
+        let rawMembers: any[] = [];
+        if (fetchedGroup.group_members && Array.isArray(fetchedGroup.group_members)) {
+          // Backend sends members as group_members field
+          rawMembers = fetchedGroup.group_members.map((membership: any) => membership.user || membership);
+        } else if (fetchedGroup.members && Array.isArray(fetchedGroup.members)) {
+          // Fallback to members field if group_members doesn't exist
+          rawMembers = fetchedGroup.members;
+        }
+        
+        // Transform members to GroupMember[] type
+        const members: GroupMember[] = rawMembers.map((member: any) => ({
+          id: String(member.id),
+          first_name: member.first_name || '',
+          last_name: member.last_name || '',
+          email: member.email || ''
+        }));
+        
+        // Transform leader
+        const leader = fetchedGroup.leader ? {
+          id: String(fetchedGroup.leader.id),
+          first_name: fetchedGroup.leader.first_name || '',
+          last_name: fetchedGroup.leader.last_name || '',
+          email: fetchedGroup.leader.email || '',
+          role: (fetchedGroup.leader.role || 'student').toLowerCase() as 'student' | 'adviser' | 'panel' | 'admin'
+        } : undefined;
+        
+        // Transform adviser
+        const adviser = fetchedGroup.adviser ? {
+          id: String(fetchedGroup.adviser.id),
+          first_name: fetchedGroup.adviser.first_name || '',
+          last_name: fetchedGroup.adviser.last_name || '',
+          email: fetchedGroup.adviser.email || '',
+          role: (fetchedGroup.adviser.role || 'adviser').toLowerCase() as 'student' | 'adviser' | 'panel' | 'admin'
+        } : undefined;
+        
+        // Transform panels
+        const panels = fetchedGroup.panels && Array.isArray(fetchedGroup.panels) ? 
+          fetchedGroup.panels.map((panel: any) => ({
+            id: String(panel.id),
+            first_name: panel.first_name || '',
+            last_name: panel.last_name || '',
+            email: panel.email || '',
+            role: (panel.role || 'panel').toLowerCase() as 'student' | 'adviser' | 'panel' | 'admin'
+          })) : undefined;
+        
+        // Create transformed group object
+        const transformedGroup: Group = {
+          id: String(fetchedGroup.id),
+          name: fetchedGroup.name || '',
+          status: (fetchedGroup.status || 'PENDING') as 'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT',
+          possible_topics: fetchedGroup.possible_topics || undefined,
+          members: members,
+          leader: leader,
+          adviser: adviser,
+          panels: panels,
+          created_at: fetchedGroup.created_at || new Date().toISOString(),
+          updated_at: fetchedGroup.updated_at || new Date().toISOString(),
+          abstract: fetchedGroup.abstract || undefined,
+          keywords: fetchedGroup.keywords || undefined,
+          description: fetchedGroup.description || undefined,
+          preferred_adviser: fetchedGroup.preferred_adviser || undefined
+        };
+        
+        setGroup(transformedGroup);
         setError(null);
       } catch (err) {
         console.error('Error fetching group:', err);
@@ -61,6 +127,16 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
     );
   }
 
+  // Get leader name
+  const getLeaderName = () => {
+    if (group.leader) {
+      const firstName = group.leader.first_name || '';
+      const lastName = group.leader.last_name || '';
+      return `${firstName} ${lastName}`.trim() || 'Unknown';
+    }
+    return 'No leader assigned';
+  };
+
   // Calculate progress (mock value since we don't have actual progress data)
   const progress = 65;
 
@@ -79,7 +155,7 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
             <h1 className="text-3xl text-slate-900">{group.name}</h1>
             <Badge className={
               group.status === 'APPROVED'
-                ? 'bg-green-100 text-green-800 border-green-200 border'
+                ? 'bg-blue-100 text-blue-800 border-blue-200 border'
                 : group.status === 'PENDING'
                 ? 'bg-amber-100 text-amber-800 border-amber-200 border'
                 : 'bg-red-100 text-red-800 border-red-200 border'
@@ -163,8 +239,10 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Adviser */}
               <div>
-                <h3 className="text-sm font-medium text-slate-900 mb-3">Adviser</h3>
-                {group.adviser ? (
+                <h3 className="text-sm font-medium text-slate-900 mb-3">
+                  {group.status === 'APPROVED' ? 'Adviser' : 'Preferred Adviser'}
+                </h3>
+                {group.status === 'APPROVED' && group.adviser ? (
                   <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                     <Avatar>
                       <AvatarFallback className="bg-blue-100 text-blue-800">
@@ -176,6 +254,20 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
                         {group.adviser.first_name} {group.adviser.last_name}
                       </p>
                       <p className="text-xs text-slate-600">{group.adviser.email}</p>
+                    </div>
+                  </div>
+                ) : group.status === 'PENDING' && group.preferred_adviser ? (
+                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                    <Avatar>
+                      <AvatarFallback className="bg-blue-100 text-blue-800">
+                        {group.preferred_adviser.first_name?.charAt(0)}{group.preferred_adviser.last_name?.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm text-slate-900">
+                        {group.preferred_adviser.first_name} {group.preferred_adviser.last_name}
+                      </p>
+                      <p className="text-xs text-slate-600">{group.preferred_adviser.email}</p>
                     </div>
                   </div>
                 ) : (

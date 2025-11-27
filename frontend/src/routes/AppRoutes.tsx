@@ -7,8 +7,7 @@ import { AppShell } from '../components/layout'
 import { RoleRoute } from '../components/RoleRoute'
 import ProtectedRoute from '../components/ProtectedRoute'
 import { Spinner } from '../components/ui'
-import { GroupManagement as GroupListPage } from '../pages/group-management/GroupManagementPage'
-import { PendingProposals } from '../pages/group-management/PendingProposalsPage'
+import GroupManagementPage from '../pages/group-management/GroupManagementPage'
 import { GroupDetail as GroupDetailPage } from '../pages/group-detail/GroupDetailPage'
 import { ThesisManagement as ThesisCrudPage } from '../pages/thesis-management/ThesisManagementPage'
 import { ThesisDetail as ThesisWorkflowPage } from '../pages/thesis-detail/ThesisDetailPage'
@@ -80,15 +79,10 @@ export const AppRoutes: React.FC = () => {
                   path="/groups"
                   element={
                     <RoleRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}>
-                      <GroupListPage userRole={userRole || 'student'} onViewDetail={(groupId) => navigate(`/groups/${groupId}`)} />
-                    </RoleRoute>
-                  }
-                />
-                <Route
-                  path="/groups/pending"
-                  element={
-                    <RoleRoute allowedRoles={['ADMIN']}>
-                      <PendingProposals onViewDetail={(groupId) => navigate(`/groups/${groupId}`)} />
+                      <GroupManagementPage 
+                        userRole={userRole === 'admin' ? 'admin' : userRole?.toLowerCase() as 'student' | 'adviser' | 'panel'}
+                        onViewDetail={(groupId) => navigate(`/groups/${groupId}`)} 
+                      />
                     </RoleRoute>
                   }
                 />
@@ -106,7 +100,7 @@ export const AppRoutes: React.FC = () => {
                   path="/thesis"
                   element={
                     <RoleRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}>
-                      <ThesisCrudPage userRole={userRole || 'student'} onViewDetail={(thesisId) => navigate(`/thesis/${thesisId}`)} />
+                      <ThesisCrudPage userRole={userRole === 'admin' ? 'admin' : 'student'} onViewDetail={(thesisId) => navigate(`/thesis/${thesisId}`)} />
                     </RoleRoute>
                   }
                 />
@@ -118,13 +112,13 @@ export const AppRoutes: React.FC = () => {
                     </RoleRoute>
                   }
                 />
-                
+
                 {/* Documents */}
                 <Route
                   path="/documents"
                   element={
                     <RoleRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT']}>
-                      <DocumentManagerPage userRole={userRole || 'student'} />
+                      <DocumentManagerPage userRole={userRole === 'admin' ? 'admin' : 'student'} />
                     </RoleRoute>
                   }
                 />
@@ -166,7 +160,7 @@ export const AppRoutes: React.FC = () => {
                     </RoleRoute>
                   }
                 />
-                
+
                 {/* Catch all */}
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

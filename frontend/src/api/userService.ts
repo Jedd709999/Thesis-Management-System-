@@ -41,30 +41,48 @@ export async function updateProfile(data: Partial<User>): Promise<User> {
  * Search users by query
  */
 export async function searchUsers(query: string): Promise<User[]> {
-  const res = await api.get('users/', { params: { search: query } })
-  return res.data
-}
-
-/**
- * Get users by role
- */
-export async function getUsersByRole(role: UserRole | string): Promise<User[]> {
-  const res = await api.get('users/', { params: { role } })
-  return res.data
+  // For empty queries, fetch all users (limited to a reasonable number)
+  if (!query || query.trim().length === 0) {
+    const res = await api.get('users/', { params: { limit: 50 } });
+    return res.data;
+  }
+  
+  // For short queries, still search but with a minimum length requirement
+  if (query.trim().length < 2) {
+    const res = await api.get('users/', { params: { search: query, limit: 50 } });
+    return res.data;
+  }
+  
+  const res = await api.get('users/', { params: { search: query } });
+  return res.data;
 }
 
 /**
  * Get all students (convenience function)
  */
 export async function getStudents(): Promise<User[]> {
-  return getUsersByRole('STUDENT')
+  try {
+    const res = await api.get('users/', { params: { role: 'STUDENT', limit: 100 } });
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching students:', error);
+    // Return empty array on error to prevent app crash
+    return [];
+  }
 }
 
 /**
  * Get all advisers (convenience function)
  */
 export async function getAdvisers(): Promise<User[]> {
-  return getUsersByRole('ADVISER')
+  try {
+    const res = await api.get('users/', { params: { role: 'ADVISER', limit: 100 } });
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching advisers:', error);
+    // Return empty array on error to prevent app crash
+    return [];
+  }
 }
 
 // Legacy exports

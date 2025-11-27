@@ -13,8 +13,46 @@ export async function fetchGroups(params?: {
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
   const res = await api.get('groups/', { params })
   console.log('GroupService: Groups response received', res);
+  
+  // Log the response data structure for debugging
+  console.log('GroupService: Response data:', res.data);
+  
+  // Check if the response data is an array
+  let result: Group[] = [];
+  if (Array.isArray(res.data)) {
+    result = res.data;
+  } else if (res.data && Array.isArray(res.data.results)) {
+    // Handle paginated response
+    result = res.data.results;
+  } else if (res.data) {
+    // If it's a single group, return it as an array with one item
+    result = [res.data];
+  }
+  
+  // Log group IDs to check for duplicates
+  console.log('GroupService: Group IDs:', result.map(g => g.id));
+  
+  // Check for duplicates in the response
+  const groupIds = result.map(g => g.id);
+  const uniqueGroupIds = [...new Set(groupIds)];
+  if (groupIds.length !== uniqueGroupIds.length) {
+    console.warn('GroupService: Duplicate groups found in groups response');
+    console.log('GroupService: Duplicate IDs:', groupIds.filter((id, index) => groupIds.indexOf(id) !== index));
+  }
+  
+  // Log detailed group information
+  result.forEach((group, index) => {
+    console.log(`GroupService: Group ${index} details:`, {
+      id: group.id,
+      name: group.name,
+      members: group.members,
+      membersType: typeof group.members,
+      membersLength: Array.isArray(group.members) ? group.members.length : 'Not an array'
+    });
+  });
+  
   // Ensure we always return an array
-  return Array.isArray(res.data) ? res.data : [];
+  return result;
 }
 
 /**
@@ -34,7 +72,17 @@ export async function fetchGroup(id: string): Promise<Group> {
 export async function createGroup(data: GroupFormData): Promise<Group> {
   console.log('GroupService: Creating group with data:', data);
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.post('groups/', data)
+  
+  // Process the data to ensure correct format
+  const processedData = {
+    ...data,
+    // Ensure adviser_id is either a string or null/undefined
+    adviser_id: data.adviser_id ? String(data.adviser_id) : null,
+    // Ensure member_ids are strings
+    member_ids: data.member_ids ? data.member_ids.map(id => String(id)) : []
+  };
+  
+  const res = await api.post('groups/', processedData)
   console.log('GroupService: Create group response received', res);
   return res.data
 }
@@ -131,20 +179,103 @@ export async function fetchCurrentUserGroups(): Promise<Group[]> {
     console.log('GroupService: Response data:', res.data);
     
     // Check if the response data is an array
+    let result: Group[] = [];
     if (Array.isArray(res.data)) {
-      return res.data;
+      result = res.data;
     } else if (res.data && Array.isArray(res.data.results)) {
       // Handle paginated response
-      return res.data.results;
+      result = res.data.results;
     } else if (res.data) {
       // If it's a single group, return it as an array with one item
-      return [res.data];
+      result = [res.data];
     }
     
-    console.warn('GroupService: Unexpected response format, returning empty array');
-    return [];
+    // Log group IDs to check for duplicates
+    console.log('GroupService: Current user group IDs:', result.map(g => g.id));
+    
+    // Check for duplicates in the response and remove them
+    const uniqueGroups = result.filter((group, index, self) => 
+      index === self.findIndex(g => g.id === group.id)
+    );
+    
+    if (uniqueGroups.length !== result.length) {
+      console.warn('GroupService: Duplicate groups found and removed from current user groups response');
+      console.log('GroupService: Original count:', result.length, 'Unique count:', uniqueGroups.length);
+    }
+    
+    // Log detailed group information
+    uniqueGroups.forEach((group, index) => {
+      console.log(`GroupService: Group ${index} details:`, {
+        id: group.id,
+        name: group.name,
+        members: group.members,
+        membersType: typeof group.members,
+        membersLength: Array.isArray(group.members) ? group.members.length : 'Not an array'
+      });
+    });
+    
+    // Ensure we always return an array with unique groups
+    return uniqueGroups;
   } catch (error) {
     console.error('GroupService: Error fetching user groups:', error);
+    // Re-throw the error to be handled by the caller
+    throw error;
+  }
+}
+
+/**
+ * Fetch other groups (approved groups excluding user's own groups)
+ */
+export async function fetchOtherGroups(): Promise<Group[]> {
+  console.log('GroupService: Fetching other groups');
+  console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
+  
+  try {
+    const res = await api.get('groups/get_other_groups/')
+    console.log('GroupService: Other groups response received', res);
+    
+    // Log the response data structure for debugging
+    console.log('GroupService: Response data:', res.data);
+    
+    // Check if the response data is an array
+    let result: Group[] = [];
+    if (Array.isArray(res.data)) {
+      result = res.data;
+    } else if (res.data && Array.isArray(res.data.results)) {
+      // Handle paginated response
+      result = res.data.results;
+    } else if (res.data) {
+      // If it's a single group, return it as an array with one item
+      result = [res.data];
+    }
+    
+    // Log group IDs to check for duplicates
+    console.log('GroupService: Other group IDs:', result.map(g => g.id));
+    
+    // Check for duplicates in the response and remove them
+    const uniqueGroups = result.filter((group, index, self) => 
+      index === self.findIndex(g => g.id === group.id)
+    );
+    
+    if (uniqueGroups.length !== result.length) {
+      console.warn('GroupService: Duplicate groups found and removed from other groups response');
+      console.log('GroupService: Original count:', result.length, 'Unique count:', uniqueGroups.length);
+    }
+    
+    // Log detailed group information
+    uniqueGroups.forEach((group, index) => {
+      console.log(`GroupService: Other Group ${index} details:`, {
+        id: group.id,
+        name: group.name,
+        members: group.members,
+        membersType: typeof group.members,
+        membersLength: Array.isArray(group.members) ? group.members.length : 'Not an array'
+      });
+    });
+    
+    return uniqueGroups;
+  } catch (error) {
+    console.error('GroupService: Error fetching other groups:', error);
     // Re-throw the error to be handled by the caller
     throw error;
   }
@@ -169,6 +300,17 @@ export async function assignPanel(groupId: string, panelIds: number[]): Promise<
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
   const res = await api.post(`groups/${groupId}/assign_panel/`, { panel_ids: panelIds })
   console.log('GroupService: Assign panel response received', res);
+  return res.data
+}
+
+/**
+ * Resubmit a rejected group proposal (Student only)
+ */
+export async function resubmitGroup(groupId: string): Promise<Group> {
+  console.log('GroupService: Resubmitting group:', groupId);
+  console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
+  const res = await api.post(`groups/${groupId}/resubmit/`)
+  console.log('GroupService: Resubmit group response received', res);
   return res.data
 }
 

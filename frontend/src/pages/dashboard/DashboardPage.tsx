@@ -40,7 +40,14 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
       console.log('Dashboard: Loading user groups...');
       const userGroups = await fetchCurrentUserGroups();
       console.log('Dashboard: Loaded groups:', userGroups);
-      setGroups(userGroups);
+      
+      // Deduplicate groups by ID to prevent duplicates
+      const uniqueGroups = userGroups.filter((group, index, self) => 
+        index === self.findIndex(g => g.id === group.id)
+      );
+      
+      console.log('Dashboard: Unique groups after deduplication:', uniqueGroups);
+      setGroups(uniqueGroups);
     } catch (err) {
       console.error('Dashboard: Error loading groups:', err);
       setError(prev => ({ ...prev, groups: 'Failed to load groups' }));
@@ -134,36 +141,41 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
   };
 
   const getStatCards = () => {
-    // Calculate real stats based on fetched data
-    const activeGroups = groups.filter(g => g.status === 'APPROVED').length;
-    const pendingGroups = groups.filter(g => g.status === 'PENDING').length;
-    const groupMembers = groups.reduce((sum, g) => sum + (g.members?.length || 0), 0);
+    // Deduplicate groups by ID to prevent counting duplicates
+    const uniqueGroups = groups.filter((group, index, self) => 
+      index === self.findIndex(g => g.id === group.id)
+    );
+    
+    // Calculate real stats based on deduplicated data
+    const activeGroups = uniqueGroups.filter(g => g.status === 'APPROVED').length;
+    const pendingGroups = uniqueGroups.filter(g => g.status === 'PENDING').length;
+    const groupMembers = uniqueGroups.reduce((sum, g) => sum + (g.members?.length || 0), 0);
     
     switch (userRole) {
       case 'student':
         return [
-          { label: 'My Groups', value: groups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
+          { label: 'My Groups', value: uniqueGroups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
           { label: 'Active Groups', value: activeGroups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
           { label: 'Pending Groups', value: pendingGroups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
           { label: 'Group Members', value: groupMembers.toString(), icon: Users, color: 'text-purple-600 bg-purple-100' },
         ];
       case 'adviser':
         return [
-          { label: 'Advised Groups', value: groups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
+          { label: 'Advised Groups', value: uniqueGroups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
           { label: 'Active Groups', value: activeGroups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
           { label: 'Pending Groups', value: pendingGroups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
           { label: 'Students', value: groupMembers.toString(), icon: Users, color: 'text-purple-600 bg-purple-100' },
         ];
       case 'panel':
         return [
-          { label: 'Assigned Groups', value: groups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
+          { label: 'Assigned Groups', value: uniqueGroups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
           { label: 'Active Groups', value: activeGroups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
           { label: 'Pending Groups', value: pendingGroups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
           { label: 'Students', value: groupMembers.toString(), icon: Users, color: 'text-purple-600 bg-purple-100' },
         ];
       default: // admin
         return [
-          { label: 'Total Groups', value: groups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
+          { label: 'Total Groups', value: uniqueGroups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
           { label: 'Active Groups', value: activeGroups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
           { label: 'Pending Groups', value: pendingGroups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
           { label: 'Total Members', value: groupMembers.toString(), icon: Users, color: 'text-purple-600 bg-purple-100' },

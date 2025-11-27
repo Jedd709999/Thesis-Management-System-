@@ -89,12 +89,25 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout, isOpen = true, onClose }) => {
   const location = useLocation()
 
+  // Don't render sidebar if it's not open
+  if (!isOpen) {
+    return null
+  }
+
   const filteredNavItems = navItems.filter(
     item => !item.roles || (user?.role && item.roles.includes(user.role))
   )
 
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/')
+  }
+
+  // Only close sidebar on mobile after clicking a link
+  const handleNavigationClick = () => {
+    // Check if we're on a mobile screen (less than 1024px)
+    if (window.innerWidth < 1024 && onClose) {
+      onClose()
+    }
   }
 
   return (
@@ -119,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout, isOpen = true,
             <Link
               key={item.path}
               to={item.path}
-              onClick={onClose}
+              onClick={handleNavigationClick}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
                 isActiveItem
                   ? 'bg-white/20 text-white shadow-lg'

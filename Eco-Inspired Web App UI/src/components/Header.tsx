@@ -48,9 +48,9 @@ export function Header({ onLogout, userRole, onNavigate }: HeaderProps) {
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="text-sm">John Smith</span>
+            <span className="text-sm font-medium">John Smith</span>
             <Badge variant="secondary" className={`text-xs w-fit ${getRoleBadgeColor()}`}>
-              {userRole}
+              {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
             </Badge>
           </div>
         </div>

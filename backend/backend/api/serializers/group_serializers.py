@@ -2,6 +2,7 @@ from rest_framework import serializers
 from api.models.group_models import Group, GroupMember
 from api.models.user_models import User
 from api.models.thesis_models import Thesis
+from django.db import models
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,9 +31,11 @@ class ThesisSerializer(serializers.ModelSerializer):
 
 class GroupSerializer(serializers.ModelSerializer):
     group_members = GroupMemberSerializer(source='group_memberships', many=True, read_only=True)
+    leader = UserSerializer(read_only=True, allow_null=True)
     adviser = UserSerializer(read_only=True, allow_null=True)
     panels = UserSerializer(many=True, read_only=True)
     thesis = ThesisSerializer(read_only=True, allow_null=True)
+    preferred_adviser = serializers.SerializerMethodField()
     
     def __init__(self, *args, **kwargs):
         print("DEBUG: GroupSerializer initialized")
@@ -40,6 +43,31 @@ class GroupSerializer(serializers.ModelSerializer):
         print("DEBUG: GroupSerializer instance:", self)
         if hasattr(self, 'context') and 'request' in self.context:
             print("DEBUG: Request in context:", self.context['request'])
+    
+    def to_representation(self, instance):
+        """Override to add debug information"""
+        print(f"DEBUG: Serializing group {instance.name} (ID: {instance.id})")
+        print(f"DEBUG: Group leader: {instance.leader}")
+        if instance.leader:
+            print(f"DEBUG: Leader details - ID: {instance.leader.id}, Email: {instance.leader.email}, Name: {instance.leader.first_name} {instance.leader.last_name}")
+        representation = super().to_representation(instance)
+        print(f"DEBUG: Serialized representation keys: {list(representation.keys())}")
+        if 'leader' in representation:
+            print(f"DEBUG: Leader in representation: {representation['leader']}")
+        else:
+            print("DEBUG: Leader field missing from representation")
+        return representation
+    
+    def get_preferred_adviser(self, obj):
+        """Get the preferred adviser details if preferred_adviser_id is set"""
+        if obj.preferred_adviser_id:
+            try:
+                from api.models.user_models import User
+                preferred_adviser = User.objects.get(pk=obj.preferred_adviser_id)
+                return UserSerializer(preferred_adviser).data
+            except User.DoesNotExist:
+                return None
+        return None
     
     # Write-only fields for updates
     member_ids = serializers.ListField(
@@ -53,13 +81,21 @@ class GroupSerializer(serializers.ModelSerializer):
         required=False,
         help_text="ID of the group leader"
     )
-    adviser_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(role='ADVISER'), 
+    # For group creation, adviser_id represents a preferred adviser, not a direct assignment
+    # Actual adviser assignment should only happen through the admin assign_adviser endpoint
+    adviser_id = serializers.CharField(
         write_only=True, 
         allow_null=True, 
         required=False,
-        source='adviser'
+        help_text="Preferred adviser ID (not directly assigned)"
     )
+    
+    def validate_adviser_id(self, value):
+        """Convert empty string to None for adviser_id"""
+        if value == '':
+            return None
+        return value
+    
     panel_ids = serializers.PrimaryKeyRelatedField(
         many=True, 
         queryset=User.objects.filter(role='PANEL'), 
@@ -73,9 +109,10 @@ class GroupSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'status', 'possible_topics', 'rejection_reason', 
             'leader', 'group_members', 'adviser', 'panels', 'member_ids', 
-            'adviser_id', 'panel_ids', 'thesis', 'created_at', 'updated_at', 'leader_id'
+            'adviser_id', 'panel_ids', 'thesis', 'created_at', 'updated_at', 'leader_id',
+            'preferred_adviser'  # Include preferred adviser details in serialized output
         ]
-        read_only_fields = ['status', 'created_at', 'updated_at']
+        read_only_fields = ['status', 'created_at', 'updated_at', 'preferred_adviser']  # Make preferred_adviser read-only
     
     def is_valid(self, raise_exception=False):
         print("DEBUG: GroupSerializer is_valid called")
@@ -114,6 +151,23 @@ class GroupSerializer(serializers.ModelSerializer):
             # For partial updates, if member_ids is not provided, get current members
             if self.partial and 'member_ids' not in attrs and self.instance:
                 member_ids = list(self.instance.members.values_list('id', flat=True))
+            
+            # Check if the user creating the group (request user) already has a group
+            # This applies only to students creating new groups
+            if self.context.get('request') and not self.instance:  # Only for new groups
+                request_user = self.context['request'].user
+                if request_user.role == 'STUDENT':
+                    # Check if user is already in any group (as member, leader, adviser, or panel)
+                    existing_groups = Group.objects.filter(
+                        models.Q(members=request_user) | 
+                        models.Q(leader=request_user) | 
+                        models.Q(adviser=request_user) | 
+                        models.Q(panels=request_user)
+                    )
+                    if existing_groups.exists():
+                        raise serializers.ValidationError({
+                            'non_field_errors': 'You are already a member of a group. You can only be in one group at a time.'
+                        })
             
             # Check if any student members are already in another group
             error_messages = []
@@ -159,21 +213,21 @@ class GroupSerializer(serializers.ModelSerializer):
         try:
             # Extract special fields that need separate handling
             member_ids = validated_data.pop('member_ids', [])
-            adviser = validated_data.pop('adviser', None)
+            # adviser_id now represents a preferred adviser, not a direct assignment
+            preferred_adviser_id = validated_data.pop('adviser_id', None)
             panel_ids = validated_data.pop('panel_ids', [])  # Fixed: was 'panels', should be 'panel_ids'
             leader_id = validated_data.pop('leader_id', None)
             
             print("DEBUG: Extracted member_ids:", member_ids)
-            print("DEBUG: Extracted adviser:", adviser)
+            print("DEBUG: Extracted preferred_adviser_id:", preferred_adviser_id)
             print("DEBUG: Extracted panel_ids:", panel_ids)
             print("DEBUG: Extracted leader_id:", leader_id)
             
-            # Handle empty string adviser_id
-            if adviser == '':
-                adviser = None
-                print("DEBUG: Set empty adviser to None")
+            # Store preferred adviser ID in the group (but don't assign as actual adviser)
+            if preferred_adviser_id:
+                validated_data['preferred_adviser_id'] = preferred_adviser_id
             
-            # Create the group
+            # Create the group (without assigning adviser)
             group = Group.objects.create(**validated_data)
             print("DEBUG: Group created with ID:", group.id)
             
@@ -190,22 +244,11 @@ class GroupSerializer(serializers.ModelSerializer):
             
             # Add members with their roles
             if member_ids:
-                # The first member is the leader if not specified
-                leader_added = False
                 for i, user_id in enumerate(member_ids):
                     role = 'member'
-                    # If no leader was explicitly set and this is the first member, make them leader
-                    if not group.leader and i == 0:
-                        role = 'leader'  # Set role to leader for the first member
-                        try:
-                            # user_id is already a UUID string, no conversion needed
-                            user = User.objects.get(pk=user_id)
-                            group.leader = user
-                            leader_added = True
-                            print("DEBUG: Set leader to user ID:", user_id)
-                        except User.DoesNotExist:
-                            print(f"DEBUG: Leader user with ID {user_id} does not exist")
-                            raise serializers.ValidationError(f"Leader user with ID {user_id} does not exist")
+                    # Set role to leader for the leader member
+                    if group.leader and str(group.leader.id) == str(user_id):
+                        role = 'leader'
                     
                     try:
                         # user_id is already a UUID string, no conversion needed
@@ -220,31 +263,15 @@ class GroupSerializer(serializers.ModelSerializer):
                         print(f"DEBUG: Member user with ID {user_id} does not exist")
                         raise serializers.ValidationError(f"Member user with ID {user_id} does not exist")
                 
-                if leader_added:
+                # Save the group if leader was set
+                if leader_id:
                     group.save()
                     print("DEBUG: Saved group with leader")
             
-            # Add adviser if provided
-            if adviser:
-                # Handle adviser_id being a string
-                if isinstance(adviser, str):
-                    if adviser:  # Check if adviser is not empty
-                        try:
-                            adviser = User.objects.get(pk=adviser)
-                            print("DEBUG: Set adviser from string ID:", adviser)
-                        except User.DoesNotExist:
-                            print(f"DEBUG: Adviser user with ID {adviser} does not exist")
-                            raise serializers.ValidationError(f"Adviser user with ID {adviser} does not exist")
-                    else:
-                        # Empty string adviser ID
-                        adviser = None
-                        print("DEBUG: Set empty adviser string to None")
-                
-                if adviser:
-                    group.adviser = adviser
-                    group.save()
-                    print("DEBUG: Set adviser and saved group")
-                
+            # Note: We no longer assign adviser directly during group creation
+            # Only admins should assign advisers through the assign_adviser endpoint
+            # The preferred_adviser_id is stored for admin reference but not used for assignment
+            
             # Add panels if provided
             if panel_ids:
                 # Convert panel IDs to User objects

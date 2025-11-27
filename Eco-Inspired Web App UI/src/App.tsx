@@ -29,10 +29,17 @@ export default function App() {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentPage('login');
+    setSelectedThesisId(null);
+    setSelectedGroupId(null);
   };
 
   const navigateToPage = (page: string) => {
     setCurrentPage(page);
+    // Reset selections when navigating to a new main page
+    if (page !== 'thesis-detail' && page !== 'group-detail') {
+      setSelectedThesisId(null);
+      setSelectedGroupId(null);
+    }
   };
 
   const viewThesisDetail = (thesisId: string) => {

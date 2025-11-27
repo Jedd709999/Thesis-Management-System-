@@ -74,7 +74,7 @@ class GroupViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing research groups.
     """
-    queryset = Group.objects.all().prefetch_related('group_memberships__user', 'panels')
+    queryset = Group.objects.all().prefetch_related('group_memberships__user', 'panels', 'leader', 'adviser')
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdviserForGroup, IsGroupMemberOrAdmin]
     
@@ -89,30 +89,6 @@ class GroupViewSet(viewsets.ModelViewSet):
         print("DEBUG: Request user role:", getattr(request.user, 'role', 'No role'))
         return super().create(request, *args, **kwargs)
     
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        user = self.request.user
-        
-        # If user is a student, only show their groups
-        if user.role == 'STUDENT':
-            return queryset.filter(
-                models.Q(members=user) | 
-                models.Q(leader=user)
-            ).distinct()
-            
-        # If user is an adviser, show groups they advise
-        elif user.role == 'ADVISER':
-            return queryset.filter(
-                models.Q(adviser=user) |
-                models.Q(panels=user)
-            ).distinct()
-            
-        # Admin can see all groups
-        elif user.role == 'ADMIN':
-            return queryset
-            
-        return queryset.none()
-        
     def get_serializer_context(self):
         """
         Extra context provided to the serializer class.
@@ -139,15 +115,9 @@ class GroupViewSet(viewsets.ModelViewSet):
                 validated_data['status'] = 'PENDING'
                 
             print("DEBUG: Final validated_data:", validated_data)
-            # Save the group first
+            # Save the group - the serializer handles member and leader assignment
             group = serializer.save(**validated_data)
             print("DEBUG: Group saved with ID:", group.id)
-            
-            # Add the current user as a member if they're a student and not already a member
-            if user.role == 'STUDENT' and user not in group.members.all():
-                group.members.add(user)
-                group.save()
-                print("DEBUG: Added current user as member")
             
             print("DEBUG: perform_create completed successfully")
         except Exception as e:
@@ -160,8 +130,8 @@ class GroupViewSet(viewsets.ModelViewSet):
     def get_object(self):
         print(f"DEBUG: get_object called for pk={self.kwargs.get('pk')}, action: {self.action}")
         
-        # For approve, reject, assign_adviser, assign_panel, and remove_panel actions, always use unfiltered queryset
-        if self.action in ['approve', 'reject', 'assign_adviser', 'assign_panel', 'remove_panel']:
+        # For approve, reject, resubmit, assign_adviser, assign_panel, and remove_panel actions, always use unfiltered queryset
+        if self.action in ['approve', 'reject', 'resubmit', 'assign_adviser', 'assign_panel', 'remove_panel']:
             print(f"DEBUG: Using unfiltered queryset for {self.action}")
             queryset = Group.objects.all()
             obj = get_object_or_404(queryset, pk=self.kwargs.get('pk'))
@@ -178,8 +148,8 @@ class GroupViewSet(viewsets.ModelViewSet):
             raise
     
     def get_queryset(self):
-        # For approve, reject, assign_adviser, assign_panel, and remove_panel actions, don't filter at all
-        if self.action in ['approve', 'reject', 'assign_adviser', 'assign_panel', 'remove_panel']:
+        # For approve, reject, resubmit, assign_adviser, assign_panel, and remove_panel actions, don't filter at all
+        if self.action in ['approve', 'reject', 'resubmit', 'assign_adviser', 'assign_panel', 'remove_panel']:
             print(f"DEBUG: {self.action} action - using unfiltered queryset")
             return Group.objects.all()
         
@@ -189,44 +159,85 @@ class GroupViewSet(viewsets.ModelViewSet):
         print(f"get_queryset called for: {self.request.user.email}, Role: {self.request.user.role}")
         print(f"Action: {self.action}")
         print(f"Original queryset count: {queryset.count()}")
+
+        user = self.request.user
         
-        # For detail views (retrieve, update, delete), apply special student logic
-        if self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
-            if self.request.user.role != 'ADMIN':
-                if self.request.user.role == 'STUDENT':
-                    # Students can see approved groups AND their own pending proposals
-                    # First get all groups where user is member/adviser/panel
-                    user_groups = Group.objects.filter(
-                        models.Q(members=self.request.user) | 
-                        models.Q(adviser=self.request.user) | 
-                        models.Q(panels=self.request.user)
-                    )
-                    print(f"Groups where user is member/adviser/panel: {user_groups.count()}")
-                    
-                    # Then filter those groups by status (APPROVED or PENDING)
-                    filtered_groups = user_groups.filter(
-                        models.Q(status='APPROVED') | 
-                        models.Q(status='PENDING')
-                    )
-                    print(f"After status filtering: {filtered_groups.count()}")
-                    for group in filtered_groups:
-                        print(f"  - ID: {group.id}, Name: {group.name}, Status: {group.status}")
-                    
-                    queryset = filtered_groups
-                else:
-                    # Advisers and panels can only see approved groups
-                    queryset = queryset.filter(status='APPROVED')
-                    print(f"Adviser/Panel filtered queryset count: {queryset.count()}")
-        else:
-            # For list views, only show approved groups to everyone except for special endpoints
-            # The main groups list should only show approved groups for all users
-            # Admins can see pending groups in the "Group Proposals" tab
-            print(f"Checking action: {self.action}")
-            print(f"Is action in excluded list? {self.action not in ['pending_proposals', 'get_current_user_groups', 'approve', 'reject']}")
-            if self.action not in ['pending_proposals', 'get_current_user_groups', 'approve', 'reject']:
+        # Apply role-based filtering
+        if user.role == 'STUDENT':
+            # For students, apply special logic based on action type
+            if self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
+                # For detail views, students can see approved groups AND their own pending proposals
+                # First get all groups where user is member/adviser/panel/leader
+                user_groups = Group.objects.filter(
+                    models.Q(members=self.request.user) | 
+                    models.Q(adviser=self.request.user) | 
+                    models.Q(panels=self.request.user) |
+                    models.Q(leader=self.request.user)
+                )
+                print(f"Groups where user is member/adviser/panel/leader: {user_groups.count()}")
+                
+                # Then filter those groups by status (APPROVED or PENDING)
+                filtered_groups = user_groups.filter(
+                    models.Q(status='APPROVED') | 
+                    models.Q(status='PENDING')
+                )
+                print(f"After status filtering: {filtered_groups.count()}")
+                for group in filtered_groups:
+                    print(f"  - ID: {group.id}, Name: {group.name}, Status: {group.status}")
+                
+                queryset = filtered_groups
+            else:
+                # For list views, students only see their own groups (member or leader)
+                queryset = queryset.filter(
+                    models.Q(members=user) | 
+                    models.Q(leader=user)
+                ).distinct()
+                print(f"Student list view filtered queryset count: {queryset.count()}")
+                
+        elif user.role == 'ADVISER':
+            if self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
+                # Advisers can see approved groups they advise or are panel members of
+                queryset = queryset.filter(
+                    models.Q(adviser=user) |
+                    models.Q(panels=user)
+                ).distinct()
+                print(f"Adviser detail view filtered queryset count: {queryset.count()}")
+            else:
+                # For list views, only show approved groups
                 queryset = queryset.filter(status='APPROVED')
-                print(f"List view filtered queryset count: {queryset.count()}")
+                print(f"Adviser list view filtered queryset count: {queryset.count()}")
+                
+        elif user.role == 'PANEL':
+            # Panel members can see all approved groups
+            if self.action not in ['pending_proposals', 'get_current_user_groups', 'approve', 'reject', 'resubmit', 'assign_adviser', 'assign_panel', 'remove_panel']:
+                queryset = queryset.filter(status='APPROVED')
+                print(f"Panel list view filtered queryset count: {queryset.count()}")
+            else:
+                print(f"Panel accessing special endpoint: {self.action}")
+                
+        elif user.role == 'ADMIN':
+            # Admin can see all groups for detail views
+            # For list views, apply standard filtering
+            if self.action not in ['pending_proposals', 'get_current_user_groups', 'approve', 'reject', 'resubmit', 'assign_adviser', 'assign_panel', 'remove_panel']:
+                queryset = queryset.filter(status='APPROVED')
+                print(f"Admin list view filtered queryset count: {queryset.count()}")
+            else:
+                print(f"Admin accessing special endpoint: {self.action}")
+        else:
+            # For other roles (PANEL), apply appropriate filtering
+            if self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
+                queryset = queryset.filter(
+                    models.Q(members=user) | 
+                    models.Q(adviser=user) | 
+                    models.Q(panels=user) |
+                    models.Q(leader=user)
+                ).distinct()
+                print(f"Other role detail view filtered queryset count: {queryset.count()}")
+            else:
+                queryset = queryset.filter(status='APPROVED')
+                print(f"Other role list view filtered queryset count: {queryset.count()}")
         
+        # Apply search filters
         search_query = self.request.query_params.get('search', None)
         keywords = self.request.query_params.get('keywords', None)
         topics = self.request.query_params.get('topics', None)
@@ -238,6 +249,19 @@ class GroupViewSet(viewsets.ModelViewSet):
         elif topics:
             queryset = Group.objects.search_by_topics(topics)
             
+        # Ensure proper prefetching for all queryset results
+        queryset = queryset.prefetch_related('group_memberships__user', 'panels', 'leader', 'adviser')
+        
+        # Add debug information about the prefetched data
+        print(f"Final queryset count: {queryset.count()}")
+        for group in queryset:
+            print(f"Group: {group.name} (ID: {group.id})")
+            print(f"  Leader: {group.leader}")
+            if group.leader:
+                print(f"    Leader details - ID: {group.leader.id}, Email: {group.leader.email}")
+            print(f"  Members count: {group.members.count()}")
+            print(f"  Group memberships count: {group.group_memberships.count()}")
+        
         return queryset
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
@@ -255,30 +279,19 @@ class GroupViewSet(viewsets.ModelViewSet):
             if group.status != 'PENDING':
                 return Response({'error': 'Only pending groups can be approved'}, status=400)
             
-            # Create a thesis record when approving the group
-            # Get the leader as the proposer, or the first member if no leader
-            proposer = group.leader if group.leader else (group.members.first() if group.members.exists() else request.user)
+            # Check if an adviser has been assigned to the group
+            if not group.adviser:
+                return Response({'error': 'An adviser must be assigned to the group before it can be approved'}, status=400)
             
-            # Check if a thesis already exists for this group to prevent duplicates
-            if hasattr(group, 'thesis'):
-                return Response({'error': 'A thesis already exists for this group'}, status=400)
-            
-            # Create thesis with group information
-            thesis = Thesis.objects.create(
-                title=group.name,
-                abstract="",
-                keywords="",
-                group=group,
-                proposer=proposer,
-                status='DRAFT'
-            )
-            
+            # Approve the group without creating a thesis
             group.status = 'APPROVED'
             group.save()
             serializer = self.get_serializer(group)
             return Response(serializer.data)
         except Exception as e:
             print(f"DEBUG: approve failed: {e}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
             return Response({'error': str(e)}, status=404)
     
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
@@ -296,13 +309,33 @@ class GroupViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(group)
         return Response(serializer.data)
     
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def resubmit(self, request, pk=None):
+        """Resubmit a rejected group proposal (Student only)"""
+        if request.user.role != 'STUDENT':
+            return Response({'error': 'Only students can resubmit group proposals'}, status=403)
+        
+        group = self.get_object()
+        # Check if the user is the leader of this group
+        if group.leader != request.user:
+            return Response({'error': 'Only the group leader can resubmit the proposal'}, status=403)
+        
+        if group.status != 'REJECTED':
+            return Response({'error': 'Only rejected groups can be resubmitted'}, status=400)
+        
+        group.status = 'PENDING'
+        group.rejection_reason = ''  # Clear the rejection reason when resubmitting
+        group.save()
+        serializer = self.get_serializer(group)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def pending_proposals(self, request):
         """Get all pending group proposals (Admin only)"""
         if request.user.role != 'ADMIN':
             return Response({'error': 'Only admins can view pending proposals'}, status=403)
         
-        pending_groups = Group.objects.filter(status='PENDING').prefetch_related('members', 'panels')
+        pending_groups = Group.objects.filter(status='PENDING').prefetch_related('members', 'panels', 'leader', 'adviser')
         serializer = self.get_serializer(pending_groups, many=True)
         return Response(serializer.data)
 
@@ -312,26 +345,28 @@ class GroupViewSet(viewsets.ModelViewSet):
         user = request.user
         print(f"get_current_user_groups called for: {user.email}, Role: {user.role}")
         
-        # Get groups where user is a member, adviser, or panel
+        # Get groups where user is a member, adviser, panel, or leader
         groups = Group.objects.filter(
             models.Q(members=user) | 
             models.Q(adviser=user) | 
-            models.Q(panels=user)
+            models.Q(panels=user) |
+            models.Q(leader=user)  # Also include groups where user is the leader
         )
-        print(f"Groups where user is member/adviser/panel: {groups.count()}")
+        print(f"Groups where user is member/adviser/panel/leader: {groups.count()}")
         for group in groups:
             print(f"  - ID: {group.id}, Name: {group.name}, Status: {group.status}")
         
         # Non-admin users can only see approved groups, 
-        # but students can see their own pending proposals
+        # but students can see their own pending proposals and rejected proposals
         if user.role != 'ADMIN':
             if user.role == 'STUDENT':
-                # Students can see approved groups AND their own pending proposals
-                # Since we already filtered for groups where user is a member/adviser/panel,
+                # Students can see approved groups AND their own pending/rejected proposals
+                # Since we already filtered for groups where user is a member/adviser/panel/leader,
                 # we just need to filter by status
                 groups = groups.filter(
                     models.Q(status='APPROVED') | 
-                    models.Q(status='PENDING')
+                    models.Q(status='PENDING') |
+                    models.Q(status='REJECTED')
                 )
                 print(f"After status filtering: {groups.count()}")
                 for group in groups:
@@ -340,7 +375,73 @@ class GroupViewSet(viewsets.ModelViewSet):
                 # Advisers and panels can only see approved groups
                 groups = groups.filter(status='APPROVED')
             
-        groups = groups.prefetch_related('members', 'panels')
+        groups = groups.prefetch_related('group_memberships__user', 'panels', 'leader', 'adviser')
+        
+        # Add debug information about the prefetched data
+        print(f"Final groups count: {groups.count()}")
+        for group in groups:
+            print(f"Group: {group.name} (ID: {group.id})")
+            print(f"  Leader: {group.leader}")
+            if group.leader:
+                print(f"    Leader details - ID: {group.leader.id}, Email: {group.leader.email}")
+            print(f"  Members count: {group.members.count()}")
+            print(f"  Group memberships count: {group.group_memberships.count()}")
+        
+        serializer = self.get_serializer(groups, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def get_other_groups(self, request):
+        """Get all approved groups except those where the user is a member, adviser, panel, or leader"""
+        user = request.user
+        print(f"get_other_groups called for: {user.email}, Role: {user.role}")
+        
+        # For students, get all approved groups except their own
+        if user.role == 'STUDENT':
+            # Get all approved groups
+            groups = Group.objects.filter(status='APPROVED')
+            
+            # Exclude groups where user is a member, adviser, panel, or leader
+            groups = groups.exclude(
+                models.Q(members=user) | 
+                models.Q(adviser=user) | 
+                models.Q(panels=user) |
+                models.Q(leader=user)
+            )
+            
+            print(f"Other groups count: {groups.count()}")
+            for group in groups:
+                print(f"  - ID: {group.id}, Name: {group.name}, Status: {group.status}")
+            
+            groups = groups.prefetch_related('group_memberships__user', 'panels', 'leader', 'adviser')
+            
+            # Add debug information about the prefetched data
+            print(f"Final other groups count: {groups.count()}")
+            for group in groups:
+                print(f"Group: {group.name} (ID: {group.id})")
+                print(f"  Leader: {group.leader}")
+                if group.leader:
+                    print(f"    Leader details - ID: {group.leader.id}, Email: {group.leader.email}")
+                print(f"  Members count: {group.members.count()}")
+                print(f"  Group memberships count: {group.group_memberships.count()}")
+            
+            serializer = self.get_serializer(groups, many=True)
+            return Response(serializer.data)
+        
+        # For panel users and other roles, return all approved groups
+        groups = Group.objects.filter(status='APPROVED')
+        groups = groups.prefetch_related('group_memberships__user', 'panels', 'leader', 'adviser')
+        
+        # Add debug information about the prefetched data
+        print(f"Other groups count for panel/adviser: {groups.count()}")
+        for group in groups:
+            print(f"Group: {group.name} (ID: {group.id})")
+            print(f"  Leader: {group.leader}")
+            if group.leader:
+                print(f"    Leader details - ID: {group.leader.id}, Email: {group.leader.email}")
+            print(f"  Members count: {group.members.count()}")
+            print(f"  Group memberships count: {group.group_memberships.count()}")
+        
         serializer = self.get_serializer(groups, many=True)
         return Response(serializer.data)
 

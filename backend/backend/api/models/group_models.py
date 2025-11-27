@@ -67,6 +67,8 @@ class Group(models.Model):
     leader = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='led_groups')
     members = models.ManyToManyField(User, through='GroupMember', related_name='member_groups', blank=True)
     adviser = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='advised_groups')
+    # Store preferred adviser ID from group creation (not directly assigned)
+    preferred_adviser_id = models.CharField(max_length=36, null=True, blank=True, help_text="Preferred adviser ID from group proposal")
     panels = models.ManyToManyField(User, related_name='panel_groups', blank=True)
     drive_folder_id = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
@@ -74,7 +76,7 @@ class Group(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.get_status_display()})"
     
     def clean(self):
         # Check if any student members are already in another group

@@ -51,9 +51,10 @@ export interface Group {
   id: string
   name: string
   status: GroupStatus
-  proposed_topic_title?: string
+  possible_topics?: string
   abstract?: string
   keywords?: string
+  description?: string
   rejection_reason?: string
   leader: User | null
   members: User[]
@@ -257,10 +258,10 @@ export interface TokenRefreshResponse {
 // Form data types
 export interface GroupFormData {
   name: string
-  proposed_topic_title?: string
+  possible_topics: string
   abstract?: string
   keywords?: string
-  possible_topics?: string
+  description?: string
   adviser_id?: string
   leader_id?: string | number
   member_ids?: (string | number)[]
