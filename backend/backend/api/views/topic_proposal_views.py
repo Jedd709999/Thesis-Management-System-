@@ -38,6 +38,11 @@ class TopicProposalViewSet(viewsets.ModelViewSet):
                 user_group = self.request.user.member_groups.first()
                 if not user_group:
                     raise PermissionError("You must be a member of a group to create a topic proposal")
+                
+                # Check if the group is approved
+                if user_group.status != 'APPROVED':
+                    raise PermissionError("Your group must be approved before you can create a topic proposal")
+                    
                 serializer.save(group=user_group)
             except Exception as e:
                 raise PermissionError(f"Unable to create topic proposal: {str(e)}")
@@ -83,6 +88,13 @@ class TopicProposalViewSet(viewsets.ModelViewSet):
         if proposal.group not in request.user.member_groups.all():
             return Response(
                 {'detail': 'You are not a member of the group for this proposal'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        # Check if the group is approved before allowing submission
+        if proposal.group.status != 'APPROVED':
+            return Response(
+                {'detail': 'Your group must be approved before you can submit a topic proposal'},
                 status=status.HTTP_403_FORBIDDEN
             )
             

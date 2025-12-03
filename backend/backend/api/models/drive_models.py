@@ -6,11 +6,10 @@ from .user_models import User
 
 class DriveCredential(models.Model):
     """
-    Stores Google Drive API credentials for users and service accounts.
+    Stores Google Drive API credentials for users.
     """
     CREDENTIAL_TYPES = [
         ('user', _('User OAuth')),
-        ('service_account', _('Service Account')),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -27,7 +26,7 @@ class DriveCredential(models.Model):
         help_text=_('Type of credentials')
     )
     token = models.JSONField(
-        help_text=_('OAuth token or service account key')
+        help_text=_('OAuth token')
     )
     refresh_token = models.CharField(
         max_length=500,
@@ -87,7 +86,14 @@ class DriveCredential(models.Model):
         """Check if the access token has expired."""
         if not self.expires_at:
             return False
-        return timezone.now() >= self.expires_at
+        
+        # Handle both naive and timezone-aware datetimes
+        if self.expires_at.tzinfo is None:
+            # Naive datetime - compare directly
+            return self.expires_at < timezone.now().replace(tzinfo=None)
+        else:
+            # Timezone-aware datetime - compare with timezone-aware
+            return self.expires_at < timezone.now()
     
     def update_usage(self):
         """Update the last_used_at timestamp."""

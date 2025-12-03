@@ -12,7 +12,7 @@ from .models.user_models import User
 from .models.group_models import Group, GroupMember
 from .models.thesis_models import Thesis
 from .models.document_models import Document
-from .models.schedule_models import OralDefenseSchedule
+from .models.schedule_models import OralDefenseSchedule, ApprovalSheet, Evaluation, PanelMemberAvailability
 from .models.notification_models import Notification
 
 class UserAdmin(BaseUserAdmin):
@@ -157,11 +157,47 @@ class DocumentAdmin(admin.ModelAdmin):
     search_fields = ('thesis__title', 'uploaded_by__email')
     date_hierarchy = 'created_at'
 
+class ApprovalSheetInline(admin.TabularInline):
+    model = ApprovalSheet
+    extra = 1
+    fields = ('panel_member', 'decision', 'comments', 'submitted_at')
+    readonly_fields = ('submitted_at',)
+
+
+class EvaluationInline(admin.TabularInline):
+    model = Evaluation
+    extra = 1
+    fields = ('evaluator', 'recommendation', 'total_score', 'submitted_at')
+    readonly_fields = ('submitted_at',)
+
+
 class DefenseScheduleAdmin(admin.ModelAdmin):
-    list_display = ('thesis', 'start', 'end', 'location', 'created_at')
-    list_filter = ('start', 'created_at')
-    search_fields = ('thesis__title', 'location')
+    list_display = ('thesis', 'start', 'end', 'location', 'status', 'organizer')
+    list_filter = ('status', 'start', 'created_at')
+    search_fields = ('thesis__title', 'location', 'organizer__email')
     date_hierarchy = 'start'
+    inlines = [ApprovalSheetInline, EvaluationInline]
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('thesis', 'title', 'status', 'organizer')
+        }),
+        ('Schedule Details', {
+            'fields': ('start', 'end', 'location', 'meeting_url')
+        }),
+        ('Participants', {
+            'fields': ('panel_members',)
+        }),
+        ('Additional Information', {
+            'fields': ('notes', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    filter_horizontal = ('panel_members',)
+    ordering = ('-start',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('thesis', 'organizer').prefetch_related('panel_members')
 
 class NotificationAdmin(admin.ModelAdmin):
     list_display = ('title', 'recipient', 'is_read', 'created_at')
@@ -175,6 +211,70 @@ class GroupMemberAdmin(admin.ModelAdmin):
     search_fields = ('group__name', 'user__email', 'user__first_name', 'user__last_name')
     date_hierarchy = 'created_at'
 
+class ApprovalSheetAdmin(admin.ModelAdmin):
+    list_display = ('schedule', 'panel_member', 'decision', 'submitted_at')
+    list_filter = ('decision', 'submitted_at')
+    search_fields = ('schedule__thesis__title', 'panel_member__email')
+    date_hierarchy = 'submitted_at'
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        ('Approval Information', {
+            'fields': ('schedule', 'panel_member', 'decision')
+        }),
+        ('Details', {
+            'fields': ('comments', 'document')
+        }),
+        ('Timestamps', {
+            'fields': ('submitted_at', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+class EvaluationAdmin(admin.ModelAdmin):
+    list_display = ('schedule', 'evaluator', 'recommendation', 'total_score', 'submitted_at')
+    list_filter = ('recommendation', 'submitted_at')
+    search_fields = ('schedule__thesis__title', 'evaluator__email')
+    date_hierarchy = 'submitted_at'
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        ('Evaluation Information', {
+            'fields': ('schedule', 'evaluator', 'recommendation', 'total_score')
+        }),
+        ('Details', {
+            'fields': ('rubric_scores', 'comments', 'document')
+        }),
+        ('Timestamps', {
+            'fields': ('submitted_at', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+class PanelMemberAvailabilityAdmin(admin.ModelAdmin):
+    list_display = ('user', 'get_day_of_week_display', 'start_time', 'end_time', 'is_recurring')
+    list_filter = ('day_of_week', 'is_recurring', 'created_at')
+    search_fields = ('user__email', 'user__first_name', 'user__last_name')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        ('Member Information', {
+            'fields': ('user',)
+        }),
+        ('Availability Details', {
+            'fields': ('day_of_week', 'start_time', 'end_time', 'is_recurring')
+        }),
+        ('Validity Period', {
+            'fields': ('valid_from', 'valid_until', 'notes'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
 # Register models
 admin.site.register(User, UserAdmin)
 admin.site.register(Group, GroupAdmin)
@@ -182,4 +282,7 @@ admin.site.register(GroupMember, GroupMemberAdmin)
 admin.site.register(Thesis, ThesisAdmin)
 admin.site.register(Document, DocumentAdmin)
 admin.site.register(OralDefenseSchedule, DefenseScheduleAdmin)
+admin.site.register(ApprovalSheet, ApprovalSheetAdmin)
+admin.site.register(Evaluation, EvaluationAdmin)
+admin.site.register(PanelMemberAvailability, PanelMemberAvailabilityAdmin)
 admin.site.register(Notification, NotificationAdmin)

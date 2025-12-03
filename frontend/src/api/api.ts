@@ -1,11 +1,13 @@
 import axios, { AxiosError, InternalAxiosRequestConfig, AxiosHeaders } from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/'
+// Ensure the base URL ends with a single slash and doesn't have double 'api' in the path
+const envUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE = envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
 
 // Create axios instance
 const api = axios.create({ 
-  baseURL: API_BASE,
-  timeout: 10000, // 10 second timeout
+  baseURL: API_BASE + '/',
+  timeout: 60000, // Increased from 10 seconds to 60 seconds for document uploads
 })
 
 // Track ongoing refresh requests to prevent multiple refresh attempts
@@ -39,6 +41,15 @@ api.interceptors.request.use(
       config.headers['Authorization'] = `Bearer ${token}`;
     }
     
+    // Enhanced logging for debugging
+    console.group('API Request');
+    console.log('Method:', config.method?.toUpperCase());
+    console.log('URL:', config.url);
+    console.log('Base URL:', config.baseURL);
+    console.log('Full URL:', new URL(config.url || '', config.baseURL).href);
+    console.log('Headers:', config.headers);
+    console.groupEnd();
+    
     return config;
   },
   (error) => {
@@ -50,11 +61,14 @@ api.interceptors.request.use(
 // Response interceptor to handle token refresh
 api.interceptors.response.use(
   (response) => {
-    console.log('API response:', response.config.url, 'Status:', response.status);
+    console.log('API response:', response.config.method?.toUpperCase(), response.config.url, 'Status:', response.status);
     return response;
   },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    
+    // Log the error for debugging
+    console.error('API Error:', error.response?.status, error.response?.data, originalRequest?.url);
     
     // Don't retry if it's not a 401 or if it's a login/refresh request
     if (

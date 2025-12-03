@@ -76,9 +76,9 @@ USE_TZ = True
 # Google Drive Settings
 # For OAuth 2.0 (recommended for development)
 GOOGLE_CREDENTIALS_FILE = os.path.join(BASE_DIR, 'google_credentials.json')
-
-# For Service Account (alternative)
-# GOOGLE_SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'service-account-key.json')
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', 'YOUR_GOOGLE_CLIENT_SECRET')
+GOOGLE_SHARED_DRIVE_ID = os.getenv('GOOGLE_SHARED_DRIVE_ID', None)
 
 STATIC_URL = '/static/'
 STATIC_ROOT = '/app/backend/staticfiles'
@@ -115,5 +115,9 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'noreply@example.com'
+
+# Increase timeout settings for large file uploads
+DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
 
 

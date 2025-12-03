@@ -167,6 +167,36 @@ Thesis Management System/
    npm run dev
    ```
 
+## Google Integration
+
+The system supports two types of Google integration:
+
+1. **Google OAuth for User Authentication**: Allows users to connect their personal Google accounts
+2. **Google Drive for Document Storage**: Enables document storage in Google Drive
+
+### Google OAuth Setup
+
+To enable Google OAuth:
+
+1. Follow the instructions in [GOOGLE_OAUTH_SETUP.md](GOOGLE_OAUTH_SETUP.md)
+2. Configure the environment variables in both frontend and backend
+
+### Google Drive Setup
+
+For document storage in Google Drive, you have two options:
+
+1. **Shared Drive Approach** (Recommended for production):
+   - Requires Google Workspace
+   - Follow instructions in [GOOGLE_DRIVE_SETUP.md](GOOGLE_DRIVE_SETUP.md)
+   - Set `GOOGLE_SHARED_DRIVE_ID` environment variable
+
+2. **Personal Account Approach** (Easier setup):
+   - Users connect their personal Google accounts
+   - No special setup required beyond Google OAuth
+   - Documents stored in user's personal Google Drive
+
+If neither approach is configured, documents will be stored locally on the server.
+
 ## Development
 
 ### Common Commands
@@ -195,6 +225,9 @@ DB_PORT=5432
 # Google OAuth
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# Google Drive (Optional - for Shared Drive integration)
+GOOGLE_SHARED_DRIVE_ID=your_shared_drive_id
 
 # Django
 SECRET_KEY=your_django_secret_key

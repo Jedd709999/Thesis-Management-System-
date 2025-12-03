@@ -88,8 +88,26 @@ class Group(models.Model):
                         raise ValidationError(f"Student {member.email} is already a member of another group")
     
     def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
+        # Store original adviser value for change detection
+        if self.pk:
+            # This is an update, get the original adviser
+            try:
+                original = Group.objects.get(pk=self.pk)
+                self._original_adviser = original.adviser
+            except Group.DoesNotExist:
+                self._original_adviser = None
+        else:
+            # This is a new object
+            self._original_adviser = None
+        
+        try:
+            self.full_clean()
+            super().save(*args, **kwargs)
+        except Exception as e:
+            print(f"DEBUG: Error saving group {self.id if self.id else 'new'}: {e}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
+            raise
     
     def delete(self, *args, **kwargs):
         self.deleted_at = timezone.now()

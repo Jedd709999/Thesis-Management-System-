@@ -8,10 +8,12 @@ export async function fetchGroups(params?: {
   search?: string
   keywords?: string
   topics?: string
+  status?: string
+  adviser?: string
 }): Promise<Group[]> {
   console.log('GroupService: Fetching groups with params:', params);
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get('groups/', { params })
+  const res = await api.get('/groups/', { params })
   console.log('GroupService: Groups response received', res);
   
   // Log the response data structure for debugging
@@ -40,8 +42,30 @@ export async function fetchGroups(params?: {
     console.log('GroupService: Duplicate IDs:', groupIds.filter((id, index) => groupIds.indexOf(id) !== index));
   }
   
+  // Deduplicate groups and ensure proper structure
+  const deduplicatedGroups = result.reduce((acc: Group[], group) => {
+    // Check if a group with this ID already exists
+    const existingIndex = acc.findIndex(g => g.id === group.id);
+    if (existingIndex === -1) {
+      // If not found, add it to the accumulator
+      acc.push(group);
+    } else {
+      // If found, merge the data (in case one has more complete information)
+      acc[existingIndex] = { ...acc[existingIndex], ...group };
+    }
+    return acc;
+  }, [] as Group[]);
+  
+  // Ensure members is always an array
+  const processedGroups = deduplicatedGroups.map(group => ({
+    ...group,
+    members: Array.isArray(group.members) ? group.members : [],
+    panels: Array.isArray(group.panels) ? group.panels : [],
+    adviser: group.adviser || null
+  }));
+  
   // Log detailed group information
-  result.forEach((group, index) => {
+  processedGroups.forEach((group, index) => {
     console.log(`GroupService: Group ${index} details:`, {
       id: group.id,
       name: group.name,
@@ -52,7 +76,7 @@ export async function fetchGroups(params?: {
   });
   
   // Ensure we always return an array
-  return result;
+  return processedGroups;
 }
 
 /**
@@ -61,9 +85,14 @@ export async function fetchGroups(params?: {
 export async function fetchGroup(id: string): Promise<Group> {
   console.log('GroupService: Fetching group:', id);
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get(`groups/${id}/`)
-  console.log('GroupService: Group response received', res);
-  return res.data
+  try {
+    const res = await api.get(`groups/${id}/`)
+    console.log('GroupService: Group response received', res);
+    return res.data
+  } catch (error: any) {
+    console.error('GroupService: Error fetching group:', id, error);
+    throw new Error(`Failed to fetch group ${id}: ${error.message || error}`);
+  }
 }
 
 /**
@@ -158,7 +187,7 @@ export async function rejectGroup(groupId: string, reason?: string): Promise<Gro
 export async function fetchPendingProposals(): Promise<Group[]> {
   console.log('GroupService: Fetching pending proposals');
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get('groups/pending_proposals/')
+  const res = await api.get('/groups/pending_proposals/')
   console.log('GroupService: Pending proposals response received', res);
   // Ensure we always return an array
   return Array.isArray(res.data) ? res.data : [];
@@ -172,7 +201,7 @@ export async function fetchCurrentUserGroups(): Promise<Group[]> {
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
   
   try {
-    const res = await api.get('groups/get_current_user_groups/')
+    const res = await api.get('/groups/get_current_user_groups/')
     console.log('GroupService: Current user groups response received', res);
     
     // Log the response data structure for debugging
@@ -198,13 +227,35 @@ export async function fetchCurrentUserGroups(): Promise<Group[]> {
       index === self.findIndex(g => g.id === group.id)
     );
     
-    if (uniqueGroups.length !== result.length) {
+    // Also deduplicate based on group ID and ensure proper structure
+    const deduplicatedGroups = uniqueGroups.reduce((acc: Group[], group) => {
+      // Check if a group with this ID already exists
+      const existingIndex = acc.findIndex(g => g.id === group.id);
+      if (existingIndex === -1) {
+        // If not found, add it to the accumulator
+        acc.push(group);
+      } else {
+        // If found, merge the data (in case one has more complete information)
+        acc[existingIndex] = { ...acc[existingIndex], ...group };
+      }
+      return acc;
+    }, [] as Group[]);
+    
+    if (deduplicatedGroups.length !== result.length) {
       console.warn('GroupService: Duplicate groups found and removed from current user groups response');
-      console.log('GroupService: Original count:', result.length, 'Unique count:', uniqueGroups.length);
+      console.log('GroupService: Original count:', result.length, 'Deduplicated count:', deduplicatedGroups.length);
     }
     
+    // Ensure members is always an array
+    const processedGroups = deduplicatedGroups.map(group => ({
+      ...group,
+      members: Array.isArray(group.members) ? group.members : [],
+      panels: Array.isArray(group.panels) ? group.panels : [],
+      adviser: group.adviser || null
+    }));
+    
     // Log detailed group information
-    uniqueGroups.forEach((group, index) => {
+    processedGroups.forEach((group, index) => {
       console.log(`GroupService: Group ${index} details:`, {
         id: group.id,
         name: group.name,
@@ -215,7 +266,7 @@ export async function fetchCurrentUserGroups(): Promise<Group[]> {
     });
     
     // Ensure we always return an array with unique groups
-    return uniqueGroups;
+    return processedGroups;
   } catch (error) {
     console.error('GroupService: Error fetching user groups:', error);
     // Re-throw the error to be handled by the caller
@@ -231,7 +282,7 @@ export async function fetchOtherGroups(): Promise<Group[]> {
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
   
   try {
-    const res = await api.get('groups/get_other_groups/')
+    const res = await api.get('/groups/get_other_groups/')
     console.log('GroupService: Other groups response received', res);
     
     // Log the response data structure for debugging
@@ -257,13 +308,35 @@ export async function fetchOtherGroups(): Promise<Group[]> {
       index === self.findIndex(g => g.id === group.id)
     );
     
-    if (uniqueGroups.length !== result.length) {
+    // Also deduplicate based on group ID and ensure proper structure
+    const deduplicatedGroups = uniqueGroups.reduce((acc: Group[], group) => {
+      // Check if a group with this ID already exists
+      const existingIndex = acc.findIndex(g => g.id === group.id);
+      if (existingIndex === -1) {
+        // If not found, add it to the accumulator
+        acc.push(group);
+      } else {
+        // If found, merge the data (in case one has more complete information)
+        acc[existingIndex] = { ...acc[existingIndex], ...group };
+      }
+      return acc;
+    }, [] as Group[]);
+    
+    if (deduplicatedGroups.length !== result.length) {
       console.warn('GroupService: Duplicate groups found and removed from other groups response');
-      console.log('GroupService: Original count:', result.length, 'Unique count:', uniqueGroups.length);
+      console.log('GroupService: Original count:', result.length, 'Deduplicated count:', deduplicatedGroups.length);
     }
     
+    // Ensure members is always an array
+    const processedGroups = deduplicatedGroups.map(group => ({
+      ...group,
+      members: Array.isArray(group.members) ? group.members : [],
+      panels: Array.isArray(group.panels) ? group.panels : [],
+      adviser: group.adviser || null
+    }));
+    
     // Log detailed group information
-    uniqueGroups.forEach((group, index) => {
+    processedGroups.forEach((group, index) => {
       console.log(`GroupService: Other Group ${index} details:`, {
         id: group.id,
         name: group.name,
@@ -273,7 +346,7 @@ export async function fetchOtherGroups(): Promise<Group[]> {
       });
     });
     
-    return uniqueGroups;
+    return processedGroups;
   } catch (error) {
     console.error('GroupService: Error fetching other groups:', error);
     // Re-throw the error to be handled by the caller
@@ -293,9 +366,9 @@ export async function assignAdviser(groupId: string, adviserId: number): Promise
 }
 
 /**
- * Assign panel members to a group (Admin only)
+ * Assign panel members to a group (Admin or Adviser for their groups)
  */
-export async function assignPanel(groupId: string, panelIds: number[]): Promise<Group> {
+export async function assignPanel(groupId: string, panelIds: (number | string)[]): Promise<Group> {
   console.log('GroupService: Assigning panels:', panelIds, 'to group:', groupId);
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
   const res = await api.post(`groups/${groupId}/assign_panel/`, { panel_ids: panelIds })
@@ -315,7 +388,7 @@ export async function resubmitGroup(groupId: string): Promise<Group> {
 }
 
 /**
- * Remove a panel member from a group (Admin only)
+ * Remove a panel member from a group (Admin or Adviser for their groups)
  */
 export async function removePanelMember(groupId: string, panelId: number): Promise<Group> {
   console.log('GroupService: Removing panel:', panelId, 'from group:', groupId);
@@ -331,8 +404,32 @@ export async function removePanelMember(groupId: string, panelId: number): Promi
 export async function searchGroupsByKeywords(keywords: string): Promise<Group[]> {
   console.log('GroupService: Searching groups by keywords:', keywords);
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get('groups/', { params: { keywords } })
+  const res = await api.get('/groups/', { params: { keywords } })
   console.log('GroupService: Search by keywords response received', res);
+  // Ensure we always return an array
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+/**
+ * Search groups by adviser
+ */
+export async function searchGroupsByAdviser(adviserId: string): Promise<Group[]> {
+  console.log('GroupService: Searching groups by adviser:', adviserId);
+  console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
+  const res = await api.get('/groups/', { params: { adviser: adviserId } })
+  console.log('GroupService: Search by adviser response received', res);
+  // Ensure we always return an array
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+/**
+ * Search groups by status
+ */
+export async function searchGroupsByStatus(status: string): Promise<Group[]> {
+  console.log('GroupService: Searching groups by status:', status);
+  console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
+  const res = await api.get('/groups/', { params: { status } })
+  console.log('GroupService: Search by status response received', res);
   // Ensure we always return an array
   return Array.isArray(res.data) ? res.data : [];
 }
@@ -343,10 +440,18 @@ export async function searchGroupsByKeywords(keywords: string): Promise<Group[]>
 export async function searchGroupsByTopics(topics: string): Promise<Group[]> {
   console.log('GroupService: Searching groups by topics:', topics);
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get('groups/', { params: { topics } })
+  const res = await api.get('/groups/', { params: { topics } })
   console.log('GroupService: Search by topics response received', res);
   // Ensure we always return an array
   return Array.isArray(res.data) ? res.data : [];
+}
+
+/**
+ * Fetch current user's groups (simplified version without debugging)
+ */
+export async function fetchUserGroups(): Promise<Group[]> {
+  const res = await api.get('/groups/get_current_user_groups/')
+  return Array.isArray(res.data) ? res.data : [res.data];
 }
 
 // Legacy exports for backward compatibility

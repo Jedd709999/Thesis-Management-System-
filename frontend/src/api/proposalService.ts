@@ -5,7 +5,7 @@ import { TopicProposal, ProposalFormData } from '../types'
  * Fetch all topic proposals
  */
 export async function fetchProposals(): Promise<TopicProposal[]> {
-  const res = await api.get('topic-proposals/')
+  const res = await api.get('/topic-proposals/')
   return res.data
 }
 

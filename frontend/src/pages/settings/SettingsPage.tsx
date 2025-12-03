@@ -1,11 +1,27 @@
 import { User, Lock, Link as LinkIcon, Moon, Shield, Bell, Leaf } from 'lucide-react';
 import { Card, Button, Badge, Avatar, AvatarFallback, Switch } from '../../components/ui';
+import { toast } from 'sonner';
+import { useState, useEffect } from 'react';
+import { googleOAuthService } from '../../services/googleOAuthService';
+import { accountLinkingService } from '../../services/accountLinkingService';
+import { useAuth } from '../../hooks/useAuth';
 
 interface SettingsProps {
   userRole: 'student' | 'adviser' | 'panel' | 'admin';
 }
 
 export function Settings({ userRole }: SettingsProps) {
+  const { user } = useAuth();
+  const [googleDriveConnected, setGoogleDriveConnected] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [userData, setUserData] = useState({
+    firstName: '',
+    lastName: '',
+    email: ''
+  });
+  
   const getRoleBadgeColor = () => {
     switch (userRole) {
       case 'admin':
@@ -16,6 +32,115 @@ export function Settings({ userRole }: SettingsProps) {
         return 'bg-amber-100 text-amber-800 border-amber-200';
       default:
         return 'bg-green-100 text-green-800 border-green-200';
+    }
+  };
+
+  // Initialize user data
+  useEffect(() => {
+    if (user) {
+      setUserData({
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        email: user.email || ''
+      });
+    }
+  }, [user?.first_name, user?.last_name, user?.email]);
+
+  // Check if user has Google account connected
+  const checkGoogleConnection = async () => {
+    setCheckingConnection(true);
+    setConnectionError(null);
+    try {
+      const isConnected = await accountLinkingService.isGoogleConnected();
+      setGoogleDriveConnected(isConnected);
+    } catch (error: any) {
+      console.error('Google connection check error:', error);
+      setConnectionError('Failed to check Google account connection');
+      setGoogleDriveConnected(false);
+    } finally {
+      setCheckingConnection(false);
+    }
+  };
+
+  // Initial connection check
+  useEffect(() => {
+    checkGoogleConnection();
+  }, []);
+
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setUserData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Save profile changes
+  const handleSaveChanges = () => {
+    // In a real implementation, this would call an API to update user data
+    alert('Profile changes saved successfully!');
+  };
+
+  // Connect Google account
+  const handleConnectGoogleAccount = async () => {
+    setLoading(true);
+    setConnectionError(null);
+    
+    try {
+      // Connect Google account using our service
+      const result = await accountLinkingService.connectGoogleAccount();
+      
+      if (result.connected) {
+        setGoogleDriveConnected(true);
+        toast.success(result.message || 'Google account connected successfully', {
+          duration: 5000,
+        });
+        // Refresh the connection status
+        await checkGoogleConnection();
+      } else {
+        throw new Error(result.message || 'Failed to connect Google account');
+      }
+    } catch (error: any) {
+      console.error('Error connecting Google account:', error);
+      const errorMessage = error.message || 'Failed to connect Google account';
+      setConnectionError(errorMessage);
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Disconnect Google account
+  const handleDisconnectGoogleAccount = async () => {
+    setLoading(true);
+    setConnectionError(null);
+    
+    try {
+      // Disconnect Google account using our service
+      const result = await accountLinkingService.disconnectGoogleAccount();
+      
+      if (!result.connected) {
+        setGoogleDriveConnected(false);
+        toast.success(result.message || 'Google account disconnected successfully', {
+          duration: 5000,
+        });
+        // Refresh the connection status
+        await checkGoogleConnection();
+      } else {
+        throw new Error(result.message || 'Failed to disconnect Google account');
+      }
+    } catch (error: any) {
+      console.error('Error disconnecting Google account:', error);
+      const errorMessage = error.message || 'Failed to disconnect Google account';
+      setConnectionError(errorMessage);
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -39,17 +164,17 @@ export function Settings({ userRole }: SettingsProps) {
             <div className="flex items-start gap-6 mb-6 pb-6 border-b border-slate-200">
               <Avatar className="w-20 h-20">
                 <AvatarFallback className="bg-green-100 text-green-800 text-xl">
-                  JS
+                  {userData.firstName?.charAt(0)}{userData.lastName?.charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-slate-900">John Smith</h3>
+                  <h3 className="text-slate-900">{userData.firstName} {userData.lastName}</h3>
                   <Badge variant="secondary" className={`border ${getRoleBadgeColor()}`}>
                     {userRole}
                   </Badge>
                 </div>
-                <p className="text-sm text-slate-600 mb-3">jsmith@university.edu</p>
+                <p className="text-sm text-slate-600 mb-3">{userData.email}</p>
                 <Button variant="outline" size="sm">
                   Change Avatar
                 </Button>
@@ -62,7 +187,9 @@ export function Settings({ userRole }: SettingsProps) {
                   <label className="block text-sm text-slate-700 mb-2">First Name</label>
                   <input
                     type="text"
-                    defaultValue="John"
+                    name="firstName"
+                    value={userData.firstName}
+                    onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -70,7 +197,9 @@ export function Settings({ userRole }: SettingsProps) {
                   <label className="block text-sm text-slate-700 mb-2">Last Name</label>
                   <input
                     type="text"
-                    defaultValue="Smith"
+                    name="lastName"
+                    value={userData.lastName}
+                    onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -80,26 +209,36 @@ export function Settings({ userRole }: SettingsProps) {
                 <label className="block text-sm text-slate-700 mb-2">Email Address</label>
                 <input
                   type="email"
-                  defaultValue="jsmith@university.edu"
+                  name="email"
+                  value={userData.email}
+                  onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
 
               <div>
+                {/* Department field - in a real implementation, this would be fetched from user profile */}
                 <label className="block text-sm text-slate-700 mb-2">Department</label>
                 <input
                   type="text"
-                  defaultValue="Environmental Science"
+                  name="department"
+                  value="Environmental Science" /* Hardcoded for demo */
+                  onChange={() => {}} /* No-op for demo */
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  readOnly
                 />
               </div>
 
               <div>
+                {/* Bio field - in a real implementation, this would be fetched from user profile */}
                 <label className="block text-sm text-slate-700 mb-2">Bio</label>
                 <textarea
                   rows={3}
-                  defaultValue="Graduate student researching climate change impacts on biodiversity."
+                  name="bio"
+                  value="Graduate student researching climate change impacts on biodiversity." /* Hardcoded for demo */
+                  onChange={() => {}} /* No-op for demo */
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+                  readOnly
                 ></textarea>
               </div>
 
@@ -169,56 +308,113 @@ export function Settings({ userRole }: SettingsProps) {
               Connected Apps
             </h2>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Google Drive Integration */}
               <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-slate-200">
+                        <svg className="w-6 h-6" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                          />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">Google Drive</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge 
+                            variant="secondary" 
+                            className={googleDriveConnected 
+                              ? "bg-green-100 text-green-800 text-xs border-green-200" 
+                              : "bg-slate-100 text-slate-600 text-xs border-slate-200"}
+                          >
+                            {checkingConnection ? 'Checking...' : (googleDriveConnected ? 'Connected' : 'Not Connected')}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    {googleDriveConnected ? (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleDisconnectGoogleAccount}
+                        disabled={loading || checkingConnection}
+                        className="min-w-[100px]"
+                      >
+                        {loading ? 'Disconnecting...' : 'Disconnect'}
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        onClick={handleConnectGoogleAccount}
+                        disabled={loading || checkingConnection}
+                        className="min-w-[100px]"
+                      >
+                        {loading ? 'Connecting...' : 'Connect'}
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {connectionError && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {connectionError}
+                    </p>
+                  )}
+                  
+                  <p className="text-xs text-slate-500 mt-1">
+                    {checkingConnection 
+                      ? 'Checking connection status...' 
+                      : googleDriveConnected 
+                        ? `Connected as ${userData.email}. You can now save files directly to your Google Drive.`
+                        : 'Connect your Google account to save files directly to your Google Drive.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* OneDrive Integration (Placeholder) */}
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 opacity-50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-slate-200">
                       <svg className="w-6 h-6" viewBox="0 0 24 24">
                         <path
-                          fill="#4285F4"
-                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          fill="#0078D4"
+                          d="M21.5 12.5v5.5c0 1.1-.9 2-2 2h-15c-1.1 0-2-.9-2-2v-12c0-1.1.9-2 2-2h9.5v9.5l7-7z"
                         />
                         <path
-                          fill="#34A853"
-                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          fill="#0078D4"
+                          d="M22.5 5.5l-7 7v-7h7z"
                         />
                         <path
-                          fill="#FBBC05"
-                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                          fill="#0078D4"
+                          d="M15.5 12.5v7h-7v-7h7z"
                         />
                         <path
-                          fill="#EA4335"
-                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                          fill="#0078D4"
+                          d="M8.5 12.5v7h-7v-7h7z"
                         />
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm text-slate-900">Google Workspace</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
-                          Connected
-                        </Badge>
-                        <span className="text-xs text-slate-500">jsmith@university.edu</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    Disconnect
-                  </Button>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 opacity-60">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-slate-200">
-                      <LinkIcon className="w-5 h-5 text-slate-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-900">OneDrive</p>
-                      <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs mt-1">
-                        Not Connected
+                      <p className="text-sm text-slate-900">Microsoft OneDrive</p>
+                      <Badge variant="secondary" className="bg-slate-100 text-slate-400 text-xs mt-1">
+                        Coming Soon
                       </Badge>
                     </div>
                   </div>

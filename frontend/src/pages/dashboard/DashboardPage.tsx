@@ -1,12 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
-import { FileText, CheckCircle, Clock, Users, TrendingUp, Calendar, Upload, Eye, Leaf, Droplets, Loader2, AlertCircle, Megaphone } from 'lucide-react';
+import { CheckCircle, Clock, Users, TrendingUp, Calendar, Upload, Leaf, Droplets, Loader2, Megaphone, BookOpen } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { fetchCurrentUserGroups } from '../../api/groupService';
 import { fetchUnreadNotifications, fetchRecentActivities, markNotificationAsRead, Activity, ActivityNotification } from '../../api/activityService';
-import { Group } from '../../types';
+import { fetchCurrentUserTheses } from '../../api/thesisService';
+import { Group, Thesis } from '../../types';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '../../hooks/useAuth'; // Import useAuth hook
 
 interface DashboardProps {
   userRole: 'student' | 'adviser' | 'panel' | 'admin';
@@ -14,21 +16,22 @@ interface DashboardProps {
 }
 
 export function Dashboard({ userRole, onNavigate }: DashboardProps) {
+  const { user } = useAuth(); // Get user data from AuthContext
   const [groups, setGroups] = useState<Group[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [theses, setTheses] = useState<Thesis[]>([]);
   const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
   const [loading, setLoading] = useState({
     groups: true,
-    activities: true,
+    theses: true,
     notifications: true
   });
   const [error, setError] = useState<{
     groups: string | null;
-    activities: string | null;
+    theses: string | null;
     notifications: string | null;
   }>({
     groups: null,
-    activities: null,
+    theses: null,
     notifications: null
   });
 
@@ -51,28 +54,51 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     } catch (err) {
       console.error('Dashboard: Error loading groups:', err);
       setError(prev => ({ ...prev, groups: 'Failed to load groups' }));
-      throw err;
     } finally {
       setLoading(prev => ({ ...prev, groups: false }));
     }
   }, []);
 
-  const loadActivities = useCallback(async () => {
+  const loadTheses = useCallback(async () => {
     try {
-      setLoading(prev => ({ ...prev, activities: true }));
-      setError(prev => ({ ...prev, activities: null }));
+      setLoading(prev => ({ ...prev, theses: true }));
+      setError(prev => ({ ...prev, theses: null }));
       
-      console.log('Dashboard: Loading recent activities...');
-      const recentActivities = await fetchRecentActivities(5);
-      console.log('Dashboard: Loaded activities:', recentActivities);
-      setActivities(recentActivities);
+      console.log('Dashboard: Loading user theses...');
+      let userTheses: Thesis[] = [];
+      
+      // For students, fetch all theses and filter by access
+      if (userRole === 'student') {
+        const allTheses = await fetchCurrentUserTheses();
+        // Filter to only show theses the student has access to
+        userTheses = allTheses.filter(thesis => {
+          // Student has access if they are the proposer or a member of the group
+          const isProposer = thesis.proposer && String(thesis.proposer.id) === String(user?.id);
+          
+          // Check if student is a member of the group
+          let isMember = false;
+          if (typeof thesis.group === 'object' && thesis.group !== null && 'members' in thesis.group) {
+            isMember = thesis.group.members.some((member: any) => 
+              String(member.id) === String(user?.id)
+            );
+          }
+          
+          return isProposer || isMember;
+        });
+      } else {
+        // For other roles, fetch their assigned theses
+        userTheses = await fetchCurrentUserTheses();
+      }
+      
+      console.log('Dashboard: Loaded theses:', userTheses);
+      setTheses(userTheses);
     } catch (err) {
-      console.error('Dashboard: Error loading activities:', err);
-      setError(prev => ({ ...prev, activities: 'Failed to load recent activities' }));
+      console.error('Dashboard: Error loading theses:', err);
+      setError(prev => ({ ...prev, theses: 'Failed to load theses' }));
     } finally {
-      setLoading(prev => ({ ...prev, activities: false }));
+      setLoading(prev => ({ ...prev, theses: false }));
     }
-  }, []);
+  }, [userRole, user?.id]);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -110,7 +136,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
       try {
         await Promise.all([
           loadGroups(),
-          loadActivities(),
+          loadTheses(),
           loadNotifications()
         ]);
       } catch (err) {
@@ -119,17 +145,17 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     };
 
     loadAllData();
-  }, [loadGroups, loadActivities, loadNotifications]);
+  }, [loadGroups, loadTheses, loadNotifications]);
   
   // Function to retry loading data
-  const handleRetry = async (type: 'groups' | 'activities' | 'notifications') => {
+  const handleRetry = async (type: 'groups' | 'theses' | 'notifications') => {
     try {
       switch (type) {
         case 'groups':
           await loadGroups();
           break;
-        case 'activities':
-          await loadActivities();
+        case 'theses':
+          await loadTheses();
           break;
         case 'notifications':
           await loadNotifications();
@@ -153,48 +179,68 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     
     switch (userRole) {
       case 'student':
+        // For students, show their single group and thesis
+        const studentGroup = uniqueGroups.length > 0 ? uniqueGroups[0] : null;
+        const studentThesis = theses.length > 0 ? theses[0] : null;
+        
         return [
-          { label: 'My Groups', value: uniqueGroups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
-          { label: 'Active Groups', value: activeGroups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
-          { label: 'Pending Groups', value: pendingGroups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
-          { label: 'Group Members', value: groupMembers.toString(), icon: Users, color: 'text-purple-600 bg-purple-100' },
+          { 
+            label: 'My Group', 
+            value: studentGroup ? studentGroup.name : 'None', 
+            icon: Users, 
+            color: 'text-green-600 bg-green-100'
+          },
+          { 
+            label: 'Group Status', 
+            value: studentGroup ? studentGroup.status : 'N/A', 
+            icon: CheckCircle, 
+            color: studentGroup?.status === 'APPROVED' ? 'text-blue-600 bg-blue-100' : 
+                   studentGroup?.status === 'PENDING' ? 'text-amber-600 bg-amber-100' : 
+                   'text-gray-600 bg-gray-100',
+            detail: studentGroup ? (studentGroup.status === 'APPROVED' ? 'Approved' : 
+                                   studentGroup.status === 'PENDING' ? 'Pending Approval' : 
+                                   'Not Available') : ''
+          },
+          { 
+            label: 'My Thesis', 
+            value: studentThesis ? studentThesis.title : 'None', 
+            icon: BookOpen, 
+            color: 'text-purple-600 bg-purple-100'
+          },
+          { 
+            label: 'Thesis Status', 
+            value: studentThesis ? studentThesis.status : 'N/A', 
+            icon: TrendingUp, 
+            color: studentThesis ? 
+                   (studentThesis.status.includes('APPROVED') ? 'text-green-600 bg-green-100' : 
+                    studentThesis.status.includes('SUBMITTED') ? 'text-blue-600 bg-blue-100' : 
+                    studentThesis.status.includes('REJECTED') ? 'text-red-600 bg-red-100' : 
+                    'text-amber-600 bg-amber-100') : 
+                   'text-gray-600 bg-gray-100',
+            detail: studentThesis ? studentThesis.status.replace(/_/g, ' ') : ''
+          },
         ];
       case 'adviser':
         return [
           { label: 'Advised Groups', value: uniqueGroups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
           { label: 'Active Groups', value: activeGroups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
           { label: 'Pending Groups', value: pendingGroups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
-          { label: 'Students', value: groupMembers.toString(), icon: Users, color: 'text-purple-600 bg-purple-100' },
+          { label: 'Assigned Theses', value: theses.length.toString(), icon: BookOpen, color: 'text-purple-600 bg-purple-100' },
         ];
       case 'panel':
         return [
           { label: 'Assigned Groups', value: uniqueGroups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
           { label: 'Active Groups', value: activeGroups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
           { label: 'Pending Groups', value: pendingGroups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
-          { label: 'Students', value: groupMembers.toString(), icon: Users, color: 'text-purple-600 bg-purple-100' },
+          { label: 'Assigned Theses', value: theses.length.toString(), icon: BookOpen, color: 'text-purple-600 bg-purple-100' },
         ];
       default: // admin
         return [
           { label: 'Total Groups', value: uniqueGroups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
           { label: 'Active Groups', value: activeGroups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
           { label: 'Pending Groups', value: pendingGroups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
-          { label: 'Total Members', value: groupMembers.toString(), icon: Users, color: 'text-purple-600 bg-purple-100' },
+          { label: 'Total Theses', value: theses.length.toString(), icon: BookOpen, color: 'text-purple-600 bg-purple-100' },
         ];
-    }
-  };
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'group':
-        return Users;
-      case 'document':
-        return FileText;
-      case 'schedule':
-        return Calendar;
-      case 'announcement':
-        return Megaphone;
-      default:
-        return Clock;
     }
   };
 
@@ -213,10 +259,16 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
 
   const quickActions = [
     { 
-      label: userRole === 'student' ? 'Create Group' : 'View Groups', 
+      label: userRole === 'student' ? 'My Group' : 'View Groups', 
       icon: Users, 
       action: 'groups', 
       color: 'bg-green-700 hover:bg-green-800' 
+    },
+    { 
+      label: userRole === 'student' ? 'My Thesis' : 'View Theses', 
+      icon: BookOpen, 
+      action: 'thesis', 
+      color: 'bg-purple-700 hover:bg-purple-800' 
     },
     { 
       label: 'Upload Document', 
@@ -228,12 +280,6 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
       label: 'View Calendar', 
       icon: Calendar, 
       action: 'schedule', 
-      color: 'bg-purple-700 hover:bg-purple-800' 
-    },
-    { 
-      label: userRole === 'student' ? 'My Submissions' : 'Review Submissions', 
-      icon: FileText, 
-      action: 'submissions', 
       color: 'bg-amber-700 hover:bg-amber-800' 
     },
     // Add pending proposals action for admins
@@ -246,11 +292,11 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
   ];
 
   const statCards = getStatCards();
-  const isLoading = loading.groups || loading.activities || loading.notifications;
-  const hasError = error.groups || error.activities || error.notifications;
+  const isLoading = loading.groups || loading.theses || loading.notifications;
+  const hasError = error.groups || error.theses || error.notifications;
 
   // Show loading state only when initially loading
-  if (isLoading && groups.length === 0 && activities.length === 0 && notifications.length === 0) {
+  if (isLoading && groups.length === 0 && theses.length === 0 && notifications.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
@@ -268,16 +314,9 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     time: formatDistanceToNow(new Date(notification.created_at), { addSuffix: true }),
     category: notification.type.charAt(0).toUpperCase() + notification.type.slice(1),
     unread: !notification.is_read,
-    message: notification.body, // Use body instead of message
-    read: notification.is_read, // Add read property for compatibility
-    action: notification.link ? { url: notification.link } : undefined // Convert link to action
-  }));
-
-  // Format activities for display
-  const formattedActivities = activities.map(activity => ({
-    ...activity,
-    time: formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true }),
-    icon: getActivityIcon(activity.type)
+    message: notification.body,
+    read: notification.is_read,
+    action: notification.link ? { url: notification.link } : undefined
   }));
 
   return (
@@ -311,80 +350,16 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-3xl text-slate-900">{stat.value}</p>
-                <p className="text-sm text-slate-600">{stat.label}</p>
+                <p className="text-xl text-slate-900 font-semibold truncate whitespace-nowrap overflow-hidden" title={stat.value}>{stat.value}</p>
+                <p className="text-sm text-slate-500 font-medium">{stat.label}</p>
+
               </div>
             </Card>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Activity Feed */}
-        <Card className="lg:col-span-2 p-6 border-0 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-slate-900">Recent Activity</h2>
-            <Button variant="ghost" size="sm" className="text-green-700 hover:text-green-800">
-              View All
-            </Button>
-          </div>
-          <div className="space-y-4">
-            {formattedActivities.length > 0 ? (
-              formattedActivities.map((activity, index) => {
-                const Icon = activity.icon;
-                return (
-                  <div 
-                    key={activity.id} 
-                    className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                    onClick={() => {
-                      // Navigate to relevant page based on activity type
-                      if (activity.group?.id) {
-                        onNavigate(`/groups/${activity.group.id}`);
-                      } else if (activity.document?.id) {
-                        onNavigate(`/documents/${activity.document.id}`);
-                      }
-                    }}
-                  >
-                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-slate-200">
-                      <Icon className="w-5 h-5 text-slate-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-900">{activity.title}</p>
-                      <p className="text-sm text-slate-600">
-                        {activity.group?.name || activity.document?.title || ''}
-                      </p>
-                    </div>
-                    <span className="text-xs text-slate-500 whitespace-nowrap">{activity.time}</span>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-8 text-slate-500">
-                {loading.activities ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Loading activities...</span>
-                  </div>
-                ) : error.activities ? (
-                  <div className="text-red-500">
-                    <p>Failed to load activities</p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={() => handleRetry('activities')}
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                ) : (
-                  <p>No recent activities found</p>
-                )}
-              </div>
-            )}
-          </div>
-        </Card>
-
+      <div className="grid grid-cols-1 gap-6">
         {/* Notifications Panel */}
         <Card className="p-6 border-0 shadow-sm">
           <div className="flex items-center justify-between mb-6">
@@ -423,8 +398,8 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
                       <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                     )}
                   </div>
-                  <p className="text-sm text-slate-900 mb-1">{notification.title}</p>
-                  <p className="text-sm text-slate-600 mb-1">{notification.message}</p>
+                  <p className="text-sm text-slate-900 mb-1 truncate whitespace-nowrap overflow-hidden" title={notification.title}>{notification.title}</p>
+                  <p className="text-sm text-slate-600 mb-1 truncate whitespace-nowrap overflow-hidden" title={notification.message}>{notification.message}</p>
                   <p className="text-xs text-slate-500">{notification.time}</p>
                 </div>
               ))
@@ -466,7 +441,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
       {/* Quick Actions */}
       <Card className="p-6 border-0 shadow-sm">
         <h2 className="text-slate-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {quickActions.map((action, index) => {
             const Icon = action.icon;
             return (

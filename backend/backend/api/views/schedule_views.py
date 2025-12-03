@@ -9,7 +9,7 @@ from api.models.schedule_models import OralDefenseSchedule, PanelMemberAvailabil
 from api.models.thesis_models import Thesis
 from api.models.user_models import User
 from api.serializers.schedule_serializers import ScheduleSerializer, ScheduleAvailabilitySerializer
-from api.permissions.role_permissions import IsAdviser, IsAdviserOrPanelForSchedule
+from api.permissions.role_permissions import IsAdviser, IsAdviserOrPanelForSchedule, CanCreateSchedule
 from api.utils.scheduling_utils import (
     auto_schedule_oral_defense, 
     check_panel_member_availability, 
@@ -20,7 +20,7 @@ from api.utils.scheduling_utils import (
 class ScheduleViewSet(viewsets.ModelViewSet):
     queryset = OralDefenseSchedule.objects.all().select_related('thesis__group','organizer')
     serializer_class = ScheduleSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdviserOrPanelForSchedule]
+    permission_classes = [permissions.IsAuthenticated, CanCreateSchedule]
 
     def get_queryset(self):
         queryset = super().get_queryset()

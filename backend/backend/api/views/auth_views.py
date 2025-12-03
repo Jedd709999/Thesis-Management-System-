@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import authenticate
+from django.shortcuts import render
 from api.models.user_models import User
 from api.serializers.user_serializers import UserSerializer, RegisterSerializer, PublicRegisterSerializer
 from api.permissions.role_permissions import IsAdmin
@@ -49,3 +50,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             except User.DoesNotExist:
                 pass
         return response
+
+
+def oauth_callback(request):
+    """Handle OAuth callback from Google"""
+    return render(request, 'oauth_callback.html')

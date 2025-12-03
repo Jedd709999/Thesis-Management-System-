@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Mail, FileText, TrendingUp, Users, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Mail, FileText, TrendingUp, Users, MessageSquare, Plus } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
-import { fetchGroup } from '../../api/groupService';
+import { fetchGroup, assignPanel } from '../../api/groupService';
 import { Group, GroupMember } from '../../types/group';
+import { useAuth } from '../../hooks/useAuth';
+import { AssignPanelDialog } from './AssignPanelDialog';
 
 interface GroupDetailProps {
   groupId: string | null;
@@ -13,17 +15,26 @@ interface GroupDetailProps {
 }
 
 export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
+  const { user: currentUser } = useAuth();
   const [group, setGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAssignPanelDialogOpen, setIsAssignPanelDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId) {
+      setError('No group ID provided');
+      setLoading(false);
+      return;
+    }
 
     const loadGroup = async () => {
       try {
         setLoading(true);
+        setError(null);
+        console.log('Fetching group with ID:', groupId);
         const fetchedGroup: any = await fetchGroup(groupId);
+        console.log('Received group data:', fetchedGroup);
         
         // Transform the group data to ensure members are properly structured
         // Extract members from group_members field (sent by backend) or members field
@@ -34,6 +45,8 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
         } else if (fetchedGroup.members && Array.isArray(fetchedGroup.members)) {
           // Fallback to members field if group_members doesn't exist
           rawMembers = fetchedGroup.members;
+        } else {
+          console.warn('No members found in group data');
         }
         
         // Transform members to GroupMember[] type
@@ -92,9 +105,9 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
         
         setGroup(transformedGroup);
         setError(null);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching group:', err);
-        setError('Failed to load group details');
+        setError(`Failed to load group details: ${err.message || err}`);
       } finally {
         setLoading(false);
       }
@@ -103,6 +116,35 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
     loadGroup();
   }, [groupId]);
 
+  const handleAssignPanel = async (groupId: string, panelIds: (number | string)[]) => {
+    try {
+      const updatedGroup = await assignPanel(groupId, panelIds);
+      
+      // Transform the updated group data
+      const panels = updatedGroup.panels && Array.isArray(updatedGroup.panels) ? 
+        updatedGroup.panels.map((panel: any) => ({
+          id: String(panel.id),
+          first_name: panel.first_name || '',
+          last_name: panel.last_name || '',
+          email: panel.email || '',
+          role: (panel.role || 'panel').toLowerCase() as 'student' | 'adviser' | 'panel' | 'admin'
+        })) : [];
+      
+      // Update the group state with the new panel assignments
+      if (group) {
+        setGroup({
+          ...group,
+          panels: panels
+        });
+      }
+      
+      alert('Panel members assigned successfully.');
+    } catch (error: any) {
+      console.error('Error assigning panel members:', error);
+      alert(`Failed to assign panel members. Please try again. Error: ${error.message || error}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8 space-y-6">
@@ -110,7 +152,7 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Groups
         </Button>
-        <div>Loading group details...</div>
+        <div>Loading group details... (Group ID: {groupId || 'None'})</div>
       </div>
     );
   }
@@ -122,10 +164,18 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Groups
         </Button>
-        <div>Error: {error || 'Group not found'}</div>
+        <div className="text-red-500">Error: {error || 'Group not found'}</div>
+        <div>Group ID: {groupId || 'None'}</div>
+        <Button onClick={onBack}>Go Back</Button>
       </div>
     );
   }
+
+  // Check if current user is the adviser for this group
+  const isGroupAdviser = currentUser?.role === 'ADVISER' && group.adviser?.id === String(currentUser.id);
+  
+  // Check if current user is a panel member for this group
+  const isGroupPanel = currentUser?.role === 'PANEL' && group.panels?.some(panel => panel.id === String(currentUser.id));
 
   // Get leader name
   const getLeaderName = () => {
@@ -277,7 +327,21 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
 
               {/* Panel */}
               <div>
-                <h3 className="text-sm font-medium text-slate-900 mb-3">Panel Members</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-slate-900">Panel Members</h3>
+                  {/* Show Assign Panel button only for advisers of approved groups */}
+                  {isGroupAdviser && group.status === 'APPROVED' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setIsAssignPanelDialogOpen(true)}
+                      className="flex items-center gap-1 text-xs"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Assign Panel
+                    </Button>
+                  )}
+                </div>
                 {group.panels && group.panels.length > 0 ? (
                   <div className="space-y-3">
                     {group.panels.map((panelMember, index) => (
@@ -297,7 +361,21 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-500">No panel members assigned</p>
+                  <div className="flex flex-col items-center justify-center p-6 text-center bg-slate-50 rounded-lg">
+                    <Users className="w-8 h-8 text-slate-400 mb-2" />
+                    <p className="text-sm text-slate-500 mb-2">No panel members assigned</p>
+                    {isGroupAdviser && group.status === 'APPROVED' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setIsAssignPanelDialogOpen(true)}
+                        className="flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Assign Panel Members
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -354,6 +432,14 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
           )}
         </div>
       </div>
+
+      {/* Assign Panel Dialog */}
+      <AssignPanelDialog
+        open={isAssignPanelDialogOpen}
+        onOpenChange={setIsAssignPanelDialogOpen}
+        group={group}
+        onAssignPanel={handleAssignPanel}
+      />
     </div>
   );
 }

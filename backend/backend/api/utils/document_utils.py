@@ -1,11 +1,16 @@
 from django.db import transaction
+from django.utils import timezone
 from api.models.document_models import Document, DocumentVersion
 from api.models.thesis_models import Thesis
-from api.services.google_drive_service import drive_service
+from api.services.google_drive_service import GoogleDriveService
+
+# Create a global drive service instance for utility functions
+# Note: We're using a local instance now to avoid global state issues
+drive_service = None
 
 def handle_document_uploaded(document, actor):
     """
-    Handle document upload and transition thesis status accordingly.
+    Handle document upload. Documents start as draft and thesis status is only updated when explicitly submitted.
     
     Args:
         document: Document instance that was uploaded
@@ -14,36 +19,30 @@ def handle_document_uploaded(document, actor):
     Returns:
         Updated thesis instance
     """
-    # Mapping of document types to thesis statuses
-    status_mapping = {
-        'concept_paper': 'CONCEPT_SUBMITTED',
-        'research_proposal': 'PROPOSAL_SUBMITTED',
-        'final_manuscript': 'FINAL_SUBMITTED',
-    }
+    # Documents start as draft by default (set in model)
+    # Thesis status is only updated when document is explicitly submitted
     
     # Get the thesis associated with the document
     thesis = document.thesis
     
-    # If document type maps to a thesis status, update the thesis
-    if document.document_type in status_mapping:
-        new_status = status_mapping[document.document_type]
-        thesis.status = new_status
-        thesis.save(update_fields=['status'])
-    
     return thesis
 
-def convert_to_google_doc(document, file_content=None):
+def convert_to_google_doc(document, file_content=None, user=None):
     """
     Convert a document to Google Doc format and update document fields.
     
     Args:
         document: Document instance
         file_content: File content bytes (optional, if not provided will read from file)
+        user: User for Google Drive authentication (optional)
     
     Returns:
         Tuple of (success: bool, error_message: str or None)
     """
     try:
+        # Create a local GoogleDriveService instance
+        drive_service = GoogleDriveService(user=user)
+        
         # If file_content not provided, read from the document file
         if file_content is None and document.file:
             with open(document.file.path, 'rb') as f:
@@ -128,7 +127,8 @@ def create_document_version(document, actor):
             doc_embed_url=document.doc_embed_url,
             google_drive_file_id=document.google_drive_file_id,
             mime_type=document.mime_type,
-            file_size=document.file_size
+            file_size=document.file_size,
+            status='draft'  # New versions start as draft
         )
         
         # Copy file if it exists
@@ -149,12 +149,13 @@ def create_document_version(document, actor):
         
         return new_document
 
-def sync_google_doc_metadata(document):
+def sync_google_doc_metadata(document, user=None):
     """
     Sync Google Doc metadata with the document record.
     
     Args:
         document: Document instance
+        user: User for Google Drive authentication (optional)
     
     Returns:
         Success status
@@ -163,6 +164,9 @@ def sync_google_doc_metadata(document):
         return False
     
     try:
+        # Create a local GoogleDriveService instance
+        drive_service = GoogleDriveService(user=user)
+        
         # Get file info from Google Drive
         file_info = drive_service.get_file_info(document.google_doc_id)
         if not file_info:
@@ -185,3 +189,75 @@ def sync_google_doc_metadata(document):
     except Exception as e:
         print(f"Error syncing Google Doc metadata: {e}")
         return False
+
+def update_document_status(document, new_status, actor=None):
+    """
+    Update the status of a document and update thesis status when document is submitted or rejected.
+    
+    Args:
+        document: Document instance
+        new_status: New status value
+        actor: User performing the status update (optional)
+    
+    Returns:
+        Updated document instance
+    """
+    # Validate status
+    valid_statuses = [choice[0] for choice in Document.DOCUMENT_STATUS_CHOICES]
+    if new_status not in valid_statuses:
+        raise ValueError(f"Invalid document status. Valid statuses are: {', '.join(valid_statuses)}")
+    
+    # Store old status for potential rollback
+    old_status = document.status
+    
+    # Update document status
+    document.status = new_status
+    document.save(update_fields=['status', 'updated_at'])
+    
+    # If document is being submitted, update thesis status based on document type
+    if document.thesis:
+        thesis = document.thesis
+        document_type = document.document_type
+        
+        # Map document types to thesis status updates
+        status_updates = {
+            'concept_paper': {
+                'from': ['TOPIC_APPROVED'],
+                'to': 'CONCEPT_SUBMITTED',
+                'reject_to': 'TOPIC_APPROVED'  # Status to revert to when rejected
+            },
+            'research_proposal': {
+                'from': ['CONCEPT_APPROVED'],
+                'to': 'PROPOSAL_SUBMITTED',
+                'reject_to': 'CONCEPT_APPROVED'
+            },
+            'final_manuscript': {
+                'from': ['PROPOSAL_APPROVED', 'RESEARCH_IN_PROGRESS'],
+                'to': 'FINAL_SUBMITTED',
+                'reject_to': 'RESEARCH_IN_PROGRESS'
+            }
+        }
+        
+        if new_status == 'rejected' and document_type in status_updates:
+            # Revert thesis status when document is rejected
+            revert_status = status_updates[document_type].get('reject_to')
+            if revert_status and thesis.status == status_updates[document_type]['to']:
+                thesis.status = revert_status
+                thesis.save(update_fields=['status', 'updated_at'])
+                print(f"Reverted thesis {thesis.id} status to {revert_status} "
+                      f"after rejecting {document_type} document")
+        
+        elif new_status == 'submitted' and document_type in status_updates:
+            # Update thesis status when document is submitted
+            update_info = status_updates[document_type]
+            
+            # Only update if current status is in the 'from' list or if 'from' is empty
+            if not update_info['from'] or thesis.status in update_info['from']:
+                thesis.status = update_info['to']
+                thesis.save(update_fields=['status', 'updated_at'])
+                
+                # Log the status update
+                print(f"Updated thesis {thesis.id} status to {update_info['to']} "
+                      f"after submitting {document_type} document")
+    
+    return document

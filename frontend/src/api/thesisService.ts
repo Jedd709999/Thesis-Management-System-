@@ -5,7 +5,35 @@ import { Thesis, ThesisFormData } from '../types'
  * Fetch all theses
  */
 export async function fetchTheses(): Promise<Thesis[]> {
-  const res = await api.get('theses/')
+  const res = await api.get('/theses/')
+  return res.data
+}
+
+/**
+ * Fetch current user's theses (for advisers, panels - theses from their assigned groups)
+ */
+export async function fetchCurrentUserTheses(): Promise<Thesis[]> {
+  console.log('ThesisService: Fetching current user theses');
+  const res = await api.get('/theses/get_current_user_theses/')
+  console.log('ThesisService: Current user theses response:', res.data);
+  return res.data
+}
+
+/**
+ * Fetch other theses (for advisers, panels - theses from other groups)
+ */
+export async function fetchOtherTheses(): Promise<Thesis[]> {
+  console.log('ThesisService: Fetching other theses');
+  const res = await api.get('/theses/get_other_theses/')
+  console.log('ThesisService: Other theses response:', res.data);
+  return res.data
+}
+
+/**
+ * Fetch theses for the current user
+ */
+export async function fetchUserTheses(): Promise<Thesis[]> {
+  const res = await api.get('theses/user_theses/')
   return res.data
 }
 
@@ -53,7 +81,7 @@ export async function submitThesis(id: string): Promise<Thesis> {
  */
 export async function adviserReview(
   id: string,
-  action: 'approve_topic' | 'request_revision' | 'reject' | 'approve_thesis',
+  action: 'approve_topic' | 'request_revision' | 'reject' | 'approve_thesis' | 'approve_proposal' | 'approve_final',
   feedback?: string
 ): Promise<Thesis> {
   const res = await api.post(`theses/${id}/adviser_review/`, {

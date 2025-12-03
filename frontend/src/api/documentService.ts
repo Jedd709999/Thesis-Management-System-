@@ -1,12 +1,12 @@
 import api from './api'
-import { Document, DocumentUploadData } from '../types'
+import { Document } from '../types'
 
 /**
  * Fetch all documents
  */
 export async function fetchDocuments(thesisId?: string): Promise<Document[]> {
   const params = thesisId ? { thesis: thesisId } : {}
-  const res = await api.get('documents/', { params })
+  const res = await api.get('/documents/', { params })
   return res.data
 }
 
@@ -21,12 +21,11 @@ export async function fetchDocument(id: string): Promise<Document> {
 /**
  * Upload a document
  */
-export async function uploadDocument(data: DocumentUploadData): Promise<Document> {
-  const formData = new FormData()
-  formData.append('thesis_id', data.thesis_id)
-  formData.append('title', data.title)
-  formData.append('file', data.file)
-  formData.append('convert_to_google_doc', String(data.convert_to_google_doc))
+export async function uploadDocument(formData: FormData): Promise<Document> {
+  // Ensure document_type is included in formData
+  if (!formData.get('document_type')) {
+    throw new Error('Document type is required');
+  }
   
   const res = await api.post('documents/', formData, {
     headers: {
@@ -82,7 +81,15 @@ export async function getDocumentVersions(id: string): Promise<Document[]> {
  * Sync document with Google Drive
  */
 export async function syncDocument(id: string): Promise<Document> {
-  const res = await api.post(`documents/${id}/sync/`)
+  const res = await api.post(`documents/${id}/sync-metadata/`)
+  return res.data
+}
+
+/**
+ * Link a local document to Google Drive
+ */
+export async function linkDocumentToDrive(id: string): Promise<Document> {
+  const res = await api.post(`documents/${id}/link-to-drive/`)
   return res.data
 }
 
@@ -96,10 +103,10 @@ export async function linkGoogleDoc(payload: any): Promise<Document> {
 
 /**
  * Upload to Drive
+ * @deprecated Use uploadDocument instead - all uploads now automatically go to Google Drive
  */
 export async function uploadToDrive(formData: FormData): Promise<Document> {
-  formData.append('upload_type', 'drive')
-  return api.post('documents/', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+  return uploadDocument(formData);
 }
 
 /**
@@ -110,11 +117,22 @@ export async function deleteFromDrive(id: string): Promise<void> {
 }
 
 /**
+ * Update document status
+ */
+export async function updateDocumentStatus(
+  id: string,
+  status: 'draft' | 'submitted' | 'revision' | 'approved' | 'rejected'
+): Promise<Document> {
+  const res = await api.patch(`documents/${id}/update-status/`, { status })
+  return res.data
+}
+
+/**
  * Check if user has a thesis
  */
 export async function checkUserHasThesis() {
   try {
-    const groupsRes = await api.get('groups/get_current_user_groups/')
+    const groupsRes = await api.get('/groups/get_current_user_groups/')
     const groups = groupsRes.data || []
     
     const groupTheses = groups.filter((g: any) => g.thesis)

@@ -46,26 +46,42 @@ class GroupSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         """Override to add debug information"""
-        print(f"DEBUG: Serializing group {instance.name} (ID: {instance.id})")
-        print(f"DEBUG: Group leader: {instance.leader}")
-        if instance.leader:
-            print(f"DEBUG: Leader details - ID: {instance.leader.id}, Email: {instance.leader.email}, Name: {instance.leader.first_name} {instance.leader.last_name}")
-        representation = super().to_representation(instance)
-        print(f"DEBUG: Serialized representation keys: {list(representation.keys())}")
-        if 'leader' in representation:
-            print(f"DEBUG: Leader in representation: {representation['leader']}")
-        else:
-            print("DEBUG: Leader field missing from representation")
-        return representation
+        try:
+            print(f"DEBUG: Serializing group {instance.name} (ID: {instance.id})")
+            print(f"DEBUG: Group leader: {instance.leader}")
+            if instance.leader:
+                print(f"DEBUG: Leader details - ID: {instance.leader.id}, Email: {instance.leader.email}, Name: {instance.leader.first_name} {instance.leader.last_name}")
+            representation = super().to_representation(instance)
+            print(f"DEBUG: Serialized representation keys: {list(representation.keys())}")
+            if 'leader' in representation:
+                print(f"DEBUG: Leader in representation: {representation['leader']}")
+            else:
+                print("DEBUG: Leader field missing from representation")
+            return representation
+        except Exception as e:
+            print(f"DEBUG: Error in to_representation: {e}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
+            # Return a minimal representation even if there's an error
+            return {
+                'id': str(instance.id) if instance.id else None,
+                'name': getattr(instance, 'name', ''),
+                'status': getattr(instance, 'status', 'PENDING'),
+                'error': 'Serialization error occurred'
+            }
     
     def get_preferred_adviser(self, obj):
         """Get the preferred adviser details if preferred_adviser_id is set"""
         if obj.preferred_adviser_id:
             try:
-                from api.models.user_models import User
                 preferred_adviser = User.objects.get(pk=obj.preferred_adviser_id)
                 return UserSerializer(preferred_adviser).data
             except User.DoesNotExist:
+                # Preferred adviser no longer exists
+                return None
+            except Exception as e:
+                # Handle any other errors gracefully
+                print(f"DEBUG: Error getting preferred adviser: {e}")
                 return None
         return None
     

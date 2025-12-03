@@ -7,15 +7,28 @@ from django.core.exceptions import ValidationError
 class ScheduleSerializer(serializers.ModelSerializer):
     thesis_title = serializers.CharField(source='thesis.title', read_only=True)
     panel_members_detail = serializers.SerializerMethodField()
+    date_time = serializers.SerializerMethodField()
+    duration_minutes = serializers.SerializerMethodField()
     
     class Meta:
         model = OralDefenseSchedule
         fields = (
             'id', 'thesis', 'thesis_title', 'title', 'start', 'end', 'location', 
             'meeting_url', 'status', 'notes', 'organizer', 'panel_members',
-            'panel_members_detail', 'created_at', 'updated_at'
+            'panel_members_detail', 'created_at', 'updated_at', 'date_time', 'duration_minutes'
         )
         read_only_fields = ('organizer', 'created_at', 'updated_at')
+    
+    def get_date_time(self, obj):
+        """Return the start time as date_time for frontend compatibility"""
+        return obj.start.isoformat() if obj.start else None
+    
+    def get_duration_minutes(self, obj):
+        """Calculate duration in minutes from start and end times"""
+        if obj.start and obj.end:
+            duration = obj.end - obj.start
+            return int(duration.total_seconds() / 60)
+        return 0
 
     def get_panel_members_detail(self, obj):
         """Get detailed information about panel members"""

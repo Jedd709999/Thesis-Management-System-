@@ -11,7 +11,7 @@ export async function fetchNotifications(params?: {
 }): Promise<Notification[]> {
   console.log('NotificationService: Fetching notifications with params:', params);
   console.log('NotificationService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get('notifications/', { params })
+  const res = await api.get('/notifications/', { params })
   console.log('NotificationService: Notifications response received', res);
   return res.data
 }
@@ -22,7 +22,7 @@ export async function fetchNotifications(params?: {
 export async function fetchUnreadCount(): Promise<number> {
   console.log('NotificationService: Fetching unread count');
   console.log('NotificationService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get('notifications/unread-count/')
+  const res = await api.get('/notifications/unread-count/')
   console.log('NotificationService: Unread count response received', res);
   return res.data.unread_count
 }
@@ -64,7 +64,7 @@ export async function deleteNotification(id: string): Promise<void> {
 export async function pollNotifications(): Promise<Notification[]> {
   console.log('NotificationService: Polling for new notifications');
   console.log('NotificationService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get('notifications/', {
+  const res = await api.get('/notifications/', {
     params: {
       is_read: false,
       limit: 10

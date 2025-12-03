@@ -1,62 +1,42 @@
-import React from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
-import Login from '../pages/login/LoginPage'
-import { Dashboard } from '../pages/dashboard/DashboardPage'
-import { AppShell } from '../components/layout'
-import { RoleRoute } from '../components/RoleRoute'
-import ProtectedRoute from '../components/ProtectedRoute'
-import { Spinner } from '../components/ui'
-import GroupManagementPage from '../pages/group-management/GroupManagementPage'
-import { GroupDetail as GroupDetailPage } from '../pages/group-detail/GroupDetailPage'
-import { ThesisManagement as ThesisCrudPage } from '../pages/thesis-management/ThesisManagementPage'
-import { ThesisDetail as ThesisWorkflowPage } from '../pages/thesis-detail/ThesisDetailPage'
-import { DocumentManager as DocumentManagerPage } from '../pages/document-manager/DocumentManagerPage'
-import { GoogleDocsEmbed as DocumentEditorPage } from '../pages/google-docs/GoogleDocsEmbedPage'
-import { ScheduleManagement as SchedulePage } from '../pages/schedule-management/ScheduleManagementPage'
-import { NotificationCenter as NotificationCenterPage } from '../pages/notification-center/NotificationCenterPage'
-import { Settings as SettingsPage } from '../pages/settings/SettingsPage'
+import React from 'react';
+import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import ProtectedRoute from '../components/ProtectedRoute';
+import { RoleRoute } from '../components/RoleRoute';
+import { AppShell } from '../components/layout';
+import Login from '../pages/login/LoginPage';
+import { Dashboard } from '../pages/dashboard/DashboardPage';
+import GroupManagementPage from '../pages/group-management/GroupManagementPage';
+import { GroupDetail as GroupDetailPage } from '../pages/group-detail/GroupDetailPage';
+import { ThesisManagement as ThesisCrudPage } from '../pages/thesis-management/ThesisManagementPage';
+import { ThesisDetail as ThesisWorkflowPage } from '../pages/thesis-detail/ThesisDetailPage';
+import { DocumentManager as DocumentManagerPage } from '../pages/document-manager/DocumentManagerPage';
+import { GoogleDocsEmbed as DocumentEditorPage } from '../pages/google-docs/GoogleDocsEmbedPage';
+import { ScheduleManagement as SchedulePage } from '../pages/schedule-management/ScheduleManagementPage';
+import { NotificationCenter as NotificationCenterPage } from '../pages/notification-center/NotificationCenterPage';
+import { Settings as SettingsPage } from '../pages/settings/SettingsPage';
 
-export const AppRoutes: React.FC = () => {
-  const { user, loading } = useAuth()
-  const navigate = useNavigate()
+// Wrapper component to extract the group ID from URL params and pass it to GroupDetailPage
+const GroupDetailWrapper = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   
-  console.log('AppRoutes: Rendering with auth state', { user, loading });
-  console.log('AppRoutes: localStorage access_token:', localStorage?.getItem('access_token'));
-  console.log('AppRoutes: isAuthenticated result:', localStorage?.getItem('access_token') !== null);
+  return <GroupDetailPage groupId={id || null} onBack={() => navigate('/groups')} />;
+};
 
-  if (loading) {
-    console.log('AppRoutes: Still loading auth state');
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spinner className="size-12" />
-      </div>
-    )
-  }
+// Wrapper component to extract the thesis ID from URL params and pass it to ThesisWorkflowPage
+const ThesisDetailWrapper = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  
+  return <ThesisWorkflowPage thesisId={id || null} onBack={() => navigate('/thesis')} />;
+};
 
-  // Convert user role to lowercase for consistency with component props
+const AppRoutes = () => {
+  const { user } = useAuth();
+  // Convert user role to lowercase for consistent usage throughout the app
   const userRole = user?.role?.toLowerCase() as 'student' | 'adviser' | 'panel' | 'admin' | undefined;
-
-  const handleLogin = (role: 'student' | 'adviser' | 'panel' | 'admin') => {
-    console.log('AppRoutes: handleLogin called with role', role);
-    console.log('AppRoutes: localStorage access_token after login:', localStorage?.getItem('access_token'));
-    console.log('AppRoutes: User after login:', user);
-    // In a real app, you would authenticate here
-    // For now, we'll just navigate to the dashboard
-    console.log('AppRoutes: Navigating to dashboard');
-    navigate('/dashboard');
-    console.log('AppRoutes: Navigation completed');
-    // Add a small delay to ensure navigation completes
-    setTimeout(() => {
-      console.log('AppRoutes: After navigation timeout');
-      console.log('AppRoutes: Current location:', window.location.href);
-      console.log('AppRoutes: localStorage access_token after navigation:', localStorage?.getItem('access_token'));
-    }, 100);
-  }
-
-  console.log('AppRoutes: Current location:', window.location.pathname);
-  console.log('AppRoutes: Current user:', user);
-  console.log('AppRoutes: Current loading state:', loading);
+  const navigate = useNavigate();
 
   return (
     <Routes>
@@ -80,7 +60,7 @@ export const AppRoutes: React.FC = () => {
                   element={
                     <RoleRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}>
                       <GroupManagementPage 
-                        userRole={userRole === 'admin' ? 'admin' : userRole?.toLowerCase() as 'student' | 'adviser' | 'panel'}
+                        userRole={userRole || 'student'}
                         onViewDetail={(groupId) => navigate(`/groups/${groupId}`)} 
                       />
                     </RoleRoute>
@@ -90,7 +70,7 @@ export const AppRoutes: React.FC = () => {
                   path="/groups/:id"
                   element={
                     <RoleRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}>
-                      <GroupDetailPage groupId={null} onBack={() => navigate('/groups')} />
+                      <GroupDetailWrapper />
                     </RoleRoute>
                   }
                 />
@@ -100,7 +80,7 @@ export const AppRoutes: React.FC = () => {
                   path="/thesis"
                   element={
                     <RoleRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}>
-                      <ThesisCrudPage userRole={userRole === 'admin' ? 'admin' : 'student'} onViewDetail={(thesisId) => navigate(`/thesis/${thesisId}`)} />
+                      <ThesisCrudPage userRole={userRole || 'student'} onViewDetail={(thesisId) => navigate(`/thesis/${thesisId}`)} />
                     </RoleRoute>
                   }
                 />
@@ -108,7 +88,7 @@ export const AppRoutes: React.FC = () => {
                   path="/thesis/:id"
                   element={
                     <RoleRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}>
-                      <ThesisWorkflowPage thesisId={null} onBack={() => navigate('/thesis')} />
+                      <ThesisDetailWrapper />
                     </RoleRoute>
                   }
                 />
@@ -117,8 +97,8 @@ export const AppRoutes: React.FC = () => {
                 <Route
                   path="/documents"
                   element={
-                    <RoleRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT']}>
-                      <DocumentManagerPage userRole={userRole === 'admin' ? 'admin' : 'student'} />
+                    <RoleRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}>
+                      <DocumentManagerPage userRole={userRole || 'student'} />
                     </RoleRoute>
                   }
                 />

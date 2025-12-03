@@ -10,7 +10,7 @@ export async function fetchSchedules(params?: {
   date_from?: string
   date_to?: string
 }): Promise<Schedule[]> {
-  const res = await api.get('schedules/', { params })
+  const res = await api.get('/schedules/', { params })
   return res.data
 }
 
@@ -26,16 +26,80 @@ export async function fetchSchedule(id: string): Promise<Schedule> {
  * Create a new schedule
  */
 export async function createSchedule(data: ScheduleFormData): Promise<Schedule> {
-  const res = await api.post('schedules/', data)
-  return res.data
+  // Log the incoming data for debugging
+  console.log('Creating schedule with data:', data);
+  
+  // Log the raw date_time value
+  console.log('Raw date_time value:', data.date_time);
+  
+  // Transform data to match backend's expected format
+  // Convert datetime-local format (YYYY-MM-DDTHH:mm) to ISO format
+  const startDateTime = new Date(data.date_time);
+  const endDateTime = new Date(startDateTime.getTime() + (data.duration_minutes * 60000));
+  
+  // Log the parsed dates for debugging
+  console.log('Parsed start date:', startDateTime);
+  console.log('Parsed end date:', endDateTime);
+  console.log('Is start date valid:', !isNaN(startDateTime.getTime()));
+  console.log('Is end date valid:', !isNaN(endDateTime.getTime()));
+  
+  // Validate dates
+  if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+    throw new Error('Invalid date format provided');
+  }
+  
+  // Ensure start is before end
+  if (startDateTime >= endDateTime) {
+    throw new Error('Start time must be before end time');
+  }
+  
+  const requestData = {
+    thesis: data.thesis_id,
+    start: startDateTime.toISOString(),
+    end: endDateTime.toISOString(),
+    location: data.location,
+    notes: data.notes,
+    panel_members: data.panel_ids,
+    status: data.status || 'scheduled'
+  };
+  
+  // Log the request data for debugging
+  console.log('Sending request data:', requestData);
+  
+  try {
+    const res = await api.post('schedules/', requestData);
+    console.log('Schedule creation response:', res.data);
+    return res.data;
+  } catch (error) {
+    console.error('Error creating schedule:', error);
+    throw error;
+  }
 }
 
 /**
  * Update a schedule
  */
 export async function updateSchedule(id: string, data: Partial<ScheduleFormData>): Promise<Schedule> {
-  const res = await api.patch(`schedules/${id}/`, data)
-  return res.data
+  // Transform data to match backend's expected format if date_time is provided
+  const transformedData: any = { ...data };
+  
+  if (data.date_time) {
+    // Convert datetime-local format (YYYY-MM-DDTHH:mm) to ISO format
+    const startDateTime = new Date(data.date_time);
+    transformedData.start = startDateTime.toISOString();
+    
+    if (data.duration_minutes) {
+      const endDateTime = new Date(startDateTime.getTime() + (data.duration_minutes * 60000));
+      transformedData.end = endDateTime.toISOString();
+    }
+    
+    // Remove date_time and duration_minutes from transformed data as they're not backend fields
+    delete transformedData.date_time;
+    delete transformedData.duration_minutes;
+  }
+  
+  const res = await api.patch(`schedules/${id}/`, transformedData);
+  return res.data;
 }
 
 /**
@@ -69,7 +133,7 @@ export async function fetchPanelAvailability(params?: {
   date_from?: string
   date_to?: string
 }): Promise<PanelAvailability[]> {
-  const res = await api.get('panel-availability/', { params })
+  const res = await api.get('/panel-availability/', { params })
   return res.data
 }
 

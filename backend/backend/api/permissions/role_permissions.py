@@ -235,6 +235,37 @@ class IsDocumentOwnerOrGroupMember(permissions.BasePermission):
             
         return False
 
+class CanCreateSchedule(permissions.BasePermission):
+    """
+    Permission class for schedule creation.
+    Only admins can create schedules directly.
+    Advisers, students, and panel members cannot create schedules.
+    """
+    def has_permission(self, request, view):
+        # For create action, only admins can create schedules
+        if view.action == 'create':
+            return request.user and request.user.role == 'ADMIN'
+        # For other actions, all authenticated users can access
+        return request.user and request.user.is_authenticated
+    
+    def has_object_permission(self, request, view, obj):
+        # Admins can do anything
+        if request.user.role == 'ADMIN':
+            return True
+        
+        # Advisers can view schedules for their groups
+        if request.user.role == 'ADVISER':
+            return request.user == obj.thesis.group.adviser
+        
+        # Students and panel members can only view
+        if request.method in permissions.SAFE_METHODS:
+            if request.user.role == 'STUDENT':
+                return request.user in obj.thesis.group.members.all()
+            if request.user.role == 'PANEL':
+                return request.user in obj.thesis.group.panels.all()
+        
+        return False
+
 # Combined permission classes for common use cases
 class IsStudentOwner(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -253,3 +284,17 @@ class IsAdviserOwner(permissions.BasePermission):
         if hasattr(obj, 'group') and obj.group.adviser == request.user:
             return True
         return False
+
+
+class CanViewDraftDocuments(permissions.BasePermission):
+    """
+    Permission class that restricts viewing of draft documents.
+    Only students can view draft documents. Advisers, panels, and admins cannot.
+    """
+    def has_object_permission(self, request, view, obj):
+        # If document is not draft, everyone can view it
+        if obj.status != 'draft':
+            return True
+            
+        # Only students can view draft documents
+        return request.user.role == 'STUDENT'

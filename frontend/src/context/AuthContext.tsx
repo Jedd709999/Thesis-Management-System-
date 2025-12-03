@@ -152,28 +152,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Only fetch profile if we don't have a user or the user data is stale
           if (!user || (user && !user.id)) {
             console.log('AuthContext: Fetching user profile');
-            const userProfile = await fetchProfile();
-            
-            if (isMounted) {
-              // Only update if the user data has changed
-              if (JSON.stringify(user) !== JSON.stringify(userProfile)) {
-                console.log('AuthContext: Setting initial user profile');
-                setUser(userProfile);
-              }
+            try {
+              const userProfile = await fetchProfile();
+              console.log('AuthContext: User profile fetched:', userProfile);
+              console.log('AuthContext: User profile type:', typeof userProfile);
+              console.log('AuthContext: User profile is null:', userProfile === null);
+              console.log('AuthContext: User profile is undefined:', userProfile === undefined);
               
-              // Set up proactive token refresh
-              refreshInterval = setInterval(() => {
-                const currentToken = getAccessToken();
-                if (currentToken && willTokenExpireSoon(currentToken, 3)) {
-                  console.log('AuthContext: Token will expire soon, refreshing...');
-                  // Make a dummy API call to trigger the refresh interceptor
-                  api.get('auth/me/').catch(() => {
-                    // The interceptor will handle the refresh, we ignore errors here
-                  });
+              if (isMounted) {
+                // Only update if the user data has changed
+                console.log('AuthContext: Comparing user objects');
+                console.log('AuthContext: Current user:', user);
+                console.log('AuthContext: Current user stringified:', JSON.stringify(user));
+                console.log('AuthContext: Fetched user stringified:', JSON.stringify(userProfile));
+                console.log('AuthContext: Objects are different:', JSON.stringify(user) !== JSON.stringify(userProfile));
+                
+                if (JSON.stringify(user) !== JSON.stringify(userProfile)) {
+                  console.log('AuthContext: Setting initial user profile');
+                  setUser(userProfile);
+                } else {
+                  console.log('AuthContext: User profile unchanged, not setting');
                 }
-              }, 60000); // Check every minute
-              
-              setTokenRefreshInterval(refreshInterval);
+                
+                // Set up proactive token refresh
+                refreshInterval = setInterval(() => {
+                  const currentToken = getAccessToken();
+                  if (currentToken && willTokenExpireSoon(currentToken, 3)) {
+                    console.log('AuthContext: Token will expire soon, refreshing...');
+                    // Make a dummy API call to trigger the refresh interceptor
+                    api.get('auth/me/').catch(() => {
+                      // The interceptor will handle the refresh, we ignore errors here
+                    });
+                  }
+                }, 60000); // Check every minute
+                
+                setTokenRefreshInterval(refreshInterval);
+              }
+            } catch (error) {
+              console.error('AuthContext: Error fetching user profile:', error);
+              throw error;
             }
           }
         } catch (error) {

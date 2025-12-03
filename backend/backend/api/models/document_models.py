@@ -12,7 +12,20 @@ class Document(models.Model):
         ('final_manuscript', 'Final Manuscript'),
         ('approval_sheet', 'Approval Sheet'),
         ('evaluation_form', 'Evaluation Form'),
-        ('other', 'Other Document'),
+    )
+    
+    DOCUMENT_STATUS_CHOICES = (
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted'),
+        ('revision', 'Revision'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    )
+    
+    PROVIDER_CHOICES = (
+        ('local', 'Local Storage'),
+        ('drive', 'Google Drive'),
+        ('google', 'Google Docs'),
     )
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -20,9 +33,10 @@ class Document(models.Model):
         Thesis, 
         on_delete=models.CASCADE, 
         related_name='documents',
-        null=True,
-        blank=True
+        null=True,  # Changed back to null=True to avoid migration issues
+        blank=True  # Changed back to blank=True to avoid migration issues
     )
+    title = models.CharField(max_length=255, blank=True, null=True)
     topic_proposal = models.ForeignKey(
         TopicProposal,
         on_delete=models.CASCADE,
@@ -39,7 +53,17 @@ class Document(models.Model):
     document_type = models.CharField(
         max_length=32, 
         choices=DOCUMENT_TYPE_CHOICES, 
-        default='other'
+        default='concept_paper'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=DOCUMENT_STATUS_CHOICES,
+        default='draft'
+    )
+    provider = models.CharField(
+        max_length=10,
+        choices=PROVIDER_CHOICES,
+        default='local'
     )
     file = models.FileField(upload_to='documents/%Y/%m/%d/', blank=True, null=True)
     file_storage_id = models.CharField(max_length=255, blank=True, null=True)
@@ -61,6 +85,8 @@ class Document(models.Model):
         ordering = ['-created_at']
         
     def __str__(self):
+        if self.title:
+            return f"{self.title} - v{self.version}"
         return f"{self.get_document_type_display()} - v{self.version}"
         
     def delete(self, *args, **kwargs):
@@ -106,11 +132,12 @@ class Document(models.Model):
     def get_file_size_display(self):
         """Get human-readable file size."""
         if self.file_size:
+            size = float(self.file_size)
             for unit in ['B', 'KB', 'MB', 'GB']:
-                if self.file_size < 1024:
-                    return f"{self.file_size:.1f} {unit}"
-                self.file_size /= 1024
-            return f"{self.file_size:.1f} TB"
+                if size < 1024:
+                    return f"{size:.1f} {unit}"
+                size /= 1024
+            return f"{size:.1f} TB"
         return "0 B"
 
 

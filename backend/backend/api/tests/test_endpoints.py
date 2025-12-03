@@ -184,7 +184,8 @@ class TestScheduleEndpoints:
         )
         
         import datetime
-        start_time = datetime.datetime.now() + datetime.timedelta(days=1)
+        from django.utils import timezone
+        start_time = timezone.now() + datetime.timedelta(days=1)
         end_time = start_time + datetime.timedelta(hours=2)
         
         data = {

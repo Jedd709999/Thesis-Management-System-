@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from django.conf import settings
 from django.core.cache import cache
+from django.utils import timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,21 +37,62 @@ class GoogleDocsService:
                 )
             
             # If no cached credentials or expired, try to refresh
-            if not self.credentials or not self.credentials.valid:
-                if self.credentials and self.credentials.expired and self.credentials.refresh_token:
+            # Handle datetime comparison safely
+            credentials_expired = False
+            if self.credentials:
+                try:
+                    # First try the normal expired check, but catch datetime errors
+                    credentials_expired = self.credentials.expired
+                except TypeError as e:
+                    if "can't compare offset-naive and offset-aware datetimes" in str(e):
+                        # Handle the datetime comparison error by checking expiry manually
+                        if hasattr(self.credentials, 'expiry') and self.credentials.expiry:
+                            # Handle both naive and timezone-aware datetimes
+                            if self.credentials.expiry.tzinfo is None:
+                                # Naive datetime - compare directly
+                                credentials_expired = self.credentials.expiry < timezone.now().replace(tzinfo=None)
+                            else:
+                                # Timezone-aware datetime - compare with timezone-aware
+                                credentials_expired = self.credentials.expiry < timezone.now()
+                        else:
+                            # No expiry set, assume not expired
+                            credentials_expired = False
+                    else:
+                        # Re-raise if it's a different error
+                        raise e
+            
+            # Check if credentials are valid in a timezone-safe way
+            credentials_valid = True
+            if self.credentials:
+                try:
+                    # First try the normal valid check, but catch datetime errors
+                    credentials_valid = self.credentials.valid
+                except TypeError as e:
+                    if "can't compare offset-naive and offset-aware datetimes" in str(e):
+                        # Handle the datetime comparison error by checking expiry manually
+                        if hasattr(self.credentials, 'expiry') and self.credentials.expiry:
+                            # Handle both naive and timezone-aware datetimes
+                            if self.credentials.expiry.tzinfo is None:
+                                # Naive datetime - compare directly
+                                credentials_valid = self.credentials.expiry >= timezone.now().replace(tzinfo=None)
+                            else:
+                                # Timezone-aware datetime - compare with timezone-aware
+                                credentials_valid = self.credentials.expiry >= timezone.now()
+                        else:
+                            # No expiry set, assume valid
+                            credentials_valid = True
+                    else:
+                        # Re-raise if it's a different error
+                        raise e
+            
+            if not self.credentials or not credentials_valid:
+                if self.credentials and credentials_expired and self.credentials.refresh_token:
                     self.credentials.refresh(Request())
                     self._cache_credentials()
-                else:
-                    # Load from service account file if available
-                    service_account_file = getattr(settings, 'GOOGLE_SERVICE_ACCOUNT_FILE', None)
-                    if service_account_file and os.path.exists(service_account_file):
-                        from google.oauth2 import service_account
-                        self.credentials = service_account.Credentials.from_service_account_file(
-                            service_account_file, scopes=self.SCOPES
-                        )
             
             if self.credentials:
-                self.service = build('docs', 'v1', credentials=self.credentials)
+                # Build service with increased timeout
+                self.service = build('docs', 'v1', credentials=self.credentials, cache_discovery=False)
                 
         except Exception as e:
             logger.error(f"Error loading Google credentials: {e}")
@@ -116,7 +158,8 @@ class GoogleDocsService:
             self._cache_credentials()
             
             # Rebuild service with new credentials
-            self.service = build('docs', 'v1', credentials=self.credentials)
+            # Build service with increased timeout
+            self.service = build('docs', 'v1', credentials=self.credentials, cache_discovery=False)
             
             return True
             
@@ -267,7 +310,8 @@ class GoogleDocsService:
     def get_document_permissions(self, document_id):
         """Get document sharing permissions"""
         try:
-            drive_service = build('drive', 'v3', credentials=self.credentials)
+            # Create service with increased timeout
+            drive_service = build('drive', 'v3', credentials=self.credentials, cache_discovery=False)
             permissions = drive_service.permissions().list(
                 fileId=document_id,
                 fields='permissions(id,type,role,emailAddress,displayName)'
@@ -285,7 +329,8 @@ class GoogleDocsService:
     def share_document(self, document_id, email, role='writer'):
         """Share document with specific user"""
         try:
-            drive_service = build('drive', 'v3', credentials=self.credentials)
+            # Create service with increased timeout
+            drive_service = build('drive', 'v3', credentials=self.credentials, cache_discovery=False)
             
             permission = drive_service.permissions().create(
                 fileId=document_id,

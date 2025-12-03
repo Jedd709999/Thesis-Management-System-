@@ -3,7 +3,7 @@ export interface User {
   first_name: string;
   last_name: string;
   email: string;
-  role: 'student' | 'adviser' | 'panel' | 'admin';
+  role: 'student' | 'adviser' | 'panel' | 'admin' | 'STUDENT' | 'ADVISER' | 'PANEL' | 'ADMIN';
 }
 
 export interface GroupMember extends Pick<User, 'id' | 'first_name' | 'last_name' | 'email'> {}

@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .views import user_views, thesis_views, schedule_views, notification_views, group_views, document_views, google_docs_views
+from .views.google_oauth_views import GoogleConnect, GoogleDisconnect, GoogleStatus
 from .views.panel_views import PanelMemberAvailabilityViewSet
 from .views.topic_proposal_views import TopicProposalViewSet
 from .views.approval_sheet_views import ApprovalSheetViewSet
@@ -31,7 +32,7 @@ router.register(r'topic-proposals', TopicProposalViewSet)
 router.register(r'approval-sheets', ApprovalSheetViewSet)
 router.register(r'evaluations', EvaluationViewSet)
 router.register(r'archives', ArchiveRecordViewSet)
-router.register(r'drive-credentials', DriveCredentialViewSet)
+router.register(r'drive-credentials', DriveCredentialViewSet, basename='drivecredential')
 router.register(r'drive-folders', DriveFolderViewSet)
 
 @api_view(['GET'])
@@ -66,6 +67,11 @@ def api_root(request):
 urlpatterns = [
     path('', api_root),
     path('', include(router.urls)),
+    # Google OAuth endpoints
+    path('auth/google/connect/', GoogleConnect.as_view(), name='google_connect'),
+    path('auth/google/disconnect/', GoogleDisconnect.as_view(), name='google_disconnect'),
+    path('auth/google/status/', GoogleStatus.as_view(), name='google_status'),
+    # Google Docs endpoints
     path('google-docs/oauth-url/', google_docs_views.google_oauth_url, name='google_oauth_url'),
     path('google-docs/oauth-callback/', google_docs_views.google_oauth_callback, name='google_oauth_callback'),
     path('google-docs/create/', google_docs_views.create_google_doc, name='create_google_doc'),

@@ -4,12 +4,14 @@ import { Badge } from "../../components/ui/badge";
 import { Avatar, AvatarFallback } from "../../components/ui/avatar";
 import { Eye, Users, BookOpen, Clock, TrendingUp, Edit, Trash2, Check, X, RotateCcw, LogOut, UserPlus } from "lucide-react";
 import { GroupMember, User, Group as GroupType } from "../../types/group";
+import { User as AuthUser } from "../../types";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "../../components/ui/tooltip";
+import { useMemo } from "react";
 
 interface GroupCardProps {
   group: GroupType;
@@ -24,6 +26,10 @@ interface GroupCardProps {
   onResubmit?: (group: GroupType) => void;
   onLeaveGroup?: (group: GroupType) => void;
   onAssignAdviser?: (group: GroupType) => void;
+  onAssignPanel?: (group: GroupType) => void;
+  // Add currentUser prop to determine access
+  currentUser?: AuthUser | null;
+  userRole?: string;
 }
 
 export function GroupCard({ 
@@ -38,7 +44,10 @@ export function GroupCard({
   onReject,
   onResubmit,
   onLeaveGroup,
-  onAssignAdviser
+  onAssignAdviser,
+  onAssignPanel,
+  currentUser,
+  userRole
 }: GroupCardProps) {
   // Ensure members array exists and is properly formatted
   const safeMembers = Array.isArray(group.members) ? group.members : [];
@@ -79,13 +88,18 @@ export function GroupCard({
   };
   
   const getThesisTitle = () => {
-    if (group.abstract) {
-      return group.abstract;
+    // If the group has a thesis, show the thesis title
+    if (group.thesis && typeof group.thesis !== 'string') {
+      return group.thesis.title || 'Untitled Thesis';
     }
-    if (group.possible_topics) {
+    
+    // For pending groups, show the first possible topic as a placeholder
+    if (group.status === 'PENDING' && group.possible_topics) {
       return group.possible_topics.split('\n')[0];
     }
-    return 'No thesis topic defined';
+    
+    // Fallback
+    return 'No thesis defined';
   };
   
   // Get leader name - use the actual leader if available, otherwise fallback to first member
@@ -132,6 +146,21 @@ export function GroupCard({
     return 'Not assigned';
   };
   
+  // Get panel members names
+  const getPanelNames = () => {
+    if (!group.panels || !Array.isArray(group.panels) || group.panels.length === 0) {
+      return 'Not assigned';
+    }
+    
+    return group.panels
+      .map(panel => {
+        const firstName = panel.first_name || '';
+        const lastName = panel.last_name || '';
+        return `${firstName} ${lastName}`.trim() || 'Unknown';
+      })
+      .join(', ');
+  };
+  
   // Convert member ID to string for comparison
   const getMemberIdString = (member: GroupMember | User) => {
     return String(member.id);
@@ -146,56 +175,82 @@ export function GroupCard({
     return fullName || 'Unknown';
   };
 
+  // Determine if the current user has access to view this group
+  const canViewGroup = useMemo(() => {
+    // For admins, always allow viewing
+    if (!currentUser || userRole === 'admin') {
+      return true;
+    }
+    
+    // For students, advisers, and panel members, check if they have access to this group
+    // They can access if they are:
+    // 1. A member of the group
+    // 2. The leader of the group
+    // 3. The adviser of the group
+    // 4. A panel member of the group
+    
+    // Check if user is a member
+    const isMember = group.members?.some(member => 
+      String(member.id) === String(currentUser.id)
+    );
+    
+    // Check if user is the leader
+    const isLeader = group.leader?.id === String(currentUser.id);
+    
+    // Check if user is the adviser
+    const isAdviser = group.adviser?.id === String(currentUser.id);
+    
+    // Check if user is a panel member
+    const isPanel = group.panels?.some(panel => 
+      String(panel.id) === String(currentUser.id)
+    );
+    
+    return isMember || isLeader || isAdviser || isPanel;
+  }, [group, currentUser, userRole]);
+
   return (
-    <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-      <CardHeader className="pb-4">
+    <Card className="border-0 shadow-sm hover:shadow-md transition-shadow max-w-full">
+      <CardHeader className="pb-4 max-w-full">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <CardTitle className="text-slate-900">{group.name}</CardTitle>
+              <CardTitle className="text-slate-900 truncate max-w-full">{group.name}</CardTitle>
               {getStatusBadge(group.status)}
             </div>
-            <p className="text-sm text-slate-600 mb-3 line-clamp-2">{getThesisTitle()}</p>
+            <p className="text-sm text-slate-600 mb-3 line-clamp-2 max-w-full">{getThesisTitle()}</p>
+            {/* Adviser - Show below group name and thesis title */}
+            <div>
+              <p className="text-xs text-slate-600 mb-1 truncate">
+                {group.status === 'PENDING' ? (group.adviser ? 'Assigned Adviser' : 'Preferred Adviser') : 'Adviser'}
+              </p>
+              <p className="text-sm text-slate-900 truncate max-w-full">{getAdviserName()}</p>
+            </div>
           </div>
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-4">
-        {/* Progress Visualization */}
-        <div className="bg-slate-50 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-green-600" />
-              <span className="text-xs font-medium text-slate-700">Progress</span>
-            </div>
-            <span className="text-xs font-medium text-slate-700">{getProgressPercentage()}%</span>
-          </div>
-          <div className="w-full bg-slate-200 rounded-full h-2">
-            <div
-              className="h-2 bg-green-600 rounded-full transition-all duration-300"
-              style={{ width: `${getProgressPercentage()}%` }}
-            ></div>
-          </div>
-        </div>
+      <CardContent className="space-y-4 max-w-full">
+
         
-        {/* Members Info */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <p className="text-xs text-slate-600 mb-1">Leader</p>
-            <p className="text-sm font-medium text-slate-900 truncate">{getLeaderName()}</p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-600 mb-1">
-              {group.status === 'PENDING' ? (group.adviser ? 'Assigned Adviser' : 'Preferred Adviser') : 'Adviser'}
+        
+        
+        {/* Panel Members - Show names as plain text separated by commas */}
+        {group.status === 'APPROVED' && group.panels && group.panels.length > 0 && (
+          <div className="max-w-full">
+            <p className="text-xs text-slate-600 uppercase tracking-wider mb-2 truncate">Panel Members</p>
+            <p className="text-sm text-slate-900">
+              {group.panels.map((panel, index) => {
+                const panelName = `${panel.first_name || ''} ${panel.last_name || ''}`.trim() || 'Unknown';
+                return panelName;
+              }).join(', ')}
             </p>
-            <p className="text-sm font-medium text-slate-900 truncate">{getAdviserName()}</p>
           </div>
-        </div>
+        )}
         
         {/* Members Avatars */}
-        <div>
-          <p className="text-xs text-slate-600 uppercase tracking-wider mb-2">Members</p>
-          <div className="flex -space-x-2">
+        <div className="max-w-full">
+          <p className="text-xs text-slate-600 uppercase tracking-wider mb-2 truncate">Members</p>
+          <div className="flex -space-x-2 max-w-full overflow-hidden">
             {safeMembers.length > 0 ? (
               safeMembers.slice(0, 5).map((member, index) => {
                 // Add better error handling for member data
@@ -211,7 +266,7 @@ export function GroupCard({
                         {(member.first_name?.charAt(0) || '') + (member.last_name?.charAt(0) || '') || 'U'}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-black text-white text-xs rounded py-1 px-2 whitespace-nowrap z-10">
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-black text-white text-xs rounded py-1 px-2 max-w-xs truncate z-10">
                       {memberName}
                       {group.leader && String(group.leader.id) === memberId && ' (Leader)'}
                     </div>
@@ -231,24 +286,41 @@ export function GroupCard({
           </div>
         </div>
         
-        {/* Topics Preview */}
-        {topics.length > 0 && (
-          <div>
-            <p className="text-xs text-slate-600 uppercase tracking-wider mb-2">Research Topics</p>
-            <div className="flex flex-wrap gap-1">
+        {/* Topics Preview - Only show for pending groups */}
+        {group.status === 'PENDING' && topics.length > 0 && (
+          <div className="max-w-full">
+            <p className="text-xs text-slate-600 uppercase tracking-wider mb-2 truncate">Research Topics</p>
+            <div className="space-y-1 max-w-full">
               {topics.slice(0, 2).map((topic, index) => (
-                <span key={index} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
+                <div key={index} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full max-w-full truncate">
                   {topic}
-                </span>
+                </div>
               ))}
               {topics.length > 2 && (
-                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+                <div className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full truncate">
                   +{topics.length - 2} more
-                </span>
+                </div>
               )}
             </div>
           </div>
         )}
+        
+        {/* Progress Visualization */}
+        <div className="rounded-lg p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              <span className="text-xs font-medium text-slate-700">Progress</span>
+            </div>
+            <span className="text-xs font-medium text-slate-700">{getProgressPercentage()}%</span>
+          </div>
+          <div className="w-full bg-slate-200 rounded-full h-2">
+            <div
+              className="h-2 bg-green-600 rounded-full transition-all duration-300"
+              style={{ width: `${getProgressPercentage()}%` }}
+            ></div>
+          </div>
+        </div>
       </CardContent>
       
       <CardFooter className="flex items-center justify-between pt-4 border-t border-slate-200">
@@ -258,7 +330,7 @@ export function GroupCard({
             {safeMembers.length}
           </span>
         </div>
-        <TooltipProvider>
+        <TooltipProvider delayDuration={300}>
           <div className="flex gap-1">
             {isGroupLeader && onEdit && onDelete && (
               <>
@@ -266,7 +338,7 @@ export function GroupCard({
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => onEdit(group)}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 transition-all duration-200 ease-in-out focus:outline-none rounded-md p-2"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md p-2"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
@@ -279,7 +351,7 @@ export function GroupCard({
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => onDelete(group)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-100 transition-all duration-200 ease-in-out focus:outline-none rounded-md p-2"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md p-2"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -296,7 +368,7 @@ export function GroupCard({
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => onApprove(group)}
-                      className="text-green-600 hover:text-green-700 hover:bg-green-100 transition-all duration-200 ease-in-out focus:outline-none rounded-md p-2"
+                      className="text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md p-2"
                     >
                       <Check className="w-4 h-4" />
                     </button>
@@ -309,7 +381,7 @@ export function GroupCard({
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => onReject(group)}
-                      className="text-orange-600 hover:text-orange-700 hover:bg-orange-100 transition-all duration-200 ease-in-out focus:outline-none rounded-md p-2"
+                      className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-md p-2"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -325,7 +397,7 @@ export function GroupCard({
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => onAssignAdviser(group)}
-                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 transition-all duration-200 ease-in-out focus:outline-none rounded-md p-2"
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md p-2"
                   >
                     <UserPlus className="w-4 h-4" />
                   </button>
@@ -335,12 +407,27 @@ export function GroupCard({
                 </TooltipContent>
               </Tooltip>
             )}
+            {onAssignPanel && group.status === 'APPROVED' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onAssignPanel(group)}
+                    className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-md p-2"
+                  >
+                    <Users className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Assign Panel</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
             {onResubmit && group.status === 'REJECTED' && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => onResubmit(group)}
-                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 transition-all duration-200 ease-in-out focus:outline-none rounded-md p-2"
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md p-2"
                   >
                     <RotateCcw className="w-4 h-4" />
                   </button>
@@ -355,7 +442,7 @@ export function GroupCard({
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => onLeaveGroup(group)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-100 transition-all duration-200 ease-in-out focus:outline-none rounded-md p-2"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md p-2"
                   >
                     <LogOut className="w-4 h-4" />
                   </button>
@@ -365,20 +452,21 @@ export function GroupCard({
                 </TooltipContent>
               </Tooltip>
             )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onViewDetail(group.id)}
-                  className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100 transition-all duration-200 ease-in-out focus:outline-none rounded-md p-2"
-                >
-                  <Eye className="w-4 h-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>View Details</p>
-              </TooltipContent>
-            </Tooltip>
-
+            {canViewGroup && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onViewDetail(group.id)}
+                    className="text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md p-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>View Details</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </TooltipProvider>
       </CardFooter>

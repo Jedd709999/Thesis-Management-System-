@@ -10,7 +10,7 @@ export async function fetchArchives(params?: {
   date_from?: string
   date_to?: string
 }): Promise<ArchiveRecord[]> {
-  const res = await api.get('archives/', { params })
+  const res = await api.get('/archives/', { params })
   return res.data
 }
 

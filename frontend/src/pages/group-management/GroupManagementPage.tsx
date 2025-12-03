@@ -1,10 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Group, GroupMember } from '../../types/group';
 import { GroupCard } from './GroupCard';
+import { AssignPanelDialog } from '../group-detail/AssignPanelDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Input } from '../../components/ui/input';
+import { Card } from '../../components/ui/card';
 import { Users, Plus, ChevronDown, ChevronRight, AlertCircle, UserPlus } from 'lucide-react';
-import { fetchCurrentUserGroups, fetchOtherGroups, createGroup, searchUsers, fetchGroups, fetchPendingProposals, approveGroup, rejectGroup, resubmitGroup, deleteGroup, updateGroup, removeGroupMember, assignAdviser } from '../../api/groupService';
+import { Search, Filter, User } from 'lucide-react';
+import { fetchCurrentUserGroups, fetchOtherGroups, createGroup, searchUsers, fetchGroups, fetchPendingProposals, approveGroup, rejectGroup, resubmitGroup, deleteGroup, updateGroup, removeGroupMember, assignAdviser, assignPanel } from '../../api/groupService';
 import { Group as ApiGroup } from '../../types';
 import { Button } from '../../components/ui/button';
 import {
@@ -26,6 +29,12 @@ import {
   SelectValue,
 } from '../../components/ui/select';
 import { useAuth } from '../../hooks/useAuth';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip';
 
 // Helper function to transform API Group to frontend Group
 const transformGroup = (apiGroup: any): Group => {
@@ -122,9 +131,13 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
   const [pendingProposals, setPendingProposals] = useState<Group[]>([]);
   const [allGroups, setAllGroups] = useState<Group[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [adviserFilter, setAdviserFilter] = useState('all');
+  const [searchType, setSearchType] = useState('general'); // 'general', 'keywords', 'topics'
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAssignAdviserDialogOpen, setIsAssignAdviserDialogOpen] = useState(false);
+  const [isAssignPanelDialogOpen, setIsAssignPanelDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
   const [groupName, setGroupName] = useState('');
   const [researchTopics, setResearchTopics] = useState('');
@@ -138,22 +151,141 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
   const [isMemberSelectionOpen, setIsMemberSelectionOpen] = useState(false);
   const [isAdviserSelectionOpen, setIsAdviserSelectionOpen] = useState(false);
 
-  // Filter helper
-  const filterGroups = (list: Group[]) =>
-    searchTerm.trim()
-      ? list.filter((g) =>
-          g.name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      : list;
+  // Filter helper - enhanced with multiple filter criteria
+  const filterGroups = (list: Group[]) => {
+    return list.filter((g) => {
+      // Text search filter
+      const matchesSearch = searchTerm.trim() === '' || 
+        (searchType === 'general' && (
+          g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (g.possible_topics && g.possible_topics.toLowerCase().includes(searchTerm.toLowerCase()))
+        )) ||
+        (searchType === 'keywords' && g.keywords && g.keywords.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (searchType === 'topics' && g.possible_topics && g.possible_topics.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Status filter
+      const matchesStatus = statusFilter === 'all' || g.status === statusFilter;
+      
+      // Adviser filter
+      const matchesAdviser = adviserFilter === 'all' || 
+        (g.adviser && String(g.adviser.id) === adviserFilter);
+      
+      return matchesSearch && matchesStatus && matchesAdviser;
+    });
+  };
+
+  // Enhanced search function that uses backend API
+  const performSearch = async () => {
+    try {
+      const searchParams: any = {};
+      
+      // Add search term based on search type
+      if (searchTerm.trim() !== '') {
+        if (searchType === 'general') {
+          searchParams.search = searchTerm;
+        } else if (searchType === 'keywords') {
+          searchParams.keywords = searchTerm;
+        } else if (searchType === 'topics') {
+          searchParams.topics = searchTerm;
+        }
+      }
+      
+      // Add status filter
+      if (statusFilter !== 'all') {
+        searchParams.status = statusFilter;
+      }
+      
+      // Add adviser filter (admin only)
+      if (userRole === 'admin' && adviserFilter !== 'all') {
+        searchParams.adviser = adviserFilter;
+      }
+      
+      // Only perform API search if we have search parameters
+      if (Object.keys(searchParams).length > 0) {
+        const searchResults = await fetchGroups(searchParams);
+        const transformedResults = searchResults.map(transformGroup);
+        
+        // Update the appropriate state based on user role
+        if (userRole === 'admin') {
+          setAllGroups(transformedResults);
+        } else {
+          // For non-admin users, we update both my groups and other groups
+          // In a production environment, you might want to implement separate
+          // search endpoints for each tab
+          const myGroups = await fetchCurrentUserGroups();
+          const otherGroups = await fetchOtherGroups();
+          setGroups({
+            my: myGroups.map(transformGroup),
+            others: otherGroups.map(transformGroup)
+          });
+        }
+      } else {
+        // If no search parameters, reload all groups
+        const myGroups = await fetchCurrentUserGroups();
+        const otherGroups = await fetchOtherGroups();
+        setGroups({ 
+          my: myGroups.map(transformGroup), 
+          others: otherGroups.map(transformGroup) 
+        });
+        
+        // For admin users, also fetch all groups and pending proposals
+        if (userRole === 'admin') {
+          const allGroupsResponse = await fetchGroups();
+          setAllGroups(allGroupsResponse.map(transformGroup));
+          
+          const pendingProposalsResponse = await fetchPendingProposals();
+          setPendingProposals(pendingProposalsResponse.map(transformGroup));
+        }
+      }
+    } catch (error) {
+      console.error('Error performing search:', error);
+    }
+  };
+
+  // Simple frontend filtering for immediate feedback
+  const simpleFilterGroups = (list: Group[]) => {
+    if (!searchTerm.trim() && statusFilter === 'all' && (adviserFilter === 'all' || userRole !== 'admin')) {
+      return list;
+    }
+    
+    return list.filter((g) => {
+      // Text search filter
+      const matchesSearch = searchTerm.trim() === '' || 
+        (searchType === 'general' && (
+          g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (g.possible_topics && g.possible_topics.toLowerCase().includes(searchTerm.toLowerCase()))
+        )) ||
+        (searchType === 'keywords' && g.keywords && g.keywords.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (searchType === 'topics' && g.possible_topics && g.possible_topics.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Status filter
+      const matchesStatus = statusFilter === 'all' || g.status === statusFilter;
+      
+      // Adviser filter
+      const matchesAdviser = adviserFilter === 'all' || 
+        (userRole === 'admin' && g.adviser && String(g.adviser.id) === adviserFilter);
+      
+      return matchesSearch && matchesStatus && matchesAdviser;
+    });
+  };
+
+  // Debounced search effect
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      performSearch();
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, searchType, statusFilter, adviserFilter, userRole]);
 
   const filteredGroups = useMemo(
     () => ({
-      my: filterGroups(groups.my),
-      others: filterGroups(groups.others),
-      all: filterGroups(allGroups),
-      proposals: filterGroups(pendingProposals),
+      my: simpleFilterGroups(groups.my),
+      others: simpleFilterGroups(groups.others),
+      all: simpleFilterGroups(allGroups),
+      proposals: simpleFilterGroups(pendingProposals),
     }),
-    [groups, allGroups, pendingProposals, searchTerm]
+    [groups, allGroups, pendingProposals, searchTerm, statusFilter, adviserFilter, searchType]
   );
 
   // Handlers
@@ -322,6 +454,47 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
       console.error('Error assigning adviser:', error);
       alert('Failed to assign adviser. Please try again.');
     }
+  };
+
+  // Add handler for assigning panel members
+  const handleAssignPanel = async (groupId: string, panelIds: (number | string)[]) => {
+    try {
+      const updatedGroup = await assignPanel(groupId, panelIds);
+      
+      // Refresh groups to show updated panel assignments
+      const myGroups = await fetchCurrentUserGroups();
+      const otherGroups = await fetchOtherGroups();
+      setGroups({ 
+        my: myGroups.map(transformGroup), 
+        others: otherGroups.map(transformGroup) 
+      });
+      
+      // For admin users, also refresh all groups and pending proposals
+      if (userRole === 'admin') {
+        const allGroupsResponse = await fetchGroups();
+        setAllGroups(allGroupsResponse.map(transformGroup));
+        
+        const pendingProposalsResponse = await fetchPendingProposals();
+        setPendingProposals(pendingProposalsResponse.map(transformGroup));
+      }
+      
+      setIsAssignPanelDialogOpen(false);
+      alert('Panel members assigned successfully.');
+    } catch (error: any) {
+      console.error('Error assigning panel members:', error);
+      // Check if it's a permission error
+      if (error.response?.status === 403) {
+        alert('You do not have permission to assign panel members. Only administrators or the group adviser can perform this action.');
+      } else {
+        alert('Failed to assign panel members. Please try again.');
+      }
+    }
+  };
+
+  // Add handler for opening assign panel dialog
+  const handleOpenAssignPanelDialog = (group: Group) => {
+    setEditingGroup(group);
+    setIsAssignPanelDialogOpen(true);
   };
 
   const handleLeaveGroup = async (group: Group) => {
@@ -621,6 +794,9 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
             onResubmit={(userRole === 'student' || userRole === 'panel') && tabType === 'my' ? handleResubmitGroup : undefined}
             onLeaveGroup={userRole === 'student' && tabType === 'my' && isGroupMember(group) ? handleLeaveGroup : undefined}
             onAssignAdviser={userRole === 'admin' && group.status === 'PENDING' ? handleOpenAssignAdviserDialog : undefined}
+            onAssignPanel={(userRole === 'admin' || (userRole === 'adviser' && group.status === 'APPROVED' && group.adviser?.id === String(currentUser?.id))) ? handleOpenAssignPanelDialog : undefined}
+            currentUser={currentUser}
+            userRole={userRole}
           />
         ))}
       </div>
@@ -650,7 +826,23 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
       }
     };
 
+    const loadAdvisers = async () => {
+      try {
+        const response = await searchUsers('');
+        const users = response.data.results || response.data;
+        const advisers = users.filter((user: User) => user.role === 'ADVISER');
+        setAvailableAdvisers(advisers);
+      } catch (error) {
+        console.error('Error loading advisers:', error);
+      }
+    };
+
     fetchAllGroups();
+    
+    // Load advisers for filtering
+    if (userRole === 'admin') {
+      loadAdvisers();
+    }
   }, [userRole]);
 
   // Load all users when dialog opens
@@ -769,7 +961,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
-                  className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2"
+                  className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2 rounded-md px-4 py-2 disabled:opacity-50"
                   disabled={isUserInGroup}
                 >
                   <Plus className="w-4 h-4" />
@@ -1447,12 +1639,83 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
         </DialogContent>
       </Dialog>
 
-      <Input
-        placeholder="Search groups..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="mb-6"
+      {/* Assign Panel Dialog */}
+      <AssignPanelDialog
+        open={isAssignPanelDialogOpen}
+        onOpenChange={setIsAssignPanelDialogOpen}
+        group={editingGroup}
+        onAssignPanel={handleAssignPanel}
       />
+
+      <Card className="p-6 border-0 shadow-sm mb-6">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search groups..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+          </div>
+          <div className="flex gap-3">
+            <Select value={searchType} onValueChange={setSearchType}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Search Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">General</SelectItem>
+                <SelectItem value="keywords">Keywords</SelectItem>
+                <SelectItem value="topics">Topics</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px]">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="DRAFT">Draft</SelectItem>
+              </SelectContent>
+            </Select>
+            {userRole === 'admin' && (
+              <Select value={adviserFilter} onValueChange={setAdviserFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <User className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Adviser" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Advisers</SelectItem>
+                  {availableAdvisers.map((adviser) => (
+                    <SelectItem key={adviser.id} value={String(adviser.id)}>
+                      {adviser.first_name} {adviser.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setSearchType('general');
+                if (userRole === 'admin') {
+                  setAdviserFilter('all');
+                }
+              }}
+              className="flex items-center gap-2"
+            >
+              <span>Reset</span>
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       <Tabs defaultValue={(userRole === 'admin') ? "all" : "my"}>
         {(userRole === 'admin') ? (

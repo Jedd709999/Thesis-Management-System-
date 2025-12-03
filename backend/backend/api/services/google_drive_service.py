@@ -15,6 +15,8 @@ from ..models.group_models import Group
 from ..models.thesis_models import Thesis
 from ..models.document_models import Document
 
+
+
 class GoogleDriveService:
     """Google Drive service for uploading and managing files"""
     
@@ -23,7 +25,6 @@ class GoogleDriveService:
         'https://www.googleapis.com/auth/drive',
         'https://www.googleapis.com/auth/documents'
     ]
-    SERVICE_ACCOUNT_FILE = getattr(settings, 'GOOGLE_SERVICE_ACCOUNT_FILE', None)
     
     def __init__(self, user=None):
         self.service = None
@@ -32,75 +33,333 @@ class GoogleDriveService:
         self._authenticate()
     
     def _authenticate(self):
-        """Authenticate with Google Drive API using stored credentials"""
+        """Authenticate with Google Drive API using user credentials or OAuth2"""
         try:
+            # Re-import Credentials to ensure it's available
+            from google.oauth2.credentials import Credentials
             credentials = None
             
-            # Try to get user-specific credentials
-            if self.user and hasattr(self.user, 'drive_credentials'):
-                try:
-                    drive_credential = self.user.drive_credentials
-                    if drive_credential.is_active and not drive_credential.is_expired():
-                        # Use stored credentials
-                        token_data = drive_credential.token
-                        credentials = Credentials(
-                            token=token_data.get('token'),
-                            refresh_token=drive_credential.refresh_token,
-                            token_uri=drive_credential.token_uri,
-                            client_id=drive_credential.client_id,
-                            client_secret=drive_credential.client_secret,
-                            scopes=self.SCOPES
-                        )
-                except DriveCredential.DoesNotExist:
-                    pass
+            # Try OAuth2 authentication first (preferred for normal Google Drive usage)
+            credentials_path = os.path.join(settings.BASE_DIR, 'google_credentials.json')
+            token_path = os.path.join(settings.BASE_DIR, 'google_token.json')
             
-            # Fallback to service account or default OAuth
-            if not credentials:
-                if self.SERVICE_ACCOUNT_FILE and os.path.exists(self.SERVICE_ACCOUNT_FILE):
-                    # Service account authentication
-                    from google.oauth2 import service_account
-                    credentials = service_account.Credentials.from_service_account_file(
-                        self.SERVICE_ACCOUNT_FILE, scopes=self.SCOPES
-                    )
-                else:
-                    # OAuth2 authentication (for development)
-                    credentials_path = os.path.join(settings.BASE_DIR, 'google_credentials.json')
-                    token_path = os.path.join(settings.BASE_DIR, 'google_token.json')
-                    
-                    if os.path.exists(token_path):
-                        credentials = Credentials.from_authorized_user_file(token_path, self.SCOPES)
-                    
-                    if not credentials or not credentials.valid:
-                        if credentials and credentials.expired and credentials.refresh_token:
-                            credentials.refresh(Request())
+            if os.path.exists(credentials_path):
+                print(f"Using OAuth authentication with file: {credentials_path}")
+                # Check if the credentials file contains placeholder values
+                has_valid_credentials = False
+                try:
+                    with open(credentials_path, 'r') as f:
+                        creds_data = json.load(f)
+                        client_id = creds_data.get('web', {}).get('client_id', '')
+                        if 'YOUR_GOOGLE_CLIENT_ID' in client_id:
+                            print("Google credentials file contains placeholder values. Please update with real OAuth credentials.")
+                            # Don't try to authenticate with placeholder credentials
+                            has_valid_credentials = False
                         else:
+                            has_valid_credentials = True
+                            if os.path.exists(token_path):
+                                credentials = Credentials.from_authorized_user_file(token_path, self.SCOPES)
+                                # Override the refresh method to prevent automatic refresh if needed
+                                if credentials and (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token):
+                                    def no_op_refresh(request):
+                                        # Do nothing - this prevents the Google library from trying to refresh
+                                        pass
+                                    credentials.refresh = no_op_refresh
+                except json.JSONDecodeError:
+                    print("Invalid JSON in Google credentials file")
+                    has_valid_credentials = False
+                except ValueError as ve:
+                    if "missing fields refresh_token" in str(ve):
+                        print("Google credentials file found but it contains placeholder values. Please update with real OAuth credentials.")
+                        has_valid_credentials = False
+                    else:
+                        raise ve
+                
+                # Check if credentials are valid in a timezone-safe way
+                credentials_valid = True
+                if credentials:
+                    try:
+                        # First try the normal valid check, but catch datetime errors
+                        credentials_valid = credentials.valid
+                    except TypeError as e:
+                        if "can't compare offset-naive and offset-aware datetimes" in str(e):
+                            # Handle the datetime comparison error by checking expiry manually
+                            if hasattr(credentials, 'expiry') and credentials.expiry:
+                                # Handle both naive and timezone-aware datetimes
+                                if credentials.expiry.tzinfo is None:
+                                    # Naive datetime - compare directly
+                                    credentials_valid = credentials.expiry >= timezone.now().replace(tzinfo=None)
+                                else:
+                                    # Timezone-aware datetime - compare with timezone-aware
+                                    credentials_valid = credentials.expiry >= timezone.now()
+                            else:
+                                # No expiry set, assume valid
+                                credentials_valid = True
+                        else:
+                            # Re-raise if it's a different error
+                            raise e
+                
+                if not credentials or not credentials_valid:
+                    # Check if credentials are expired in a timezone-safe way
+                    credentials_expired = False
+                    if credentials and credentials.refresh_token:
+                        try:
+                            # First try the normal expired check, but catch datetime errors
+                            credentials_expired = credentials.expired
+                        except TypeError as e:
+                            if "can't compare offset-naive and offset-aware datetimes" in str(e):
+                                # Handle the datetime comparison error by checking expiry manually
+                                if hasattr(credentials, 'expiry') and credentials.expiry:
+                                    # Handle both naive and timezone-aware datetimes
+                                    if credentials.expiry.tzinfo is None:
+                                        # Naive datetime - compare directly
+                                        credentials_expired = credentials.expiry < timezone.now().replace(tzinfo=None)
+                                    else:
+                                        # Timezone-aware datetime - compare with timezone-aware
+                                        credentials_expired = credentials.expiry < timezone.now()
+                                else:
+                                    # No expiry set, assume not expired
+                                    credentials_expired = False
+                            else:
+                                # Re-raise if it's a different error
+                                raise e
+                    
+                    if credentials and credentials_expired and credentials.refresh_token:
+                        try:
+                            credentials.refresh(Request())
+                            print("Successfully refreshed OAuth credentials from file")
+                            # Override the refresh method to prevent automatic refresh if needed
+                            if credentials and (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token):
+                                def no_op_refresh(request):
+                                    # Do nothing - this prevents the Google library from trying to refresh
+                                    pass
+                                credentials.refresh = no_op_refresh
+                        except Exception as e:
+                            print(f"Failed to refresh OAuth credentials: {e}")
+                            credentials = None
+                    elif has_valid_credentials:
+                        # For development, we might need to run the OAuth flow
+                        # In production, users should authorize through the web interface
+                        try:
+                            # Only run OAuth flow if we have real credentials
                             flow = InstalledAppFlow.from_client_secrets_file(
                                 credentials_path, self.SCOPES
                             )
-                            credentials = flow.run_local_server(port=8081)                    
+                            credentials = flow.run_local_server(port=8082)
+                            # Override the refresh method to prevent automatic refresh if needed
+                            if credentials and (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token):
+                                def no_op_refresh(request):
+                                    # Do nothing - this prevents the Google library from trying to refresh
+                                    pass
+                                credentials.refresh = no_op_refresh
+                        except Exception as e:
+                            print(f"OAuth flow failed: {e}")
+                    
+                    # Save the credentials for the next run if we have valid credentials
+                    if credentials:
                         with open(token_path, 'w') as token:
                             token.write(credentials.to_json())
             
-            self.service = build('drive', 'v3', credentials=credentials)
-            # Build Docs API service
-            self.docs_service = build('docs', 'v1', credentials=credentials)
-            
-            # Update last used timestamp
-            if self.user and hasattr(self.user, 'drive_credentials'):
+            # Try to get user-specific credentials second
+            if not credentials and self.user and hasattr(self.user, 'drive_credentials'):
                 try:
                     drive_credential = self.user.drive_credentials
-                    drive_credential.update_usage()
+                    if drive_credential.is_active and not drive_credential.is_expired():
+                        # Use stored user credentials
+                        token_data = drive_credential.token
+                        
+                        # Check if we have all required fields for refresh
+                        has_refresh_fields = (
+                            drive_credential.refresh_token and 
+                            drive_credential.token_uri and 
+                            drive_credential.client_id and 
+                            drive_credential.client_secret
+                        )
+                        
+                        if has_refresh_fields:
+                            # Create credentials with refresh capability
+                            credentials = Credentials(
+                                token=token_data.get('access_token'),
+                                refresh_token=drive_credential.refresh_token,
+                                token_uri=drive_credential.token_uri,
+                                client_id=drive_credential.client_id,
+                                client_secret=drive_credential.client_secret,
+                                scopes=self.SCOPES
+                            )
+                            
+                            # For credentials with refresh capability, don't set expiry either
+                            # This prevents the Google library from trying to check expiration
+                            # and avoids datetime comparison errors
+                            credentials.expiry = None
+                            print(f"Using user credentials with refresh capability for: {self.user.email}")
+                        else:
+                            # Create credentials without refresh capability
+                            # Check if the token is still valid
+                            if token_data and 'access_token' in token_data:
+                                # Create credentials that won't attempt to refresh
+                                credentials = Credentials(
+                                    token=token_data.get('access_token'),
+                                    scopes=self.SCOPES,
+                                    refresh_token=None  # Explicitly set to None to prevent refresh attempts
+                                )
+                                
+                                # For credentials without refresh capability, don't set expiry
+                                # This prevents the Google library from trying to check expiration
+                                # and avoids datetime comparison errors
+                                credentials.expiry = None
+                                print(f"Using user credentials without refresh capability for: {self.user.email}")
+                                
+                                # Override the refresh method to prevent automatic refresh
+                                def no_op_refresh(request):
+                                    # Do nothing - this prevents the Google library from trying to refresh
+                                    pass
+                                credentials.refresh = no_op_refresh
+                                
+                                # Skip expiry check since we're setting expiry to None
+                                # This prevents datetime comparison errors
+                            else:
+                                print("User credentials are invalid or missing access token.")
+                                credentials = None
                 except DriveCredential.DoesNotExist:
                     pass
+            
+            if credentials:
+                # Check if credentials need to be refreshed
+                # Handle timezone-aware vs timezone-naive datetime comparison safely
+                try:
+                    # Check if credentials are valid in a timezone-safe way
+                    # Avoid calling credentials.valid directly as it may cause datetime comparison errors
+                    credentials_valid = True
+                    try:
+                        # First try the normal valid check, but catch datetime errors
+                        credentials_valid = credentials.valid
+                    except TypeError as e:
+                        if "can't compare offset-naive and offset-aware datetimes" in str(e):
+                            # Handle the datetime comparison error by checking expiry manually
+                            if hasattr(credentials, 'expiry') and credentials.expiry:
+                                # Handle both naive and timezone-aware datetimes
+                                if credentials.expiry.tzinfo is None:
+                                    # Naive datetime - compare directly
+                                    credentials_valid = credentials.expiry >= timezone.now().replace(tzinfo=None)
+                                else:
+                                    # Timezone-aware datetime - compare with timezone-aware
+                                    credentials_valid = credentials.expiry >= timezone.now()
+                            else:
+                                # No expiry set, assume valid
+                                credentials_valid = True
+                        else:
+                            # Re-raise if it's a different error
+                            raise e
+                    
+                    # NEW: Test credentials with Google's API to make sure they actually work
+                    if credentials_valid:
+                        credentials_valid = self._test_credentials(credentials)
+                    
+                    if not credentials_valid:
+                        # If credentials are invalid, try to refresh them if possible
+                        if hasattr(credentials, 'refresh_token') and credentials.refresh_token:
+                            try:
+                                credentials.refresh(Request())
+                                print("Successfully refreshed Google Drive credentials")
+                                
+                                # Test the refreshed credentials
+                                if self._test_credentials(credentials):
+                                    print("Refreshed credentials are valid")
+                                    # Override the refresh method to prevent automatic refresh if needed
+                                    if credentials and (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token):
+                                        def no_op_refresh(request):
+                                            # Do nothing - this prevents the Google library from trying to refresh
+                                            pass
+                                        credentials.refresh = no_op_refresh
+                                    
+                                    # Update stored credentials if this is a user credential
+                                    if self.user and hasattr(self.user, 'drive_credentials'):
+                                        try:
+                                            drive_credential = self.user.drive_credentials
+                                            # Update the stored token data
+                                            drive_credential.token = {
+                                                'access_token': credentials.token,
+                                                'expires_in': credentials.expiry.timestamp() if credentials.expiry else None
+                                            }
+                                            drive_credential.expires_at = credentials.expiry
+                                            drive_credential.save(update_fields=['token', 'expires_at', 'updated_at'])
+                                        except DriveCredential.DoesNotExist:
+                                            pass
+                                else:
+                                    print("Refreshed credentials are still invalid")
+                                    credentials = None
+                            except Exception as e:
+                                print(f"Failed to refresh Google Drive credentials: {e}")
+                                credentials = None
+                        else:
+                            print("Credentials are invalid and no refresh token available")
+                            credentials = None
+                except Exception as e:
+                    print(f"Error checking credential validity: {e}")
+                    credentials = None
+                
+                if credentials:
+                    # Build services with increased timeout
+                    self.service = build('drive', 'v3', credentials=credentials, cache_discovery=False)
+                    self.docs_service = build('docs', 'v1', credentials=credentials, cache_discovery=False)
+                    print("Successfully authenticated with Google Drive API")
+                    
+                    # Update last used timestamp for user credentials
+                    if self.user and hasattr(self.user, 'drive_credentials'):
+                        try:
+                            drive_credential = self.user.drive_credentials
+                            drive_credential.update_usage()
+                        except DriveCredential.DoesNotExist:
+                            pass
+                else:
+                    print("Failed to authenticate with Google Drive API")
+                    self.service = None
+                    self.docs_service = None
                     
         except Exception as e:
             print(f"Google Drive authentication error: {e}")
+            import traceback
+            traceback.print_exc()
             self.service = None
             self.docs_service = None
     
+    def _test_credentials(self, credentials) -> bool:
+        """
+        Test if credentials are valid by making a simple API call to Google Drive.
+        
+        Args:
+            credentials: Google OAuth credentials
+            
+        Returns:
+            bool: True if credentials are valid, False otherwise
+        """
+        try:
+            # Create a temporary service to test credentials
+            temp_service = build('drive', 'v3', credentials=credentials, cache_discovery=False)
+            
+            # Make a simple API call to test if credentials work
+            # This will raise an exception if credentials are invalid
+            temp_service.files().list(
+                pageSize=1,
+                fields='files(id, name)'
+            ).execute()
+            
+            # If we get here, credentials are valid
+            return True
+        except Exception as e:
+            # If we get a 401 or similar auth error, credentials are invalid
+            if 'Invalid Credentials' in str(e) or 'invalid_grant' in str(e) or '401' in str(e):
+                print(f"DEBUG: Credentials test failed with auth error: {e}")
+                return False
+            else:
+                # For other errors, we'll assume credentials are still valid
+                # as the error might be temporary or unrelated to auth
+                print(f"DEBUG: Credentials test failed with non-auth error: {e}")
+                return True
+    
     def create_drive_folder(self, obj) -> Tuple[bool, Optional[str], Optional[str]]:
         """
-        Create a Google Drive folder for a group or thesis
+        Create a Google Drive folder for a group or thesis in a Shared Drive
         
         Args:
             obj: Group or Thesis object
@@ -109,7 +368,20 @@ class GoogleDriveService:
             Tuple of (success: bool, folder_id: str or None, folder_url: str or None)
         """
         if not self.service:
-            return False, None, None
+            print("ERROR: Google Drive service not initialized for folder creation")
+            return False, None, "Google Drive service not initialized"
+        
+        # Skip credentials expiry check to avoid datetime comparison errors
+        # Since we're setting expiry to None, the credentials won't be checked for expiration
+        try:
+            credentials = self.service._http.credentials
+            if (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token or
+                not hasattr(credentials, 'token_uri') or not credentials.token_uri or
+                not hasattr(credentials, 'client_id') or not credentials.client_id or
+                not hasattr(credentials, 'client_secret') or not credentials.client_secret):
+                print("WARNING: Credentials don't have refresh capability. Folder creation may fail if token expires.")
+        except Exception as e:
+            print(f"DEBUG: Could not check credential refresh capability: {e}")
         
         try:
             folder_name = ""
@@ -131,34 +403,61 @@ class GoogleDriveService:
             else:
                 raise ValueError("Object must be Group or Thesis instance")
             
+            # Get Shared Drive ID from environment variable (optional)
+            shared_drive_id = os.getenv('GOOGLE_SHARED_DRIVE_ID')
+            print(f"DEBUG: shared_drive_id from env: {shared_drive_id}")
+            if shared_drive_id:
+                print("DEBUG: Using Shared Drive for folder creation")
+            else:
+                print("DEBUG: Using regular Google Drive for folder creation")
+            
             # Create folder metadata
             file_metadata = {
                 'name': folder_name,
                 'mimeType': 'application/vnd.google-apps.folder'
             }
             
-            # Set parent folder if specified
-            if parent_folder_id:
-                file_metadata['parents'] = [parent_folder_id]
+            # Set parent folder if we have a Shared Drive
+            if shared_drive_id:
+                file_metadata['parents'] = [shared_drive_id]
             
-            # Create folder
-            folder = self.service.files().create(
-                body=file_metadata,
-                fields='id,webViewLink'
-            ).execute()
+            # Create folder (support Shared Drives if applicable)
+            create_kwargs = {
+                'body': file_metadata,
+                'fields': 'id,webViewLink'
+            }
+            
+            # Add Shared Drive support if we have a Shared Drive ID
+            if shared_drive_id:
+                create_kwargs['supportsAllDrives'] = True
+            
+            print(f"DEBUG: Creating folder with metadata: {file_metadata}")
+            folder = self.service.files().create(**create_kwargs).execute()
             
             folder_id = folder['id']
             folder_url = folder.get('webViewLink', f"https://drive.google.com/drive/folders/{folder_id}")
+            print(f"DEBUG: Created folder with ID: {folder_id}, URL: {folder_url}")
+            print(f"DEBUG: Folder webViewLink from API: {folder.get('webViewLink')}")
             
-            # Make folder accessible
+            # Make folder accessible (support Shared Drives if applicable)
             permission = {
                 'role': 'writer',
                 'type': 'anyone'
             }
-            self.service.permissions().create(
-                fileId=folder_id,
-                body=permission
-            ).execute()
+            print(f"DEBUG: Setting folder permissions for folder {folder_id}: {permission}")
+            
+            permission_kwargs = {
+                'fileId': folder_id,
+                'body': permission
+            }
+            
+            # Add Shared Drive support if we have a Shared Drive ID
+            if shared_drive_id:
+                permission_kwargs['supportsAllDrives'] = True
+            
+            print(f"DEBUG: Setting permissions: {permission}")
+            self.service.permissions().create(**permission_kwargs).execute()
+            print("DEBUG: Permissions set successfully")
             
             # Save folder info to database
             content_type = ContentType.objects.get_for_model(obj)
@@ -176,42 +475,165 @@ class GoogleDriveService:
             # Update the object with the folder ID
             if isinstance(obj, Group):
                 obj.drive_folder_id = folder_id
+                print(f"DEBUG: Saving Group {obj.id} with drive_folder_id: {folder_id}")
                 obj.save(update_fields=['drive_folder_id'])
+                print("DEBUG: Group saved successfully")
             elif isinstance(obj, Thesis):
                 obj.drive_folder_id = folder_id
+                print(f"DEBUG: Saving Thesis {obj.id} with drive_folder_id: {folder_id}")
                 obj.save(update_fields=['drive_folder_id'])
+                print("DEBUG: Thesis saved successfully")
             
             return True, folder_id, folder_url
             
         except Exception as e:
             print(f"Error creating Google Drive folder: {e}")
-            return False, None, None
+            import traceback
+            traceback.print_exc()
+            return False, None, str(e)
     
+    def _get_or_create_thesis_folder(self) -> Optional[str]:
+        """
+        Find or create a 'Thesis' folder in the root of Google Drive
+        
+        Returns:
+            Folder ID of the 'Thesis' folder or None if failed
+        """
+        if not self.service:
+            print("ERROR: Google Drive service not initialized for Thesis folder creation")
+            return None
+        
+        # Skip credentials expiry check to avoid datetime comparison errors
+        # Since we're setting expiry to None, the credentials won't be checked for expiration
+        # If credentials are valid but don't have refresh capability, log a warning but continue
+        try:
+            credentials = self.service._http.credentials
+            if (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token or
+                not hasattr(credentials, 'token_uri') or not credentials.token_uri or
+                not hasattr(credentials, 'client_id') or not credentials.client_id or
+                not hasattr(credentials, 'client_secret') or not credentials.client_secret):
+                print("WARNING: Credentials don't have refresh capability. Folder creation may fail if token expires.")
+        except Exception as e:
+            print(f"DEBUG: Could not check credential refresh capability: {e}")
+        
+        try:
+            # Try to find existing Thesis folder
+            query = "name='Thesis' and mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false"
+            print(f"DEBUG: Searching for Thesis folder with query: {query}")
+            results = self.service.files().list(
+                q=query,
+                spaces='drive',
+                fields='files(id, name)'
+            ).execute()
+            
+            items = results.get('files', [])
+            print(f"DEBUG: Found Thesis folder items: {items}")
+            
+            if items:
+                folder_id = items[0]['id']
+                print(f"DEBUG: Using existing Thesis folder: {folder_id}")
+                return folder_id
+                
+            # Create Thesis folder if not found
+            file_metadata = {
+                'name': 'Thesis',
+                'mimeType': 'application/vnd.google-apps.folder',
+                'parents': ['root']
+            }
+            
+            print(f"DEBUG: Creating new Thesis folder with metadata: {file_metadata}")
+            folder = self.service.files().create(
+                body=file_metadata,
+                fields='id'
+            ).execute()
+            print(f"DEBUG: Created new Thesis folder with ID: {folder['id']}")
+            
+            # Make folder accessible
+            permission = {
+                'role': 'writer',
+                'type': 'anyone',
+                'allowFileDiscovery': True
+            }
+            
+            print(f"DEBUG: Setting permissions on Thesis folder {folder['id']}: {permission}")
+            self.service.permissions().create(
+                fileId=folder['id'],
+                body=permission
+            ).execute()
+            print("DEBUG: Thesis folder permissions set successfully")
+            
+            return folder['id']
+            
+        except Exception as e:
+            print(f"Error finding/creating Thesis folder: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def upload_file(self, file_content: bytes, filename: str, mime_type: str, 
                    folder_id: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
         """
-        Upload a file to Google Drive
+        Upload a file to Google Drive in a Shared Drive
         
         Args:
             file_content: File content as bytes
             filename: Name of the file
             mime_type: MIME type of the file
-            folder_id: Optional Google Drive folder ID
+            folder_id: Optional Google Drive folder ID. If not provided, will use the 'Thesis' folder
             
         Returns:
             Tuple of (success: bool, file_info: dict or None)
         """
         if not self.service:
-            return False, None
+            print("ERROR: Google Drive service not initialized")
+            return False, {"error": "Google Drive service not initialized"}
+        
+        # Skip credentials expiry check to avoid datetime comparison errors
+        # Since we're setting expiry to None, the credentials won't be checked for expiration
+        # If credentials are valid but don't have refresh capability, log a warning but continue
+        try:
+            credentials = self.service._http.credentials
+            if (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token or
+                not hasattr(credentials, 'token_uri') or not credentials.token_uri or
+                not hasattr(credentials, 'client_id') or not credentials.client_id or
+                not hasattr(credentials, 'client_secret') or not credentials.client_secret):
+                print("WARNING: Credentials don't have refresh capability. Upload may fail if token expires.")
+        except Exception as e:
+            print(f"DEBUG: Could not check credential refresh capability: {e}")
+            
+        # If no folder_id is provided, use the Thesis folder
+        if folder_id is None:
+            print("DEBUG: No folder_id provided, using Thesis folder")
+            folder_id = self._get_or_create_thesis_folder()
+            if folder_id is None:
+                print("DEBUG: Failed to get or create Thesis folder")
+                return False, {"error": "Failed to get or create Thesis folder"}
+        else:
+            print(f"DEBUG: Using provided folder_id: {folder_id}")
         
         try:
             # Prepare file metadata
             file_metadata = {
                 'name': filename,
             }
+            print(f"DEBUG: Preparing to upload file '{filename}' to folder '{folder_id}'")
             
+            # Set parent folder if provided
             if folder_id:
                 file_metadata['parents'] = [folder_id]
+                print(f"DEBUG: Setting parent folder for file: {folder_id}")
+                
+                # Check if we're uploading to a Shared Drive (optional)
+                shared_drive_id = os.getenv('GOOGLE_SHARED_DRIVE_ID')
+                is_shared_drive_upload = bool(shared_drive_id)
+                print(f"DEBUG: shared_drive_id: {shared_drive_id}, is_shared_drive_upload: {is_shared_drive_upload}")
+                if is_shared_drive_upload:
+                    print("DEBUG: Using Shared Drive for file upload")
+                else:
+                    print("DEBUG: Using regular Google Drive for file upload")
+            else:
+                print("DEBUG: No parent folder specified for file upload")
+                is_shared_drive_upload = False
             
             # Create media upload object
             media = MediaIoBaseUpload(
@@ -220,42 +642,72 @@ class GoogleDriveService:
                 resumable=True
             )
             
-            # Upload file
-            file = self.service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id,name,webViewLink,size,mimeType'
-            ).execute()
-            
-            # Make file publicly accessible
-            permission = {
-                'role': 'reader',
-                'type': 'anyone'
+            # Upload file (support Shared Drives if applicable)
+            create_kwargs = {
+                'body': file_metadata,
+                'media_body': media,
+                'fields': 'id,name,webViewLink,webContentLink,size,mimeType'
             }
-            self.service.permissions().create(
-                fileId=file['id'],
-                body=permission
-            ).execute()
+            
+            # Add Shared Drive support if we have a Shared Drive ID
+            if is_shared_drive_upload:
+                create_kwargs['supportsAllDrives'] = True
+            
+            print(f"DEBUG: Creating file with kwargs: {create_kwargs}")
+            file = self.service.files().create(**create_kwargs).execute()
+            print(f"DEBUG: File created successfully with ID: {file['id']}")
+            print(f"DEBUG: File parents: {file.get('parents', [])}")
+            
+            # Make file accessible (support Shared Drives if applicable)
+            permission = {
+                'role': 'writer',
+                'type': 'anyone',
+                'allowFileDiscovery': True
+            }
+            
+            permission_kwargs = {
+                'fileId': file['id'],
+                'body': permission
+            }
+            
+            # Add Shared Drive support if we have a Shared Drive ID
+            if is_shared_drive_upload:
+                permission_kwargs['supportsAllDrives'] = True
+            
+            print(f"DEBUG: Setting file permissions: {permission}")
+            self.service.permissions().create(**permission_kwargs).execute()
+            print("DEBUG: File permissions set successfully")
+            
+            # Get web view link - handle both regular and Shared Drive files
+            web_view_link = file.get('webViewLink')
+            if not web_view_link and 'webContentLink' in file:
+                web_view_link = file['webContentLink'].split('&export=download')[0]
             
             # Get embed URL
             embed_url = f"https://drive.google.com/file/d/{file['id']}/preview"
             
-            return True, {
+            file_info = {
                 'id': file['id'],
                 'name': file['name'],
-                'web_view_link': file.get('webViewLink'),
+                'web_view_link': web_view_link,
                 'embed_url': embed_url,
-                'size': file.get('size'),
+                'size': int(file.get('size', 0)) if file.get('size') else 0,
                 'mime_type': file.get('mimeType')
             }
             
+            print(f"DEBUG: Returning file info: {file_info}")
+            return True, file_info
+            
         except Exception as e:
             print(f"Error uploading file to Google Drive: {e}")
-            return False, None
+            import traceback
+            traceback.print_exc()
+            
+            return False, {"error": str(e)}
     
     def convert_to_google_doc(self, file_id: str) -> Tuple[bool, Optional[str]]:
         """
-        Convert a file to Google Docs format
+        Convert a file to Google Docs format in a Shared Drive
         
         Args:
             file_id: Google Drive file ID
@@ -267,33 +719,53 @@ class GoogleDriveService:
             return False, None
         
         try:
+            # Check if we're working with a Shared Drive
+            shared_drive_id = os.getenv('GOOGLE_SHARED_DRIVE_ID')
+            is_shared_drive_file = shared_drive_id
+            
             # Copy the file and convert to Google Docs format
             copied_file = {
                 'name': 'Converted Document',
                 'mimeType': 'application/vnd.google-apps.document'
             }
             
-            google_doc = self.service.files().copy(
-                fileId=file_id,
-                body=copied_file
-            ).execute()
+            # Copy file (support Shared Drives if applicable)
+            copy_kwargs = {
+                'fileId': file_id,
+                'body': copied_file
+            }
+            
+            # Add Shared Drive support if we have a Shared Drive ID
+            if is_shared_drive_file:
+                copy_kwargs['supportsAllDrives'] = True
+            
+            google_doc = self.service.files().copy(**copy_kwargs).execute()
             
             google_doc_id = google_doc['id']
             
-            # Make the Google Doc accessible
+            # Make the Google Doc accessible (support Shared Drives if applicable)
             permission = {
                 'role': 'writer',
                 'type': 'anyone'
             }
-            self.service.permissions().create(
-                fileId=google_doc_id,
-                body=permission
-            ).execute()
+            
+            permission_kwargs = {
+                'fileId': google_doc_id,
+                'body': permission
+            }
+            
+            # Add Shared Drive support if we have a Shared Drive ID
+            if is_shared_drive_file:
+                permission_kwargs['supportsAllDrives'] = True
+            
+            self.service.permissions().create(**permission_kwargs).execute()
             
             return True, google_doc_id
             
         except Exception as e:
             print(f"Error converting file to Google Doc: {e}")
+            import traceback
+            traceback.print_exc()
             return False, None
     
     def generate_export_url(self, file_id: str, export_format: str = 'pdf') -> Optional[str]:
@@ -383,7 +855,7 @@ class GoogleDriveService:
     
     def sync_metadata(self, document: Document) -> bool:
         """
-        Sync document metadata with Google Drive
+        Sync document metadata with Google Drive in a Shared Drive
         
         Args:
             document: Document object
@@ -391,20 +863,30 @@ class GoogleDriveService:
         Returns:
             Success status
         """
-        if not self.service or not document.google_drive_file_id:
+        if not self.service:
+            print("ERROR: Google Drive service not initialized for metadata sync")
+            return False
+        
+        if not document.google_drive_file_id:
+            print(f"ERROR: Document {document.id} has no Google Drive file ID for sync")
             return False
         
         try:
+            print(f"DEBUG: Syncing metadata for document {document.id} with file ID {document.google_drive_file_id}")
+            
             # Get file info from Google Drive
             file_info = self.get_file_info(document.google_drive_file_id)
             if not file_info:
+                print(f"ERROR: Could not retrieve file info for document {document.id}")
                 return False
+            
+            print(f"DEBUG: Retrieved file info: {file_info}")
             
             # Update document metadata
             document.viewer_url = file_info.get('web_view_link')
             document.doc_embed_url = file_info.get('embed_url')
             document.mime_type = file_info.get('mime_type')
-            document.file_size = file_info.get('size', 0)
+            document.file_size = int(file_info.get('size', 0)) if file_info.get('size') else 0
             document.last_synced_at = timezone.now()
             
             document.save(update_fields=[
@@ -412,29 +894,145 @@ class GoogleDriveService:
                 'file_size', 'last_synced_at'
             ])
             
+            print(f"DEBUG: Successfully synced metadata for document {document.id}")
             return True
             
         except Exception as e:
             print(f"Error syncing document metadata: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
-    def get_file_info(self, file_id: str) -> Optional[Dict]:
-        """Get file information from Google Drive"""
+    def find_file_by_name(self, filename: str, folder_id: Optional[str] = None) -> Optional[Dict]:
+        """
+        Find a file by name in Google Drive
+        
+        Args:
+            filename: Name of the file to find
+            folder_id: Optional folder ID to search within
+            
+        Returns:
+            File info dictionary or None
+        """
         if not self.service:
             return None
         
         try:
-            file = self.service.files().get(
-                fileId=file_id,
-                fields='id,name,webViewLink,size,mimeType,modifiedTime,createdTime'
-            ).execute()
+            # Build query
+            # Escape single quotes in filename
+            escaped_filename = filename.replace("'", "\\'")
+            query = f"name = '{escaped_filename}' and trashed = false"
+            if folder_id:
+                query += f" and '{folder_id}' in parents"
+            
+            print(f"DEBUG: Searching for file with query: {query}")
+            
+            # Search for file (support Shared Drives if applicable)
+            list_kwargs = {
+                'q': query,
+                'fields': 'files(id,name,webViewLink,size,mimeType,modifiedTime,createdTime)',
+                'pageSize': 10  # Increase page size to get more results
+            }
+            
+            # Add Shared Drive support if we have a Shared Drive ID
+            shared_drive_id = os.getenv('GOOGLE_SHARED_DRIVE_ID')
+            if shared_drive_id:
+                list_kwargs['driveId'] = shared_drive_id
+                list_kwargs['supportsAllDrives'] = True
+                list_kwargs['includeItemsFromAllDrives'] = True
+            
+            results = self.service.files().list(**list_kwargs).execute()
+            files = results.get('files', [])
+            
+            print(f"DEBUG: Found {len(files)} files matching the query")
+            
+            if files:
+                file = files[0]
+                print(f"DEBUG: Selected file: {file}")
+                return {
+                    'id': file['id'],
+                    'name': file['name'],
+                    'web_view_link': file.get('webViewLink'),
+                    'embed_url': f"https://drive.google.com/file/d/{file['id']}/preview",
+                    'size': int(file.get('size', 0)) if file.get('size') else 0,
+                    'mime_type': file.get('mimeType'),
+                    'modified_time': file.get('modifiedTime'),
+                    'created_time': file.get('createdTime')
+                }
+            
+            # If we didn't find the file with exact name matching, try partial matching
+            if len(files) == 0 and folder_id:
+                # Try searching more broadly in the folder
+                broad_query = f"'{folder_id}' in parents and trashed = false"
+                print(f"DEBUG: Trying broader search with query: {broad_query}")
+                
+                broad_list_kwargs = {
+                    'q': broad_query,
+                    'fields': 'files(id,name,webViewLink,size,mimeType,modifiedTime,createdTime)',
+                    'pageSize': 100
+                }
+                
+                if shared_drive_id:
+                    broad_list_kwargs['driveId'] = shared_drive_id
+                    broad_list_kwargs['supportsAllDrives'] = True
+                    broad_list_kwargs['includeItemsFromAllDrives'] = True
+                
+                broad_results = self.service.files().list(**broad_list_kwargs).execute()
+                broad_files = broad_results.get('files', [])
+                
+                print(f"DEBUG: Found {len(broad_files)} files in folder for manual inspection")
+                
+                # Look for files that might match (partial name matching)
+                for file in broad_files:
+                    if filename.lower() in file['name'].lower() or file['name'].lower() in filename.lower():
+                        print(f"DEBUG: Found potential match: {file['name']}")
+                        return {
+                            'id': file['id'],
+                            'name': file['name'],
+                            'web_view_link': file.get('webViewLink'),
+                            'embed_url': f"https://drive.google.com/file/d/{file['id']}/preview",
+                            'size': int(file.get('size', 0)) if file.get('size') else 0,
+                            'mime_type': file.get('mimeType'),
+                            'modified_time': file.get('modifiedTime'),
+                            'created_time': file.get('createdTime')
+                        }
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error finding file by name in Google Drive: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def get_file_info(self, file_id: str) -> Optional[Dict]:
+        """Get file information from Google Drive in a Shared Drive"""
+        if not self.service:
+            return None
+        
+        try:
+            # Check if we're working with a Shared Drive
+            shared_drive_id = os.getenv('GOOGLE_SHARED_DRIVE_ID')
+            is_shared_drive_file = shared_drive_id
+            
+            # Get file info (support Shared Drives if applicable)
+            get_kwargs = {
+                'fileId': file_id,
+                'fields': 'id,name,webViewLink,size,mimeType,modifiedTime,createdTime'
+            }
+            
+            # Add Shared Drive support if we have a Shared Drive ID
+            if is_shared_drive_file:
+                get_kwargs['supportsAllDrives'] = True
+            
+            file = self.service.files().get(**get_kwargs).execute()
             
             return {
                 'id': file['id'],
                 'name': file['name'],
                 'web_view_link': file.get('webViewLink'),
                 'embed_url': f"https://drive.google.com/file/d/{file['id']}/preview",
-                'size': file.get('size'),
+                'size': int(file.get('size', 0)) if file.get('size') else 0,
                 'mime_type': file.get('mimeType'),
                 'modified_time': file.get('modifiedTime'),
                 'created_time': file.get('createdTime')
@@ -442,19 +1040,33 @@ class GoogleDriveService:
             
         except Exception as e:
             print(f"Error getting file info from Google Drive: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def delete_file(self, file_id: str) -> bool:
-        """Delete a file from Google Drive"""
+        """Delete a file from Google Drive in a Shared Drive"""
         if not self.service:
             return False
         
         try:
-            self.service.files().delete(fileId=file_id).execute()
+            # Check if we're working with a Shared Drive
+            shared_drive_id = os.getenv('GOOGLE_SHARED_DRIVE_ID')
+            is_shared_drive_file = shared_drive_id
+            
+            # Delete file (support Shared Drives if applicable)
+            delete_kwargs = {
+                'fileId': file_id
+            }
+            
+            # Add Shared Drive support if we have a Shared Drive ID
+            if is_shared_drive_file:
+                delete_kwargs['supportsAllDrives'] = True
+            
+            self.service.files().delete(**delete_kwargs).execute()
             return True
         except Exception as e:
             print(f"Error deleting file from Google Drive: {e}")
+            import traceback
+            traceback.print_exc()
             return False
-
-# Singleton instance
-drive_service = GoogleDriveService()

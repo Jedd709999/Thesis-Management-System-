@@ -6,7 +6,7 @@ import { Evaluation, EvaluationFormData, ApprovalSheet, ApprovalFormData } from 
  */
 export async function fetchEvaluations(thesisId?: string): Promise<Evaluation[]> {
   const params = thesisId ? { thesis: thesisId } : {}
-  const res = await api.get('evaluations/', { params })
+  const res = await api.get('/evaluations/', { params })
   return res.data
 }
 
@@ -46,7 +46,7 @@ export async function deleteEvaluation(id: string): Promise<void> {
  */
 export async function fetchApprovalSheets(thesisId?: string): Promise<ApprovalSheet[]> {
   const params = thesisId ? { thesis: thesisId } : {}
-  const res = await api.get('approval-sheets/', { params })
+  const res = await api.get('/approval-sheets/', { params })
   return res.data
 }
 

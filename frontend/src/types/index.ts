@@ -7,13 +7,25 @@ export type GroupStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export type ThesisStatus = 
   | 'DRAFT' 
-  | 'SUBMITTED' 
+  | 'TOPIC_SUBMITTED'
+  | 'TOPIC_APPROVED'
+  | 'TOPIC_REJECTED'
+  | 'CONCEPT_SUBMITTED'
+  | 'CONCEPT_SCHEDULED'
+  | 'CONCEPT_DEFENDED'
+  | 'CONCEPT_APPROVED'
+  | 'PROPOSAL_SUBMITTED'
+  | 'PROPOSAL_SCHEDULED'
+  | 'PROPOSAL_DEFENDED'
+  | 'PROPOSAL_APPROVED'
+  | 'RESEARCH_IN_PROGRESS'
+  | 'FINAL_SUBMITTED'
+  | 'FINAL_SCHEDULED'
+  | 'FINAL_DEFENDED'
+  | 'FINAL_APPROVED'
   | 'REVISIONS_REQUIRED' 
-  | 'CONCEPT_APPROVED' 
-  | 'PROPOSAL_APPROVED' 
-  | 'UNDER_REVIEW' 
-  | 'APPROVED' 
   | 'REJECTED'
+  | 'ARCHIVED'
 
 export type ProposalStatus = 
   | 'draft' 
@@ -23,7 +35,7 @@ export type ProposalStatus =
   | 'rejected' 
   | 'needs_revision'
 
-export type ScheduleStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
+export type ScheduleStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'rescheduled'
 
 export type NotificationType = 
   | 'thesis_update' 
@@ -93,12 +105,14 @@ export interface Thesis {
   created_at: string
   updated_at: string
   drive_folder_id?: string
+  drive_folder_url?: string
   documents?: Document[]
 }
 
 export interface Document {
   id: string
   thesis: string | Thesis
+  thesis_detail?: Thesis | null  // Added thesis_detail field
   title: string
   file_path?: string
   google_doc_id?: string
@@ -110,20 +124,46 @@ export interface Document {
   last_synced?: string
   is_latest: boolean
   parent_version?: string
+  // Added missing fields from backend serializer
+  document_type: string
+  status: 'draft' | 'submitted' | 'revision' | 'approved' | 'rejected'
+  provider: string
+  is_google_doc: boolean
+  google_doc_edit_url?: string
+  viewer_url?: string
+  doc_embed_url?: string
+  last_synced_at?: string
+  created_at: string
+  updated_at: string
+  google_drive_file_id?: string
+  file?: string
+  file_url?: string
+  embed_url?: string
+  file_size_display?: string
+  versions?: DocumentVersion[]
+}
+
+export interface DocumentVersion {
+  id: string;
+  version: number;
+  created_at: string;
+  created_by: string | null;
+  is_google_doc: boolean;
+  google_doc_id: string | null;
 }
 
 export interface Schedule {
-  id: string
-  thesis: string | Thesis
-  date_time: string
-  location: string
-  status: ScheduleStatus
-  panels: User[]
-  notes?: string
-  duration_minutes?: number
-  created_by: User
-  created_at: string
-  updated_at: string
+  id: string;
+  thesis: string | Thesis;
+  date_time: string;
+  location: string;
+  status: ScheduleStatus;
+  panels: User[];
+  notes?: string;
+  duration_minutes?: number;
+  created_by: User;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PanelAvailability {
@@ -204,7 +244,7 @@ export interface ArchiveRecord {
 export interface DriveCredential {
   id: string
   name: string
-  credential_type: 'oauth' | 'service_account'
+  credential_type: 'oauth'
   client_id?: string
   credentials_json: Record<string, any>
   is_active: boolean
@@ -288,6 +328,7 @@ export interface ScheduleFormData {
   panel_ids: number[]
   duration_minutes: number
   notes?: string
+  status?: ScheduleStatus
 }
 
 export interface DocumentUploadData {

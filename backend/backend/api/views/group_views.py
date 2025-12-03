@@ -173,14 +173,14 @@ class GroupViewSet(viewsets.ModelViewSet):
                     models.Q(adviser=self.request.user) | 
                     models.Q(panels=self.request.user) |
                     models.Q(leader=self.request.user)
-                )
+                ).distinct()
                 print(f"Groups where user is member/adviser/panel/leader: {user_groups.count()}")
                 
                 # Then filter those groups by status (APPROVED or PENDING)
                 filtered_groups = user_groups.filter(
                     models.Q(status='APPROVED') | 
                     models.Q(status='PENDING')
-                )
+                ).distinct()
                 print(f"After status filtering: {filtered_groups.count()}")
                 for group in filtered_groups:
                     print(f"  - ID: {group.id}, Name: {group.name}, Status: {group.status}")
@@ -204,13 +204,13 @@ class GroupViewSet(viewsets.ModelViewSet):
                 print(f"Adviser detail view filtered queryset count: {queryset.count()}")
             else:
                 # For list views, only show approved groups
-                queryset = queryset.filter(status='APPROVED')
+                queryset = queryset.filter(status='APPROVED').distinct()
                 print(f"Adviser list view filtered queryset count: {queryset.count()}")
                 
         elif user.role == 'PANEL':
             # Panel members can see all approved groups
             if self.action not in ['pending_proposals', 'get_current_user_groups', 'approve', 'reject', 'resubmit', 'assign_adviser', 'assign_panel', 'remove_panel']:
-                queryset = queryset.filter(status='APPROVED')
+                queryset = queryset.filter(status='APPROVED').distinct()
                 print(f"Panel list view filtered queryset count: {queryset.count()}")
             else:
                 print(f"Panel accessing special endpoint: {self.action}")
@@ -219,7 +219,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             # Admin can see all groups for detail views
             # For list views, apply standard filtering
             if self.action not in ['pending_proposals', 'get_current_user_groups', 'approve', 'reject', 'resubmit', 'assign_adviser', 'assign_panel', 'remove_panel']:
-                queryset = queryset.filter(status='APPROVED')
+                queryset = queryset.filter(status='APPROVED').distinct()
                 print(f"Admin list view filtered queryset count: {queryset.count()}")
             else:
                 print(f"Admin accessing special endpoint: {self.action}")
@@ -231,10 +231,10 @@ class GroupViewSet(viewsets.ModelViewSet):
                     models.Q(adviser=user) | 
                     models.Q(panels=user) |
                     models.Q(leader=user)
-                ).distinct()
+                ).distinct().distinct()
                 print(f"Other role detail view filtered queryset count: {queryset.count()}")
             else:
-                queryset = queryset.filter(status='APPROVED')
+                queryset = queryset.filter(status='APPROVED').distinct()
                 print(f"Other role list view filtered queryset count: {queryset.count()}")
         
         # Apply search filters
@@ -243,14 +243,14 @@ class GroupViewSet(viewsets.ModelViewSet):
         topics = self.request.query_params.get('topics', None)
         
         if search_query:
-            queryset = Group.objects.search(search_query)
+            queryset = Group.objects.search(search_query).distinct()
         elif keywords:
-            queryset = Group.objects.search_by_keywords(keywords)
+            queryset = Group.objects.search_by_keywords(keywords).distinct()
         elif topics:
-            queryset = Group.objects.search_by_topics(topics)
+            queryset = Group.objects.search_by_topics(topics).distinct()
             
         # Ensure proper prefetching for all queryset results
-        queryset = queryset.prefetch_related('group_memberships__user', 'panels', 'leader', 'adviser')
+        queryset = queryset.prefetch_related('group_memberships__user', 'panels', 'leader', 'adviser').distinct()
         
         # Add debug information about the prefetched data
         print(f"Final queryset count: {queryset.count()}")
@@ -428,8 +428,17 @@ class GroupViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(groups, many=True)
             return Response(serializer.data)
         
-        # For panel users and other roles, return all approved groups
+        # For advisers, panel users and other roles, return all approved groups except their own
         groups = Group.objects.filter(status='APPROVED')
+        
+        # Exclude groups where user is a member, adviser, panel, or leader
+        groups = groups.exclude(
+            models.Q(members=user) | 
+            models.Q(adviser=user) | 
+            models.Q(panels=user) |
+            models.Q(leader=user)
+        )
+        
         groups = groups.prefetch_related('group_memberships__user', 'panels', 'leader', 'adviser')
         
         # Add debug information about the prefetched data
@@ -506,12 +515,28 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def assign_panel(self, request, pk=None):
-        """Assign panel members to a group (Admin only)"""
-        if request.user.role != 'ADMIN':
-            return Response({'error': 'Only admins can assign panel members'}, status=status.HTTP_403_FORBIDDEN)
+        """Assign panel members to a group (Admin or Adviser for their groups)"""
+        print(f"DEBUG: assign_panel called with pk={pk}")
+        print(f"DEBUG: request.user: {request.user.email}, role: {request.user.role}")
         
-        group = self.get_object()
+        try:
+            group = self.get_object()
+            print(f"DEBUG: Found group: {group.name}, ID: {group.id}")
+        except Exception as e:
+            print(f"DEBUG: Error getting group: {e}")
+            return Response({'error': f'Group not found: {e}'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check if user is admin or adviser of this specific group
+        is_admin = request.user.role == 'ADMIN'
+        is_adviser = request.user.role == 'ADVISER' and group.adviser == request.user
+        
+        print(f"DEBUG: is_admin={is_admin}, is_adviser={is_adviser}")
+        
+        if not (is_admin or is_adviser):
+            return Response({'error': 'Only admins or the group adviser can assign panel members'}, status=status.HTTP_403_FORBIDDEN)
+        
         panel_ids = request.data.get('panel_ids', [])
+        print(f"DEBUG: panel_ids from request: {panel_ids}")
         
         if not panel_ids:
             return Response({'error': 'panel_ids is required and must be a non-empty list'}, status=status.HTTP_400_BAD_REQUEST)
@@ -520,26 +545,70 @@ class GroupViewSet(viewsets.ModelViewSet):
             return Response({'error': 'panel_ids must be a list'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Validate that all panel_ids belong to PANEL role users
-        panel_users = User.objects.filter(pk__in=panel_ids, role='PANEL')
-        
-        if panel_users.count() != len(panel_ids):
-            return Response({'error': 'One or more panel members not found or not a panel user'}, status=status.HTTP_404_NOT_FOUND)
+        panel_users = []
+        for panel_id in panel_ids:
+            try:
+                # Try to get user by primary key (works for both integer and UUID primary keys)
+                user = User.objects.get(pk=panel_id, role='PANEL')
+                panel_users.append(user)
+            except User.DoesNotExist:
+                print(f"DEBUG: Panel member with ID {panel_id} not found or not a panel user")
+                return Response({'error': f'Panel member with ID {panel_id} not found or not a panel user'}, status=status.HTTP_404_NOT_FOUND)
+            except Exception as e:
+                print(f"DEBUG: Error looking up panel member with ID {panel_id}: {e}")
+                return Response({'error': f'Error looking up panel member with ID {panel_id}: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # Assign panel members (this replaces existing panel members)
-        group.panels.set(panel_users)
-        group.save()
+        print(f"DEBUG: About to set panel members")
+        try:
+            group.panels.set(panel_users)
+            group.save()
+            print(f"DEBUG: Panel members set successfully")
+        except Exception as e:
+            print(f"DEBUG: Error setting panel members: {e}")
+            return Response({'error': f'Error setting panel members: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        serializer = self.get_serializer(group)
-        return Response(serializer.data)
+        print(f"DEBUG: About to serialize group")
+        try:
+            serializer = self.get_serializer(group)
+            print(f"DEBUG: Group serialized successfully")
+        except Exception as e:
+            print(f"DEBUG: Error serializing group: {e}")
+            return Response({'error': f'Error serializing group: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        print(f"DEBUG: About to return response")
+        try:
+            response = Response(serializer.data)
+            print(f"DEBUG: Response created successfully")
+            return response
+        except Exception as e:
+            print(f"DEBUG: Error creating response: {e}")
+            return Response({'error': f'Error creating response: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def remove_panel(self, request, pk=None):
-        """Remove a specific panel member from a group (Admin only)"""
-        if request.user.role != 'ADMIN':
-            return Response({'error': 'Only admins can remove panel members'}, status=status.HTTP_403_FORBIDDEN)
+        """Remove a specific panel member from a group (Admin or Adviser for their groups)"""
+        print(f"DEBUG: remove_panel called with pk={pk}")
+        print(f"DEBUG: request.user: {request.user.email}, role: {request.user.role}")
         
-        group = self.get_object()
+        try:
+            group = self.get_object()
+            print(f"DEBUG: Found group: {group.name}, ID: {group.id}")
+        except Exception as e:
+            print(f"DEBUG: Error getting group: {e}")
+            return Response({'error': f'Group not found: {e}'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check if user is admin or adviser of this specific group
+        is_admin = request.user.role == 'ADMIN'
+        is_adviser = request.user.role == 'ADVISER' and group.adviser == request.user
+        
+        print(f"DEBUG: is_admin={is_admin}, is_adviser={is_adviser}")
+        
+        if not (is_admin or is_adviser):
+            return Response({'error': 'Only admins or the group adviser can remove panel members'}, status=status.HTTP_403_FORBIDDEN)
+        
         panel_id = request.data.get('panel_id')
+        print(f"DEBUG: panel_id from request: {panel_id}")
         
         if not panel_id:
             return Response({'error': 'panel_id is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -554,8 +623,28 @@ class GroupViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Panel member is not assigned to this group'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Remove the panel member
-        group.panels.remove(panel_user)
-        group.save()
+        print(f"DEBUG: About to remove panel member")
+        try:
+            group.panels.remove(panel_user)
+            group.save()
+            print(f"DEBUG: Panel member removed successfully")
+        except Exception as e:
+            print(f"DEBUG: Error removing panel member: {e}")
+            return Response({'error': f'Error removing panel member: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        serializer = self.get_serializer(group)
-        return Response(serializer.data)
+        print(f"DEBUG: About to serialize group for remove_panel")
+        try:
+            serializer = self.get_serializer(group)
+            print(f"DEBUG: Group serialized successfully for remove_panel")
+        except Exception as e:
+            print(f"DEBUG: Error serializing group in remove_panel: {e}")
+            return Response({'error': f'Error serializing group: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        print(f"DEBUG: About to return response for remove_panel")
+        try:
+            response = Response(serializer.data)
+            print(f"DEBUG: Response created successfully for remove_panel")
+            return response
+        except Exception as e:
+            print(f"DEBUG: Error creating response in remove_panel: {e}")
+            return Response({'error': f'Error creating response: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

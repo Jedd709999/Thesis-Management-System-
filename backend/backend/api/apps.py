@@ -6,3 +6,4 @@ class ApiConfig(AppConfig):
 
     def ready(self):
         import api.signals.audit_signals
+        import api.signals.group_signals

@@ -13,7 +13,11 @@ logger = logging.getLogger(__name__)
 def google_oauth_url(request):
     """Get Google OAuth authorization URL"""
     try:
-        redirect_uri = request.build_absolute_uri('/api/auth/google/callback/')
+        # Use the frontend OAuth callback page as redirect URI
+        # This should match what's configured in the Google Cloud Console
+        # Use the HTTP_ORIGIN header to determine the correct redirect URI
+        http_origin = request.META.get('HTTP_ORIGIN', 'http://localhost:5173')
+        redirect_uri = f'{http_origin}/oauth-callback.html' if http_origin in ['http://localhost:5173', 'http://localhost:5174'] else 'http://localhost:5173/oauth-callback.html'
         auth_url, state = google_docs_service.get_authorization_url(redirect_uri)
         
         if auth_url:
@@ -48,7 +52,11 @@ def google_oauth_callback(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        redirect_uri = request.build_absolute_uri('/api/auth/google/callback/')
+        # Use the frontend OAuth callback page as redirect URI
+        # This should match what's configured in the Google Cloud Console
+        # Use the HTTP_ORIGIN header to determine the correct redirect URI
+        http_origin = request.META.get('HTTP_ORIGIN', 'http://localhost:5173')
+        redirect_uri = f'{http_origin}/oauth-callback.html' if http_origin in ['http://localhost:5173', 'http://localhost:5174'] else 'http://localhost:5173/oauth-callback.html'
         success = google_docs_service.exchange_code_for_tokens(code, state, redirect_uri)
         
         if success:

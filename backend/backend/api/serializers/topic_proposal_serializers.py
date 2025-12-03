@@ -36,6 +36,16 @@ class TopicProposalSerializer(serializers.ModelSerializer):
             return obj.keywords
         return []
     
+    def validate(self, attrs):
+        group = attrs.get('group')
+        
+        # Check if the group is approved (only for creation)
+        if self.context['request'].method == 'POST':
+            if group and group.status != 'APPROVED':
+                raise serializers.ValidationError("The group must be approved before creating a topic proposal")
+        
+        return attrs
+    
     def to_representation(self, instance):
         """Customize the representation of the serializer"""
         representation = super().to_representation(instance)

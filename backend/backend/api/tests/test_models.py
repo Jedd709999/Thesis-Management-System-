@@ -141,11 +141,12 @@ class TestThesisModel:
         assert thesis.title == 'Test Thesis'
         assert thesis.abstract == 'This is a test thesis abstract'
         assert thesis.group == group
-        assert thesis.status == 'CONCEPT_SUBMITTED'
+        assert thesis.status == 'TOPIC_SUBMITTED'
     
     def test_thesis_status_choices(self):
         """Test thesis status choices"""
         valid_statuses = [
+            'TOPIC_SUBMITTED', 'TOPIC_APPROVED', 'TOPIC_REJECTED',
             'CONCEPT_SUBMITTED', 'CONCEPT_SCHEDULED', 'CONCEPT_DEFENDED', 'CONCEPT_APPROVED',
             'PROPOSAL_SUBMITTED', 'PROPOSAL_SCHEDULED', 'PROPOSAL_DEFENDED', 'PROPOSAL_APPROVED',
             'RESEARCH_IN_PROGRESS', 'FINAL_SUBMITTED', 'FINAL_SCHEDULED', 'FINAL_DEFENDED',

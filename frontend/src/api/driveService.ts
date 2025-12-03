@@ -5,7 +5,7 @@ import { DriveCredential, DriveFolder } from '../types'
  * Fetch all drive credentials
  */
 export async function fetchDriveCredentials(): Promise<DriveCredential[]> {
-  const res = await api.get('drive-credentials/')
+  const res = await api.get('/drive-credentials/')
   return res.data
 }
 
@@ -13,7 +13,7 @@ export async function fetchDriveCredentials(): Promise<DriveCredential[]> {
  * Fetch a single drive credential by ID
  */
 export async function fetchDriveCredential(id: string): Promise<DriveCredential> {
-  const res = await api.get(`drive-credentials/${id}/`)
+  const res = await api.get(`/drive-credentials/${id}/`)
   return res.data
 }
 
@@ -22,11 +22,11 @@ export async function fetchDriveCredential(id: string): Promise<DriveCredential>
  */
 export async function createDriveCredential(data: {
   name: string
-  credential_type: 'oauth' | 'service_account'
+  credential_type: 'oauth'
   client_id?: string
   credentials_json: Record<string, any>
 }): Promise<DriveCredential> {
-  const res = await api.post('drive-credentials/', data)
+  const res = await api.post('/drive-credentials/', data)
   return res.data
 }
 
@@ -37,7 +37,7 @@ export async function updateDriveCredential(
   id: string,
   data: Partial<DriveCredential>
 ): Promise<DriveCredential> {
-  const res = await api.patch(`drive-credentials/${id}/`, data)
+  const res = await api.patch(`/drive-credentials/${id}/`, data)
   return res.data
 }
 
@@ -45,14 +45,14 @@ export async function updateDriveCredential(
  * Delete a drive credential
  */
 export async function deleteDriveCredential(id: string): Promise<void> {
-  await api.delete(`drive-credentials/${id}/`)
+  await api.delete(`/drive-credentials/${id}/`)
 }
 
 /**
  * Fetch all drive folders
  */
 export async function fetchDriveFolders(): Promise<DriveFolder[]> {
-  const res = await api.get('drive-folders/')
+  const res = await api.get('/drive-folders/')
   return res.data
 }
 
@@ -60,19 +60,15 @@ export async function fetchDriveFolders(): Promise<DriveFolder[]> {
  * Fetch a single drive folder by ID
  */
 export async function fetchDriveFolder(id: string): Promise<DriveFolder> {
-  const res = await api.get(`drive-folders/${id}/`)
+  const res = await api.get(`/drive-folders/${id}/`)
   return res.data
 }
 
 /**
  * Create a new drive folder
  */
-export async function createDriveFolder(data: {
-  folder_name: string
-  parent_folder?: string
-  credential_id: string
-}): Promise<DriveFolder> {
-  const res = await api.post('drive-folders/', data)
+export async function createDriveFolder(data: Partial<DriveFolder>): Promise<DriveFolder> {
+  const res = await api.post('/drive-folders/', data)
   return res.data
 }
 
@@ -83,7 +79,7 @@ export async function updateDriveFolder(
   id: string,
   data: Partial<DriveFolder>
 ): Promise<DriveFolder> {
-  const res = await api.patch(`drive-folders/${id}/`, data)
+  const res = await api.patch(`/drive-folders/${id}/`, data)
   return res.data
 }
 
@@ -91,23 +87,5 @@ export async function updateDriveFolder(
  * Delete a drive folder
  */
 export async function deleteDriveFolder(id: string): Promise<void> {
-  await api.delete(`drive-folders/${id}/`)
-}
-
-/**
- * Get Google OAuth URL
- */
-export async function getGoogleOAuthUrl(): Promise<{ authorization_url: string }> {
-  const res = await api.get('google-docs/oauth-url/')
-  return res.data
-}
-
-/**
- * Handle OAuth callback
- */
-export async function handleOAuthCallback(code: string, state: string): Promise<any> {
-  const res = await api.get('google-docs/oauth-callback/', {
-    params: { code, state }
-  })
-  return res.data
+  await api.delete(`/drive-folders/${id}/`)
 }

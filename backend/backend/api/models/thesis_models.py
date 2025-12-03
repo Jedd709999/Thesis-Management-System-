@@ -6,6 +6,11 @@ from .user_models import User
 
 class Thesis(models.Model):
     STATUS_CHOICES = (
+        # Topic phase
+        ('TOPIC_SUBMITTED', 'Topic Submitted'),  # Topic proposal submitted for review
+        ('TOPIC_APPROVED', 'Topic Approved'),   # Topic approved (can proceed to full proposal)
+        ('TOPIC_REJECTED', 'Topic Rejected'),   # Topic rejected
+        
         # Concept phase
         ('CONCEPT_SUBMITTED', 'Concept Submitted'),  # Concept paper uploaded/submitted for concept defense
         ('CONCEPT_SCHEDULED', 'Concept Scheduled'),   # Concept defense scheduled
@@ -38,8 +43,9 @@ class Thesis(models.Model):
     abstract = models.TextField()
     keywords = models.TextField(blank=True, null=True, help_text="Comma-separated keywords for the thesis")
     group = models.OneToOneField(Group, on_delete=models.CASCADE, related_name='thesis')
+    proposer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='proposed_theses')
     origin_proposal = models.OneToOneField(
-        TopicProposal,
+        TopicProposal,  # Direct reference to the model
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -52,7 +58,7 @@ class Thesis(models.Model):
         related_name='advised_theses',
         help_text="Thesis adviser"
     )
-    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default='CONCEPT_SUBMITTED')
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default='TOPIC_SUBMITTED')
     adviser_feedback = models.TextField(blank=True, null=True)
     drive_folder_id = models.CharField(max_length=255, blank=True, null=True)
     archived_document = models.OneToOneField(
@@ -82,11 +88,25 @@ class Thesis(models.Model):
 
     def submit(self):
         """Submit the thesis for review."""
-        if self.status == 'draft':
-            self.status = 'CONCEPT_SUBMITTED'
+        # Handle transitions based on current status
+        status_transitions = {
+            'TOPIC_APPROVED': 'CONCEPT_SUBMITTED',
+            'CONCEPT_APPROVED': 'PROPOSAL_SUBMITTED',
+            'PROPOSAL_APPROVED': 'FINAL_SUBMITTED',
+        }
+        
+        if self.status in status_transitions:
+            self.status = status_transitions[self.status]
             self.save()
             return True
-        return False
+        elif self.status in ['TOPIC_REJECTED', 'REVISIONS_REQUIRED']:
+            # Resubmit after revisions or rejection
+            self.status = 'TOPIC_SUBMITTED'
+            self.save()
+            return True
+        else:
+            # Default case - no automatic transition
+            return False
         
     def get_keywords_list(self):
         """Return keywords as a list."""
@@ -97,3 +117,9 @@ class Thesis(models.Model):
     def set_keywords_from_list(self, keywords_list):
         """Set keywords from a list."""
         self.keywords = ', '.join(keywords_list)
+        
+    def get_drive_folder_url(self):
+        """Get the Google Drive folder URL if folder ID exists."""
+        if self.drive_folder_id:
+            return f"https://drive.google.com/drive/folders/{self.drive_folder_id}"
+        return None

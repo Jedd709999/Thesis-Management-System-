@@ -218,8 +218,9 @@ export async function register(userData: {
 // Fetch user profile
 export async function fetchProfile(): Promise<User> {
   console.log('AuthService: Fetching user profile');
-  const res = await api.get('auth/me/')
+  const res = await api.get('/auth/me/')
   console.log('AuthService: User profile response:', res.data);
+  console.log('AuthService: User role:', res.data?.role);
   return res.data as User
 }
 
