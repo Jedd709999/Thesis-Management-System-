@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth Callback Handler</title>
+</head>
+<body>
+    <script>
+        // Parse query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const error = urlParams.get('error');
+        
+        // Send message to opener window
+        if (window.opener) {
+            try {
+                window.opener.postMessage({
+                    type: 'google-oauth-callback',
+                    code: code,
+                    error: error
+                }, '*'); // Using '*' for development, should be restricted in production
+            } catch (e) {
+                console.error('Failed to post message to opener:', e);
+            }
+        }
+        
+        // Close the window
+        window.close();
+    </script>
+</body>
+</html>

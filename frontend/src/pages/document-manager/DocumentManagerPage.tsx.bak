@@ -1,0 +1,1005 @@
+  import { useEffect, useState } from 'react';
+import { Upload, Grid3x3, List, Filter, Download, Eye, Share2, FileText, File, Table, Presentation } from 'lucide-react';
+import { Card } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider
+} from '../../components/ui/tooltip';
+import { fetchDocuments, fetchDocument, downloadDocument, updateDocumentStatus } from '../../api/documentService';
+import { Document, Group, Thesis } from '../../types';
+import { DocumentUploadDialog } from '../../components/document/DocumentUploadDialog';
+import { useAuth } from '../../hooks/useAuth';
+import { fetchUserTheses, fetchCurrentUserTheses } from '../../api/thesisService';
+import { fetchUserGroups } from '../../api/groupService';
+
+interface DocumentManagerProps {
+  userRole: 'student' | 'adviser' | 'panel' | 'admin';
+}
+
+export function DocumentManager({ userRole }: DocumentManagerProps) {
+  const { user } = useAuth();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [theses, setTheses] = useState<Thesis[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [fileTypeFilter, setFileTypeFilter] = useState('all');
+  const [permissionFilter, setPermissionFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Helper function to check if thesis is approved
+  const isThesisApproved = (thesis: Thesis) => {
+    return [
+      'TOPIC_APPROVED',
+      'CONCEPT_APPROVED', 
+      'PROPOSAL_APPROVED',
+      'FINAL_APPROVED'
+    ].includes(thesis.status);
+  };
+
+  useEffect(() => {
+    const loadDocuments = async () => {
+      try {
+        setLoading(true);
+        const fetchedDocuments = await fetchDocuments();
+        setDocuments(fetchedDocuments);
+        
+        // Load user theses and groups for document upload
+        if (userRole === 'student') {
+          let allTheses = [];
+          
+          try {
+            // Try to fetch user theses first
+            const userTheses = await fetchUserTheses();
+            allTheses = userTheses;
+          } catch (thesisError) {
+            console.warn('Could not fetch user theses:', thesisError);
+          }
+          
+          // If no user theses found, try current user theses
+          if (allTheses.length === 0) {
+            try {
+              const currentUserTheses = await fetchCurrentUserTheses();
+              allTheses = currentUserTheses;
+            } catch (currentThesisError) {
+              console.warn('Could not fetch current user theses:', currentThesisError);
+            }
+          }
+          
+          setTheses(allTheses);
+          
+          try {
+            // Fetch user groups to check if they can create a thesis
+            const userGroups = await fetchUserGroups();
+            setGroups(userGroups);
+          } catch (groupError) {
+            console.warn('Could not fetch user groups:', groupError);
+            setGroups([]);
+          }
+        }
+        
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching documents:', err);
+        setError('Failed to load documents');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDocuments();
+  }, [userRole]);
+
+  const getFileIcon = (documentType: string) => {
+    // Extract file extension from document type
+    const type = documentType?.split('_').pop()?.toUpperCase() || 'FILE';
+    
+    switch (type) {
+      case 'PAPER':
+      case 'MANUSCRIPT':
+        return <FileText className="w-6 h-6 text-blue-600" />;
+      case 'PROPOSAL':
+        return <FileText className="w-6 h-6 text-blue-600" />;
+      case 'SHEET':
+      case 'FORM':
+        return <Table className="w-6 h-6 text-blue-600" />;
+      case 'PRESENTATION':
+        return <Presentation className="w-6 h-6 text-blue-600" />;
+      default:
+        return <File className="w-6 h-6 text-blue-600" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Approved':
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'Under Review':
+      case 'submitted':
+        return 'bg-blue-100 text-blue-800';
+      case 'Draft':
+      case 'draft':
+        return 'bg-slate-100 text-slate-800';
+      case 'revision':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-slate-100 text-slate-800';
+    }
+  };
+
+  const filteredDocuments = documents.filter((doc) => {
+    // Extract file extension for filtering
+    const docType = doc.document_type ? doc.document_type.split('_').pop()?.toUpperCase() : '';
+    const matchesFileType = fileTypeFilter === 'all' || docType === fileTypeFilter;
+    // Add search term filtering
+    const matchesSearch = searchTerm.trim() === '' || 
+      (doc.title && doc.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (doc.document_type && doc.document_type.toLowerCase().includes(searchTerm.toLowerCase()));
+    // For permission filter, we'll skip it for now as we don't have permission data in the API response
+    return matchesFileType && matchesSearch;
+  });
+
+  const handleUploadSuccess = () => {
+    // Refresh documents list after successful upload
+    const loadDocuments = async () => {
+      try {
+        const fetchedDocuments = await fetchDocuments();
+        setDocuments(fetchedDocuments);
+      } catch (err) {
+        console.error('Error refreshing documents:', err);
+      }
+    };
+
+    loadDocuments();
+  };
+
+  // Handler for viewing a document
+  const handleViewDocument = async (documentId: string) => {
+    try {
+      // For now, we'll just open the document in a new tab
+      // In a real implementation, this might open a document viewer modal
+      const doc = await fetchDocument(documentId);
+      
+      // If the document has a viewer_url, open that
+      if (doc.viewer_url) {
+        window.open(doc.viewer_url, '_blank');
+      } 
+      // If it's a Google Doc, open the edit URL
+      else if (doc.google_doc_edit_url) {
+        window.open(doc.google_doc_edit_url, '_blank');
+      }
+      // Otherwise, try to construct a Google Drive URL
+      else if (doc.google_drive_file_id) {
+        window.open(`https://drive.google.com/file/d/${doc.google_drive_file_id}/view`, '_blank');
+      }
+      else {
+        alert('Unable to open document viewer. Please try downloading instead.');
+      }
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      alert('Failed to view document. Please try again.');
+    }
+  };
+
+  // Handler for approving a document
+  const handleApproveDocument = async (documentId: string) => {
+    try {
+      await updateDocumentStatus(documentId, 'approved');
+      // Refresh documents list
+      const fetchedDocuments = await fetchDocuments();
+      setDocuments(fetchedDocuments);
+      alert('Document approved successfully');
+    } catch (error) {
+      console.error('Error approving document:', error);
+      alert('Failed to approve document. Please try again.');
+    }
+  };
+
+  // Handler for requesting revision on a document
+  const handleRequestRevision = async (documentId: string) => {
+    try {
+      await updateDocumentStatus(documentId, 'revision');
+      // Refresh documents list
+      const fetchedDocuments = await fetchDocuments();
+      setDocuments(fetchedDocuments);
+      alert('Revision requested successfully');
+    } catch (error) {
+      console.error('Error requesting revision:', error);
+      alert('Failed to request revision. Please try again.');
+    }
+  };
+
+  // Handler for rejecting a document
+  const handleRejectDocument = async (documentId: string) => {
+    try {
+      await updateDocumentStatus(documentId, 'rejected');
+      // Refresh documents list
+      const fetchedDocuments = await fetchDocuments();
+      setDocuments(fetchedDocuments);
+      alert('Document rejected successfully');
+    } catch (error) {
+      console.error('Error rejecting document:', error);
+      alert('Failed to reject document. Please try again.');
+    }
+  };
+
+  // Helper function to check if user is adviser for document's thesis
+  const isAdviserForDocument = (document: Document) => {
+    // Check if user is adviser for the document's thesis
+    if (userRole !== 'adviser') return false;
+    if (!document.thesis) return false;
+    
+    // Check if thesis is a Thesis object
+    if (typeof document.thesis === 'string') return false;
+    const thesis = document.thesis;
+    
+    // Check if group exists and is a Group object
+    if (!thesis.group || typeof thesis.group === 'string') return false;
+    const group = thesis.group;
+    
+    // Check if adviser exists
+    if (!group.adviser) return false;
+    
+    // Compare IDs (could be strings or numbers)
+    const adviserId = String(group.adviser.id);
+    const userId = String(user?.id);
+    
+    // Debug logging
+    console.log('Adviser check:', {
+      documentId: document.id,
+      documentStatus: document.status,
+      userId: userId,
+      adviserId: adviserId,
+      isAdviser: adviserId === userId
+    });
+    
+    return adviserId === userId;
+  };
+
+  // Helper function to check if user is panel member for document's thesis
+  const isPanelForDocument = (document: Document) => {
+    // Debug logging
+    console.log('Checking if user is panel for document:', {
+      documentId: document.id,
+      documentStatus: document.status,
+      documentThesis: document.thesis,
+      userRole: userRole,
+      userId: user?.id,
+      user: user
+    });
+    
+    // Check if user is panel member for the document's thesis
+    if (userRole !== 'panel') return false;
+    if (!document.thesis) return false;
+    
+    // Check if thesis is a Thesis object
+    if (typeof document.thesis === 'string') return false;
+    const thesis = document.thesis;
+    
+    // Check if group exists and is a Group object
+    if (!thesis.group || typeof thesis.group === 'string') return false;
+    const group = thesis.group;
+    
+    // Check if panels array exists
+    if (!Array.isArray(group.panels)) return false;
+    
+    // Check if user ID exists
+    if (!user?.id) return false;
+    
+    // Compare IDs (could be strings or numbers)
+    const userId = String(user.id);
+    
+    // Debug logging
+    console.log('Panel check details:', {
+      documentId: document.id,
+      documentStatus: document.status,
+      userId: userId,
+      panelIds: group.panels.map((p: any) => String(p.id)),
+      isPanel: group.panels.some((panel: any) => {
+        if (!panel || !panel.id) return false;
+        return String(panel.id) === userId;
+      })
+    });
+    
+    return group.panels.some((panel: any) => {
+      if (!panel || !panel.id) return false;
+      return String(panel.id) === userId;
+    });
+  };
+
+  // Handler for downloading a document
+  const handleDownloadDocument = async (documentId: string) => {
+    try {
+      const blob = await downloadDocument(documentId);
+      
+      // Create a temporary link to trigger download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'document'; // You might want to use the actual document name here
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 0);
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      alert('Failed to download document. Please try again.');
+    }
+  };
+
+  // Handler for sharing a document
+  const handleShareDocument = (documentId: string) => {
+    // In a real implementation, this would open a share dialog
+    // For now, we'll show an alert with sharing options
+    alert('Share functionality would open here. In a full implementation, this would allow you to share the document with others.');
+  };
+
+  // Handler for submitting a document
+  const handleSubmitDocument = async (documentId: string) => {
+    try {
+      // Confirm with user before submitting
+      const confirmed = window.confirm('Are you sure you want to submit this document? Once submitted, it will be sent for review.');
+      
+      if (confirmed) {
+        // Update document status to 'submitted'
+        const updatedDocument = await updateDocumentStatus(documentId, 'submitted');
+        
+        // Update the document in the state
+        setDocuments(prevDocuments => 
+          prevDocuments.map(doc => 
+            doc.id === documentId ? updatedDocument : doc
+          )
+        );
+        
+        alert('Document submitted successfully for review!');
+      }
+    } catch (error) {
+      console.error('Error submitting document:', error);
+      alert('Failed to submit document. Please try again.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-8 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl text-slate-900 mb-2">Document Manager</h1>
+            <p className="text-slate-600">Loading documents...</p>
+          </div>
+        </div>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl text-slate-900 mb-2">Document Manager</h1>
+            <p className="text-slate-600">Error: {error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl text-slate-900 mb-2">Document Manager</h1>
+          <p className="text-slate-600">Manage research documents and files with Google Drive integration</p>
+        </div>
+        {userRole === 'student' && theses.length > 0 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <DocumentUploadDialog 
+                    thesis={theses[0]} 
+                    onUploadSuccess={handleUploadSuccess}
+                  >
+                    <Button 
+                      className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2"
+                      disabled={!isThesisApproved(theses[0])}
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Document
+                    </Button>
+                  </DocumentUploadDialog>
+                </div>
+              </TooltipTrigger>
+              {!isThesisApproved(theses[0]) && (
+                <TooltipContent>
+                  <p>Thesis must be approved before you can upload documents</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+
+      {/* Controls */}
+      <Card className="p-4 border-0 shadow-sm">
+        <div className="flex flex-col gap-4">
+          {/* Search Bar */}
+          <div className="w-full">
+            <input
+              type="text"
+              placeholder="Search documents..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+          </div>
+          
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Select value={fileTypeFilter} onValueChange={setFileTypeFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="File Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="PAPER">Concept Papers</SelectItem>
+                  <SelectItem value="PROPOSAL">Research Proposals</SelectItem>
+                  <SelectItem value="MANUSCRIPT">Final Manuscripts</SelectItem>
+                  <SelectItem value="SHEET">Approval Sheets</SelectItem>
+                  <SelectItem value="FORM">Evaluation Forms</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="px-3 py-2 bg-slate-50 rounded-lg text-sm text-slate-600">
+                {filteredDocuments.length} documents
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 border border-slate-200 rounded-lg p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className={viewMode === 'grid' ? 'bg-white shadow-sm' : ''}
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className={viewMode === 'list' ? 'bg-white shadow-sm' : ''}
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Grid View */}
+      {viewMode === 'grid' && (
+        <div>
+          {documents.length > 0 ? (
+            filteredDocuments.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredDocuments.map((doc) => (
+                  <Card key={doc.id} className="p-6 border-0 shadow-sm hover:shadow-md transition-all group">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="w-12 h-12 rounded-lg flex items-center justify-center">
+                        {getFileIcon(doc.document_type || '')}
+                      </div>
+                      <Badge variant="secondary" className={getStatusColor(doc.status)}>
+                        {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                      </Badge>
+                    </div>
+
+                    <div className="mb-4">
+                      <h3 className="text-sm text-slate-900 mb-2 line-clamp-2">{doc.title}</h3>
+                      <div className="space-y-1">
+                        <p className="text-xs text-slate-600">
+                          <span className="font-medium">Document Type:</span> {doc.document_type?.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || 'Unknown'}
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          <span className="font-medium">Version:</span> v{doc.version}
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          <span className="font-medium">Size:</span> {doc.file_size_display || 'Unknown size'}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          <span className="font-medium">Created:</span> {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Unknown date'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {doc.provider === 'drive' ? 'Google Drive' : doc.provider === 'google' ? 'Google Doc' : 'Local'}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                      <div className="flex gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-green-700 hover:text-green-800 hover:bg-green-50 p-2"
+                                onClick={() => handleViewDocument(doc.id)}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View Document</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2"
+                                onClick={() => handleDownloadDocument(doc.id)}
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Download Document</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 p-2"
+                                onClick={() => handleShareDocument(doc.id)}
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Share Document</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        {/* Submit button - only show for draft documents */}
+                        {doc.status === 'draft' && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2"
+                                  onClick={() => handleSubmitDocument(doc.id)}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                  </svg>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Submit Document</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+
+                        {(doc.provider === 'drive' || doc.provider === 'google') && (doc.viewer_url || doc.google_doc_edit_url) && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2"
+                                  onClick={() => window.open(doc.provider === 'google' ? doc.google_doc_edit_url! : doc.viewer_url!, '_blank')}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="#4285F4">
+                                    <path d="M24 11.25v7.5c0 .33-.34.5-.5.5h-23c-.17 0-.5-.17-.5-.5v-7.5c0-.33.33-.5.5-.5h23c.16 0 .5.17.5.5zm-12 10.5c0 .17-.17.5-.5.5h-11c-.17 0-.5-.33-.5-.5v-9c0-.17.33-.5.5-.5h11c.17 0 .5.33.5.5v9zm12 0c0 .17-.34.5-.5.5h-11c-.17 0-.5-.33-.5-.5v-9c0-.17.33-.5.5-.5h11c.16 0 .5.33.5.5v9zm-12-1.5v-7.5l5.75 3.75-5.75 3.75zm10.5-7.5v7.5l-5.75-3.75 5.75-3.75z"/>
+                                  </svg>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Edit in Google {doc.provider === 'google' ? 'Docs' : 'Drive'}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+
+                        {/* Adviser action buttons - only show for submitted documents */}
+                        {doc.status === 'submitted' && (isAdviserForDocument(doc) || isPanelForDocument(doc)) && (
+                          <>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2"
+                                    onClick={() => handleApproveDocument(doc.id)}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                    </svg>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Approve Document</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 p-2"
+                                    onClick={() => handleRequestRevision(doc.id)}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                                    </svg>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Request Revision</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
+                                    onClick={() => handleRejectDocument(doc.id)}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                    </svg>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Reject Document</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <FileText className="w-12 h-12 text-blue-600 mb-4" />
+                <h3 className="text-lg font-medium text-slate-900 mb-2">No documents yet</h3>
+                <p className="text-slate-500 max-w-md">
+                  Get started by uploading your first research document.
+                </p>
+              </div>
+            )
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <FileText className="w-12 h-12 text-slate-300 mb-4" />
+              <h3 className="text-lg font-medium text-slate-900 mb-2">No documents yet</h3>
+              <p className="text-slate-500 max-w-md">
+                Get started by uploading your first research document.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* List View */}
+      {viewMode === 'list' && (
+        <Card className="border-0 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">
+                    Document
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">
+                    Type
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">
+                    Version
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">
+                    Size
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">
+                    Modified
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">
+                    Status
+                  </th>
+
+                  <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {documents.length > 0 ? (
+                  filteredDocuments.length > 0 ? (
+                    filteredDocuments.map((doc) => (
+                      <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded flex items-center justify-center">
+                              {getFileIcon(doc.document_type || '')}
+                            </div>
+                            <div>
+                              <p className="text-sm text-slate-900">{doc.title}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-slate-600">
+                            <span className="font-medium">Type:</span> {doc.document_type?.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || 'Unknown'}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-slate-600">v{doc.version}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-slate-600">
+                            {doc.file_size_display || 'Unknown'}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-slate-600">
+                            {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Unknown date'}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant="secondary" className={getStatusColor(doc.status)}>
+                            {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                          </Badge>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="text-green-700 hover:text-green-800 hover:bg-green-50 p-2"
+                                    onClick={() => handleViewDocument(doc.id)}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>View Document</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2"
+                                    onClick={() => handleDownloadDocument(doc.id)}
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Download Document</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 p-2"
+                                    onClick={() => handleShareDocument(doc.id)}
+                                  >
+                                    <Share2 className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Share Document</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+
+                            {/* Submit button - only show for draft documents */}
+                            {doc.status === 'draft' && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2"
+                                      onClick={() => handleSubmitDocument(doc.id)}
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                      </svg>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Submit Document</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+
+                            {(doc.provider === 'drive' || doc.provider === 'google') && (doc.viewer_url || doc.google_doc_edit_url) && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2"
+                                      onClick={() => window.open(doc.provider === 'google' ? doc.google_doc_edit_url! : doc.viewer_url!, '_blank')}
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="#4285F4">
+                                        <path d="M24 11.25v7.5c0 .33-.34.5-.5.5h-23c-.17 0-.5-.17-.5-.5v-7.5c0-.33.33-.5.5-.5h23c.16 0 .5.17.5.5zm-12 10.5c0 .17-.17.5-.5.5h-11c-.17 0-.5-.33-.5-.5v-9c0-.17.33-.5.5-.5h11c.17 0 .5.33.5.5v9zm12 0c0 .17-.34.5-.5.5h-11c-.17 0-.5-.33-.5-.5v-9c0-.17.33-.5.5-.5h11c.16 0 .5.33.5.5v9zm-12-1.5v-7.5l5.75 3.75-5.75 3.75zm10.5-7.5v7.5l-5.75-3.75 5.75-3.75z"/>
+                                      </svg>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Edit in Google {doc.provider === 'google' ? 'Docs' : 'Drive'}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+
+                            {/* Adviser action buttons - only show for submitted documents */}
+                            {doc.status === 'submitted' && (isAdviserForDocument(doc) || isPanelForDocument(doc)) && (
+                              <>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2"
+                                        onClick={() => handleApproveDocument(doc.id)}
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                        </svg>
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Approve Document</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 p-2"
+                                        onClick={() => handleRequestRevision(doc.id)}
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                                        </svg>
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Request Revision</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
+                                        onClick={() => handleRejectDocument(doc.id)}
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                        </svg>
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Reject Document</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center">
+                        <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-slate-900 mb-2">No documents found</h3>
+                        <p className="text-slate-500 max-w-md mx-auto">
+                          There are currently no documents matching your filters. Try adjusting your filters.
+                        </p>
+                      </td>
+                    </tr>
+                  )
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center">
+                      <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-slate-900 mb-2">No documents yet</h3>
+                      <p className="text-slate-500 max-w-md mx-auto">
+                        Get started by uploading your first research document.
+                      </p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}

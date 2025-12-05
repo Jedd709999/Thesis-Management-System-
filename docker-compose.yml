@@ -1,0 +1,62 @@
+services:
+  db:
+    image: mysql:8.0.33
+    environment:
+      MYSQL_DATABASE: thesis_db
+      MYSQL_USER: thesis_user
+      MYSQL_PASSWORD: thesis_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "33306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  backend:
+    build: ./backend
+    working_dir: /app/backend
+    entrypoint: ["/app/entrypoint.sh"]
+    command: ["daphne", "-b", "0.0.0.0", "-p", "8000", "backend.asgi:application"]
+    volumes:
+      - ./backend:/app
+      - staticfiles:/app/backend/staticfiles
+      - mediafiles:/app/backend/media
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_PORT=3306
+      - DATABASE_NAME=thesis_db
+      - DATABASE_USER=thesis_user
+      - DATABASE_PASSWORD=thesis_pass
+      - DJANGO_SECRET_KEY=your-secret-key-here
+      - DEBUG=False
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    volumes:
+      - staticfiles:/static
+      - mediafiles:/media
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      - NODE_ENV=production
+
+volumes:
+  db_data:
+  staticfiles:
+  mediafiles:
