@@ -3,7 +3,6 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-<<<<<<< HEAD
 from django.http import HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -14,8 +13,6 @@ from io import BytesIO
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-=======
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
 from api.models.archive_record_models import ArchiveRecord
 from api.models.user_models import User
 from api.models.thesis_models import Thesis
@@ -118,14 +115,11 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
             
-<<<<<<< HEAD
         # Get panel members
         panel_members = []
         if thesis.group and thesis.group.panels:
             panel_members = [f"{panel.first_name} {panel.last_name}" for panel in thesis.group.panels.all()]
 
-=======
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
         # Create archive record
         archive_data = {
             'title': thesis.title,
@@ -133,12 +127,9 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
             'status': thesis.status,
             'adviser': str(thesis.adviser.id) if thesis.adviser else None,
             'group': str(thesis.group.id),
-<<<<<<< HEAD
             'group_name': thesis.group.name if thesis.group else 'Unknown Group',
             'panels': panel_members,
             'finished_at': timezone.now().isoformat(),
-=======
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
             'created_at': thesis.created_at.isoformat(),
             'updated_at': thesis.updated_at.isoformat(),
         }
@@ -155,7 +146,117 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(archive_record)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-<<<<<<< HEAD
+    @action(detail=False, methods=['post'])
+    def archive_document(self, request):
+        """Archive a document"""
+        document_id = request.data.get('document_id')
+        reason = request.data.get('reason', '')
+        retention_period = request.data.get('retention_period_years', 7)
+        
+        if not document_id:
+            return Response(
+                {'detail': 'document_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            document = Document.objects.get(id=document_id)
+        except Document.DoesNotExist:
+            return Response(
+                {'detail': 'Invalid document ID'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Check permissions - only admins, advisers, and owners can archive documents
+        if not (self.request.user.role == 'ADMIN' or 
+                (self.request.user.role == 'ADVISER' and document.thesis.adviser == self.request.user) or
+                document.uploaded_by == self.request.user):
+            return Response(
+                {'detail': 'You do not have permission to archive this document'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        # Create archive record
+        archive_data = {
+            'title': document.get_document_type_display(),
+            'document_type': document.document_type,
+            'file_path': str(document.file) if document.file else None,
+            'google_doc_id': document.google_doc_id,
+            'provider': document.provider,
+            'uploaded_by': str(document.uploaded_by.id) if document.uploaded_by else None,
+            'thesis': str(document.thesis.id) if document.thesis else None,
+            'created_at': document.created_at.isoformat(),
+            'updated_at': document.updated_at.isoformat(),
+        }
+        
+        archive_record = ArchiveRecord.objects.create(
+            content_type='document',
+            original_id=document.id,
+            data=archive_data,
+            archived_by=self.request.user,
+            reason=reason,
+            retention_period_years=retention_period
+        )
+        
+        serializer = self.get_serializer(archive_record)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'])
+    def archive_group(self, request):
+        """Archive a group"""
+        group_id = request.data.get('group_id')
+        reason = request.data.get('reason', '')
+        retention_period = request.data.get('retention_period_years', 7)
+        
+        if not group_id:
+            return Response(
+                {'detail': 'group_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response(
+                {'detail': 'Invalid group ID'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Check permissions - only admins and advisers can archive groups
+        if not (self.request.user.role == 'ADMIN' or
+                (self.request.user.role == 'ADVISER' and group.adviser == self.request.user)):
+            return Response(
+                {'detail': 'You do not have permission to archive this group'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        # Create archive record
+        archive_data = {
+            'name': group.name,
+            'abstract': group.abstract,
+            'keywords': group.keywords,
+            'possible_topics': group.possible_topics,
+            'status': group.status,
+            'adviser': str(group.adviser.id) if group.adviser else None,
+            'leader': str(group.leader.id) if group.leader else None,
+            'members': [str(member.id) for member in group.members.all()],
+            'panels': [str(panel.id) for panel in group.panels.all()],
+            'created_at': group.created_at.isoformat(),
+            'updated_at': group.updated_at.isoformat(),
+        }
+        
+        archive_record = ArchiveRecord.objects.create(
+            content_type='group',
+            original_id=group.id,
+            data=archive_data,
+            archived_by=self.request.user,
+            reason=reason,
+            retention_period_years=retention_period
+        )
+        
+        serializer = self.get_serializer(archive_record)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     def download_pdf_report(self, request):
         """Download PDF report of finished theses for a specific year"""
         year = request.GET.get('year')
@@ -523,8 +624,6 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         else:  # doc
             return self.download_doc_report(mock_request)
 
-=======
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
     @action(detail=False, methods=['post'])
     def archive_document(self, request):
         """Archive a document"""

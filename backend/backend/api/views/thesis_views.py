@@ -1,17 +1,10 @@
 from rest_framework import viewsets, permissions
-<<<<<<< HEAD
-from rest_framework.decorators import action, api_view
-=======
 from rest_framework.decorators import action
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.db import models
-<<<<<<< HEAD
 from django.db.models import Q
-=======
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
 from api.models.thesis_models import Thesis
 from api.models.group_models import Group
 from api.serializers.thesis_serializers import ThesisSerializer
@@ -381,7 +374,6 @@ class ThesisViewSet(viewsets.ModelViewSet):
                 )
             
         return Response({'detail':'invalid action'}, status=status.HTTP_400_BAD_REQUEST)
-<<<<<<< HEAD
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def search_topics(self, request):
@@ -447,5 +439,3 @@ class ThesisViewSet(viewsets.ModelViewSet):
             'message': f"This thesis topic {'already exists' if exists else 'is not yet existed'}",
             'total_results': len(results)
         })
-=======
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd

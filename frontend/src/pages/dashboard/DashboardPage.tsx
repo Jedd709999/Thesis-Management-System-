@@ -3,14 +3,8 @@ import { CheckCircle, Clock, Users, TrendingUp, Calendar, Upload, Leaf, Droplets
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-<<<<<<< HEAD
-
-import { fetchCurrentUserGroups } from '../../api/groupService';
-import { fetchUnreadNotifications, markNotificationAsRead, ActivityNotification } from '../../api/activityService';
-=======
 import { fetchCurrentUserGroups } from '../../api/groupService';
 import { fetchUnreadNotifications, fetchRecentActivities, markNotificationAsRead, Activity, ActivityNotification } from '../../api/activityService';
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
 import { fetchCurrentUserTheses } from '../../api/thesisService';
 import { Group, Thesis } from '../../types';
 import { formatDistanceToNow } from 'date-fns';
@@ -41,27 +35,20 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     notifications: null
   });
 
-<<<<<<< HEAD
-
-
-
-
-=======
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   const loadGroups = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, groups: true }));
       setError(prev => ({ ...prev, groups: null }));
-      
+
       console.log('Dashboard: Loading user groups...');
       const userGroups = await fetchCurrentUserGroups();
       console.log('Dashboard: Loaded groups:', userGroups);
-      
+
       // Deduplicate groups by ID to prevent duplicates
-      const uniqueGroups = userGroups.filter((group, index, self) => 
+      const uniqueGroups = userGroups.filter((group, index, self) =>
         index === self.findIndex(g => g.id === group.id)
       );
-      
+
       console.log('Dashboard: Unique groups after deduplication:', uniqueGroups);
       setGroups(uniqueGroups);
     } catch (err) {
@@ -76,10 +63,10 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     try {
       setLoading(prev => ({ ...prev, theses: true }));
       setError(prev => ({ ...prev, theses: null }));
-      
+
       console.log('Dashboard: Loading user theses...');
       let userTheses: Thesis[] = [];
-      
+
       // For students, fetch all theses and filter by access
       if (userRole === 'student') {
         const allTheses = await fetchCurrentUserTheses();
@@ -87,22 +74,22 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
         userTheses = allTheses.filter(thesis => {
           // Student has access if they are the proposer or a member of the group
           const isProposer = thesis.proposer && String(thesis.proposer.id) === String(user?.id);
-          
+
           // Check if student is a member of the group
           let isMember = false;
           if (typeof thesis.group === 'object' && thesis.group !== null && 'members' in thesis.group) {
-            isMember = thesis.group.members.some((member: any) => 
+            isMember = thesis.group.members.some((member: any) =>
               String(member.id) === String(user?.id)
             );
           }
-          
+
           return isProposer || isMember;
         });
       } else {
         // For other roles, fetch their assigned theses
         userTheses = await fetchCurrentUserTheses();
       }
-      
+
       console.log('Dashboard: Loaded theses:', userTheses);
       setTheses(userTheses);
     } catch (err) {
@@ -117,7 +104,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     try {
       setLoading(prev => ({ ...prev, notifications: true }));
       setError(prev => ({ ...prev, notifications: null }));
-      
+
       console.log('Dashboard: Loading notifications...');
       const unreadNotifications = await fetchUnreadNotifications();
       console.log('Dashboard: Loaded notifications:', unreadNotifications);
@@ -133,13 +120,8 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await markNotificationAsRead(notificationId);
-<<<<<<< HEAD
       setNotifications(prev =>
         prev.map(n =>
-=======
-      setNotifications(prev => 
-        prev.map(n => 
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
           n.id === notificationId ? { ...n, read: true } : n
         )
       );
@@ -148,11 +130,6 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     }
   };
 
-<<<<<<< HEAD
-
-
-=======
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   // Initial data load
   useEffect(() => {
     const loadAllData = async () => {
@@ -169,7 +146,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
 
     loadAllData();
   }, [loadGroups, loadTheses, loadNotifications]);
-  
+
   // Function to retry loading data
   const handleRetry = async (type: 'groups' | 'theses' | 'notifications') => {
     try {
@@ -191,54 +168,54 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
 
   const getStatCards = () => {
     // Deduplicate groups by ID to prevent counting duplicates
-    const uniqueGroups = groups.filter((group, index, self) => 
+    const uniqueGroups = groups.filter((group, index, self) =>
       index === self.findIndex(g => g.id === group.id)
     );
-    
+
     // Calculate real stats based on deduplicated data
     const activeGroups = uniqueGroups.filter(g => g.status === 'APPROVED').length;
     const pendingGroups = uniqueGroups.filter(g => g.status === 'PENDING').length;
     const groupMembers = uniqueGroups.reduce((sum, g) => sum + (g.members?.length || 0), 0);
-    
+
     switch (userRole) {
       case 'student':
         // For students, show their single group and thesis
         const studentGroup = uniqueGroups.length > 0 ? uniqueGroups[0] : null;
         const studentThesis = theses.length > 0 ? theses[0] : null;
-        
+
         return [
-          { 
-            label: 'My Group', 
-            value: studentGroup ? studentGroup.name : 'None', 
-            icon: Users, 
+          {
+            label: 'My Group',
+            value: studentGroup ? studentGroup.name : 'None',
+            icon: Users,
             color: 'text-green-600 bg-green-100'
           },
-          { 
-            label: 'Group Status', 
-            value: studentGroup ? studentGroup.status : 'N/A', 
-            icon: CheckCircle, 
-            color: studentGroup?.status === 'APPROVED' ? 'text-blue-600 bg-blue-100' : 
-                   studentGroup?.status === 'PENDING' ? 'text-amber-600 bg-amber-100' : 
+          {
+            label: 'Group Status',
+            value: studentGroup ? studentGroup.status : 'N/A',
+            icon: CheckCircle,
+            color: studentGroup?.status === 'APPROVED' ? 'text-blue-600 bg-blue-100' :
+                   studentGroup?.status === 'PENDING' ? 'text-amber-600 bg-amber-100' :
                    'text-gray-600 bg-gray-100',
-            detail: studentGroup ? (studentGroup.status === 'APPROVED' ? 'Approved' : 
-                                   studentGroup.status === 'PENDING' ? 'Pending Approval' : 
+            detail: studentGroup ? (studentGroup.status === 'APPROVED' ? 'Approved' :
+                                   studentGroup.status === 'PENDING' ? 'Pending Approval' :
                                    'Not Available') : ''
           },
-          { 
-            label: 'My Thesis', 
-            value: studentThesis ? studentThesis.title : 'None', 
-            icon: BookOpen, 
+          {
+            label: 'My Thesis',
+            value: studentThesis ? studentThesis.title : 'None',
+            icon: BookOpen,
             color: 'text-purple-600 bg-purple-100'
           },
-          { 
-            label: 'Thesis Status', 
-            value: studentThesis ? studentThesis.status : 'N/A', 
-            icon: TrendingUp, 
-            color: studentThesis ? 
-                   (studentThesis.status.includes('APPROVED') ? 'text-green-600 bg-green-100' : 
-                    studentThesis.status.includes('SUBMITTED') ? 'text-blue-600 bg-blue-100' : 
-                    studentThesis.status.includes('REJECTED') ? 'text-red-600 bg-red-100' : 
-                    'text-amber-600 bg-amber-100') : 
+          {
+            label: 'Thesis Status',
+            value: studentThesis ? studentThesis.status : 'N/A',
+            icon: TrendingUp,
+            color: studentThesis ?
+                   (studentThesis.status.includes('APPROVED') ? 'text-green-600 bg-green-100' :
+                    studentThesis.status.includes('SUBMITTED') ? 'text-blue-600 bg-blue-100' :
+                    studentThesis.status.includes('REJECTED') ? 'text-red-600 bg-red-100' :
+                    'text-amber-600 bg-amber-100') :
                    'text-gray-600 bg-gray-100',
             detail: studentThesis ? studentThesis.status.replace(/_/g, ' ') : ''
           },
@@ -280,67 +257,30 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     }
   };
 
-<<<<<<< HEAD
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'TOPIC_APPROVED':
-      case 'CONCEPT_APPROVED':
-      case 'PROPOSAL_APPROVED':
-      case 'FINAL_APPROVED':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'TOPIC_SUBMITTED':
-      case 'CONCEPT_SUBMITTED':
-      case 'PROPOSAL_SUBMITTED':
-      case 'FINAL_SUBMITTED':
-      case 'CONCEPT_SCHEDULED':
-      case 'PROPOSAL_SCHEDULED':
-      case 'FINAL_SCHEDULED':
-      case 'CONCEPT_DEFENDED':
-      case 'PROPOSAL_DEFENDED':
-      case 'FINAL_DEFENDED':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'RESEARCH_IN_PROGRESS':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'DRAFT':
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-      case 'TOPIC_REJECTED':
-      case 'REJECTED':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'REVISIONS_REQUIRED':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'ARCHIVED':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-
-=======
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   const quickActions = [
-    { 
-      label: userRole === 'student' ? 'My Group' : 'View Groups', 
-      icon: Users, 
-      action: 'groups', 
-      color: 'bg-green-700 hover:bg-green-800' 
+    {
+      label: userRole === 'student' ? 'My Group' : 'View Groups',
+      icon: Users,
+      action: 'groups',
+      color: 'bg-green-700 hover:bg-green-800'
     },
-    { 
-      label: userRole === 'student' ? 'My Thesis' : 'View Theses', 
-      icon: BookOpen, 
-      action: 'thesis', 
-      color: 'bg-purple-700 hover:bg-purple-800' 
+    {
+      label: userRole === 'student' ? 'My Thesis' : 'View Theses',
+      icon: BookOpen,
+      action: 'thesis',
+      color: 'bg-purple-700 hover:bg-purple-800'
     },
-    { 
-      label: 'Upload Document', 
-      icon: Upload, 
-      action: 'documents', 
-      color: 'bg-blue-700 hover:bg-blue-800' 
+    {
+      label: 'Upload Document',
+      icon: Upload,
+      action: 'documents',
+      color: 'bg-blue-700 hover:bg-blue-800'
     },
-    { 
-      label: 'View Calendar', 
-      icon: Calendar, 
-      action: 'schedule', 
-      color: 'bg-amber-700 hover:bg-amber-800' 
+    {
+      label: 'View Calendar',
+      icon: Calendar,
+      action: 'schedule',
+      color: 'bg-amber-700 hover:bg-amber-800'
     },
     // Add pending proposals action for admins
     ...(userRole === 'admin' ? [{
@@ -398,11 +338,6 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
         </div>
       </div>
 
-<<<<<<< HEAD
-
-
-=======
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, index) => {
@@ -478,9 +413,9 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
                 ) : error.notifications ? (
                   <div className="text-red-500">
                     <p>Failed to load notifications</p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="mt-2"
                       onClick={() => handleRetry('notifications')}
                     >
@@ -522,15 +457,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
           })}
         </div>
       </Card>
-<<<<<<< HEAD
-
-
 
     </div>
   );
 }
-=======
-    </div>
-  );
-}
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd

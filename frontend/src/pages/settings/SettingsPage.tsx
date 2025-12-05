@@ -19,14 +19,10 @@ export function Settings({ userRole }: SettingsProps) {
   const [userData, setUserData] = useState({
     firstName: '',
     lastName: '',
-<<<<<<< HEAD
     email: '',
     bio: ''
-=======
-    email: ''
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   });
-  
+
   const getRoleBadgeColor = () => {
     switch (userRole) {
       case 'admin':
@@ -46,7 +42,8 @@ export function Settings({ userRole }: SettingsProps) {
       setUserData({
         firstName: user.first_name || '',
         lastName: user.last_name || '',
-        email: user.email || ''
+        email: user.email || '',
+        bio: ''
       });
     }
   }, [user?.first_name, user?.last_name, user?.email]);
@@ -91,11 +88,11 @@ export function Settings({ userRole }: SettingsProps) {
   const handleConnectGoogleAccount = async () => {
     setLoading(true);
     setConnectionError(null);
-    
+
     try {
       // Connect Google account using our service
       const result = await accountLinkingService.connectGoogleAccount();
-      
+
       if (result.connected) {
         setGoogleDriveConnected(true);
         toast.success(result.message || 'Google account connected successfully', {
@@ -122,11 +119,11 @@ export function Settings({ userRole }: SettingsProps) {
   const handleDisconnectGoogleAccount = async () => {
     setLoading(true);
     setConnectionError(null);
-    
+
     try {
       // Disconnect Google account using our service
       const result = await accountLinkingService.disconnectGoogleAccount();
-      
+
       if (!result.connected) {
         setGoogleDriveConnected(false);
         toast.success(result.message || 'Google account disconnected successfully', {
@@ -235,26 +232,15 @@ export function Settings({ userRole }: SettingsProps) {
               </div>
 
               <div>
-<<<<<<< HEAD
                 {/* Bio field - editable for all users */}
-=======
-                {/* Bio field - in a real implementation, this would be fetched from user profile */}
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
                 <label className="block text-sm text-slate-700 mb-2">Bio</label>
                 <textarea
                   rows={3}
                   name="bio"
-<<<<<<< HEAD
                   value={userData.bio}
                   onChange={handleInputChange}
                   placeholder="Tell us about yourself..."
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
-=======
-                  value="Graduate student researching climate change impacts on biodiversity." /* Hardcoded for demo */
-                  onChange={() => {}} /* No-op for demo */
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
-                  readOnly
->>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
                 ></textarea>
               </div>
 
@@ -353,10 +339,10 @@ export function Settings({ userRole }: SettingsProps) {
                       <div>
                         <p className="text-sm font-medium text-slate-900">Google Drive</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge 
-                            variant="secondary" 
-                            className={googleDriveConnected 
-                              ? "bg-green-100 text-green-800 text-xs border-green-200" 
+                          <Badge
+                            variant="secondary"
+                            className={googleDriveConnected
+                              ? "bg-green-100 text-green-800 text-xs border-green-200"
                               : "bg-slate-100 text-slate-600 text-xs border-slate-200"}
                           >
                             {checkingConnection ? 'Checking...' : (googleDriveConnected ? 'Connected' : 'Not Connected')}
@@ -365,9 +351,9 @@ export function Settings({ userRole }: SettingsProps) {
                       </div>
                     </div>
                     {googleDriveConnected ? (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={handleDisconnectGoogleAccount}
                         disabled={loading || checkingConnection}
                         className="min-w-[100px]"
@@ -375,9 +361,9 @@ export function Settings({ userRole }: SettingsProps) {
                         {loading ? 'Disconnecting...' : 'Disconnect'}
                       </Button>
                     ) : (
-                      <Button 
-                        variant="default" 
-                        size="sm" 
+                      <Button
+                        variant="default"
+                        size="sm"
                         onClick={handleConnectGoogleAccount}
                         disabled={loading || checkingConnection}
                         className="min-w-[100px]"
@@ -386,17 +372,17 @@ export function Settings({ userRole }: SettingsProps) {
                       </Button>
                     )}
                   </div>
-                  
+
                   {connectionError && (
                     <p className="text-sm text-red-600 mt-1">
                       {connectionError}
                     </p>
                   )}
-                  
+
                   <p className="text-xs text-slate-500 mt-1">
-                    {checkingConnection 
-                      ? 'Checking connection status...' 
-                      : googleDriveConnected 
+                    {checkingConnection
+                      ? 'Checking connection status...'
+                      : googleDriveConnected
                         ? `Connected as ${userData.email}. You can now save files directly to your Google Drive.`
                         : 'Connect your Google account to save files directly to your Google Drive.'}
                   </p>
