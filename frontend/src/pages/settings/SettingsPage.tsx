@@ -19,8 +19,12 @@ export function Settings({ userRole }: SettingsProps) {
   const [userData, setUserData] = useState({
     firstName: '',
     lastName: '',
+<<<<<<< HEAD
     email: '',
     bio: ''
+=======
+    email: ''
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   });
   
   const getRoleBadgeColor = () => {
@@ -231,15 +235,26 @@ export function Settings({ userRole }: SettingsProps) {
               </div>
 
               <div>
+<<<<<<< HEAD
                 {/* Bio field - editable for all users */}
+=======
+                {/* Bio field - in a real implementation, this would be fetched from user profile */}
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
                 <label className="block text-sm text-slate-700 mb-2">Bio</label>
                 <textarea
                   rows={3}
                   name="bio"
+<<<<<<< HEAD
                   value={userData.bio}
                   onChange={handleInputChange}
                   placeholder="Tell us about yourself..."
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+=======
+                  value="Graduate student researching climate change impacts on biodiversity." /* Hardcoded for demo */
+                  onChange={() => {}} /* No-op for demo */
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+                  readOnly
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
                 ></textarea>
               </div>
 

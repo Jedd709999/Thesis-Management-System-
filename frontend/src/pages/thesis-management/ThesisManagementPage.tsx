@@ -1,5 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
+<<<<<<< HEAD
 import { Search, Filter, Plus, Eye, Edit, Trash2, AlertCircle, Check, X, AlertTriangle, BookOpen } from 'lucide-react';
+=======
+import { Search, Filter, Plus, Eye, Edit, Trash2, AlertCircle, Check, X, AlertTriangle } from 'lucide-react';
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -16,10 +20,17 @@ import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+<<<<<<< HEAD
 import { fetchTheses, fetchCurrentUserTheses, fetchOtherTheses, createThesis, updateThesis, deleteThesis, adviserReview, searchTopics } from '../../api/thesisService';
 import { fetchCurrentUserGroups } from '../../api/groupService';
 import { accountLinkingService } from '../../services/accountLinkingService';
 import { useAuth } from '../../hooks/useAuth';
+=======
+import { useAuth } from '../../hooks/useAuth';
+import { fetchTheses, fetchCurrentUserTheses, fetchOtherTheses, createThesis, updateThesis, deleteThesis, adviserReview } from '../../api/thesisService';
+import { fetchCurrentUserGroups } from '../../api/groupService';
+import { accountLinkingService } from '../../services/accountLinkingService';
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
 import { Thesis, Group } from '../../types';
 
 interface ThesisManagementProps {
@@ -53,6 +64,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showGoogleConnectDialog, setShowGoogleConnectDialog] = useState(false);
   const [isCheckingGoogle, setIsCheckingGoogle] = useState(false);
+<<<<<<< HEAD
 
   // Search state
    const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
@@ -60,6 +72,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
    const [searchResults, setSearchResults] = useState<any[]>([]);
    const [searchMessage, setSearchMessage] = useState('');
    const [isSearching, setIsSearching] = useState(false);
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   
   // Debug log
   console.log('ThesisManagement component mounted with:', { userRole, currentUser: currentUser?.id, currentUserRole: currentUser?.role });
@@ -236,10 +250,15 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   // Filter theses based on search and filters
   const getFilteredTheses = (thesisList: Thesis[]) => {
     return thesisList.filter((thesis) => {
+<<<<<<< HEAD
       const matchesSearch = searchQuery === '' ||
                            thesis.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            thesis.abstract.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            thesis.keywords.toLowerCase().includes(searchQuery.toLowerCase()) ||
+=======
+      const matchesSearch = searchQuery === '' || 
+                           thesis.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
                            (thesis.group && typeof thesis.group !== 'string' && thesis.group.name.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesStatus = statusFilter === 'all' || thesis.status === statusFilter;
       return matchesSearch && matchesStatus;
@@ -738,6 +757,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     onViewDetail(thesis.id);
   };
 
+<<<<<<< HEAD
   // Function to handle topic search
    const handleSearchTopics = async () => {
      if (!searchKeyword.trim()) {
@@ -759,6 +779,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
      }
    };
 
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   const isThesisOwner = (thesis: Thesis) => {
     // Check if the current user is the proposer of the thesis
     // The proposer can be either a full User object or just the user ID
@@ -820,7 +842,11 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
           <h1 className="text-3xl text-slate-900 mb-2">Thesis Management</h1>
           <p className="text-slate-600">Manage and track environmental science research projects</p>
         </div>
+<<<<<<< HEAD
         {userRole === 'student' && (
+=======
+        {(userRole === 'student' || userRole === 'admin') && (
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
           <div className="flex flex-col items-end">
             <div className="flex flex-col items-end w-full">
               {!hasApprovedGroup && userRole === 'student' && (
@@ -838,7 +864,11 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
             </div>
             <Tooltip>
               <TooltipTrigger asChild>
+<<<<<<< HEAD
                 <Button
+=======
+                <Button 
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
                   className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2 rounded-md px-4 py-2 disabled:opacity-50 whitespace-nowrap"
                   disabled={userRole === 'student' && (!hasApprovedGroup || hasExistingThesis)}
                   onClick={() => setIsCreateDialogOpen(true)}
@@ -905,6 +935,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                         Keywords
                       </Label>
                       <div className="col-span-3">
+<<<<<<< HEAD
                         <div className="flex gap-2">
                           <Input
                             id="keywords"
@@ -925,6 +956,16 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                         </div>
                         <p className="text-sm text-slate-500 mt-1">
                           Enter keywords related to your research topic, separated by commas. Use "Search Topics" to check if your topic already exists.
+=======
+                        <Input
+                          id="keywords"
+                          value={keywords}
+                          onChange={(e) => setKeywords(e.target.value)}
+                          placeholder="Enter keywords separated by commas"
+                        />
+                        <p className="text-sm text-slate-500 mt-1">
+                          Enter keywords related to your research topic, separated by commas
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
                         </p>
                       </div>
                     </div>
@@ -1132,15 +1173,24 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
               </DialogDescription>
             </DialogHeader>
             <div className="w-full flex flex-col sm:flex-row justify-between gap-3 pt-2">
+<<<<<<< HEAD
               <Button
                 variant="outline"
+=======
+              <Button 
+                variant="outline" 
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
                 onClick={() => setShowGoogleConnectDialog(false)}
                 size="sm"
                 className="w-full sm:w-auto flex-1"
               >
                 Cancel
               </Button>
+<<<<<<< HEAD
               <Button
+=======
+              <Button 
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
                 variant="default"
                 onClick={async () => {
                   try {
@@ -1170,6 +1220,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
           </div>
         </DialogContent>
       </Dialog>
+<<<<<<< HEAD
 
       {/* Topic Search Dialog */}
        <Dialog open={isSearchDialogOpen} onOpenChange={(open) => {
@@ -1319,6 +1370,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
            </DialogFooter>
          </DialogContent>
        </Dialog>
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
     </TooltipProvider>
     </div>
   );

@@ -94,6 +94,7 @@ export async function adviserReview(
 // Legacy exports
 export const listThesis = fetchTheses
 export const getAllTheses = fetchTheses
+<<<<<<< HEAD
 export const getThesis = fetchThesis
 
 /**
@@ -133,3 +134,6 @@ export async function searchTopics(query: string): Promise<{
   const res = await api.get('/theses/search_topics/', { params: { q: query } });
   return res.data;
 }
+=======
+export const getThesis = fetchThesis
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd

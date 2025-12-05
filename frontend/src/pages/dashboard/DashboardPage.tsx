@@ -3,9 +3,14 @@ import { CheckCircle, Clock, Users, TrendingUp, Calendar, Upload, Leaf, Droplets
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+<<<<<<< HEAD
 
 import { fetchCurrentUserGroups } from '../../api/groupService';
 import { fetchUnreadNotifications, markNotificationAsRead, ActivityNotification } from '../../api/activityService';
+=======
+import { fetchCurrentUserGroups } from '../../api/groupService';
+import { fetchUnreadNotifications, fetchRecentActivities, markNotificationAsRead, Activity, ActivityNotification } from '../../api/activityService';
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
 import { fetchCurrentUserTheses } from '../../api/thesisService';
 import { Group, Thesis } from '../../types';
 import { formatDistanceToNow } from 'date-fns';
@@ -36,10 +41,13 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     notifications: null
   });
 
+<<<<<<< HEAD
 
 
 
 
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   const loadGroups = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, groups: true }));
@@ -125,8 +133,13 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await markNotificationAsRead(notificationId);
+<<<<<<< HEAD
       setNotifications(prev =>
         prev.map(n =>
+=======
+      setNotifications(prev => 
+        prev.map(n => 
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
           n.id === notificationId ? { ...n, read: true } : n
         )
       );
@@ -135,8 +148,11 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     }
   };
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   // Initial data load
   useEffect(() => {
     const loadAllData = async () => {
@@ -264,6 +280,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     }
   };
 
+<<<<<<< HEAD
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'TOPIC_APPROVED':
@@ -298,6 +315,8 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     }
   };
 
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   const quickActions = [
     { 
       label: userRole === 'student' ? 'My Group' : 'View Groups', 
@@ -379,8 +398,11 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
         </div>
       </div>
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, index) => {
@@ -500,9 +522,15 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
           })}
         </div>
       </Card>
+<<<<<<< HEAD
 
 
 
     </div>
   );
 }
+=======
+    </div>
+  );
+}
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd

@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+<<<<<<< HEAD
 from django.http import HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -13,6 +14,8 @@ from io import BytesIO
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
 from api.models.archive_record_models import ArchiveRecord
 from api.models.user_models import User
 from api.models.thesis_models import Thesis
@@ -115,11 +118,14 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
             
+<<<<<<< HEAD
         # Get panel members
         panel_members = []
         if thesis.group and thesis.group.panels:
             panel_members = [f"{panel.first_name} {panel.last_name}" for panel in thesis.group.panels.all()]
 
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
         # Create archive record
         archive_data = {
             'title': thesis.title,
@@ -127,9 +133,12 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
             'status': thesis.status,
             'adviser': str(thesis.adviser.id) if thesis.adviser else None,
             'group': str(thesis.group.id),
+<<<<<<< HEAD
             'group_name': thesis.group.name if thesis.group else 'Unknown Group',
             'panels': panel_members,
             'finished_at': timezone.now().isoformat(),
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
             'created_at': thesis.created_at.isoformat(),
             'updated_at': thesis.updated_at.isoformat(),
         }
@@ -146,6 +155,7 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(archive_record)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+<<<<<<< HEAD
     def download_pdf_report(self, request):
         """Download PDF report of finished theses for a specific year"""
         year = request.GET.get('year')
@@ -513,6 +523,8 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         else:  # doc
             return self.download_doc_report(mock_request)
 
+=======
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
     @action(detail=False, methods=['post'])
     def archive_document(self, request):
         """Archive a document"""

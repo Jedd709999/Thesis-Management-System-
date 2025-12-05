@@ -8,7 +8,11 @@ interface AppShellProps {
   children: React.ReactNode
 }
 
+<<<<<<< HEAD
 export const AppShell: React.FC<AppShellProps> = ({ children, onNavigate }) => {
+=======
+export const AppShell: React.FC<AppShellProps> = ({ children }) => {
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
   // For larger screens, sidebar should be open by default
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024)
   const { user, logout } = useAuth()
@@ -52,10 +56,16 @@ export const AppShell: React.FC<AppShellProps> = ({ children, onNavigate }) => {
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar */}
+<<<<<<< HEAD
         <Topbar
           unreadCount={unreadCount}
           onMenuToggle={toggleSidebar}
           onNavigate={onNavigate}
+=======
+        <Topbar 
+          unreadCount={unreadCount} 
+          onMenuToggle={toggleSidebar}
+>>>>>>> 9986194de6c7eb0f9dff4a8117cc3ead7b76b7fd
         />
 
         {/* Page content */}
