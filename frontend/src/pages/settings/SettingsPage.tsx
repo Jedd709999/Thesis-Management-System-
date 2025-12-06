@@ -5,13 +5,15 @@ import { useState, useEffect } from 'react';
 import { googleOAuthService } from '../../services/googleOAuthService';
 import { accountLinkingService } from '../../services/accountLinkingService';
 import { useAuth } from '../../hooks/useAuth';
+import { updateProfile, changePassword } from '../../api/userService';
+import { fetchProfile } from '../../api/authService';
 
 interface SettingsProps {
   userRole: 'student' | 'adviser' | 'panel' | 'admin';
 }
 
 export function Settings({ userRole }: SettingsProps) {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const [googleDriveConnected, setGoogleDriveConnected] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -22,6 +24,12 @@ export function Settings({ userRole }: SettingsProps) {
     email: '',
     bio: ''
   });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const getRoleBadgeColor = () => {
     switch (userRole) {
@@ -43,10 +51,10 @@ export function Settings({ userRole }: SettingsProps) {
         firstName: user.first_name || '',
         lastName: user.last_name || '',
         email: user.email || '',
-        bio: ''
+        bio: user.bio || ''
       });
     }
-  }, [user?.first_name, user?.last_name, user?.email]);
+  }, [user?.first_name, user?.last_name, user?.email, user?.bio]);
 
   // Check if user has Google account connected
   const checkGoogleConnection = async () => {
@@ -78,10 +86,95 @@ export function Settings({ userRole }: SettingsProps) {
     }));
   };
 
+  // Handle password input changes
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle avatar file change
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+    }
+  };
+
+  // Handle password change
+  const handleChangePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await changePassword({
+        current_password: passwordData.currentPassword,
+        new_password: passwordData.newPassword,
+        confirm_password: passwordData.confirmPassword
+      });
+      toast.success('Password changed successfully!');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      const errorMessage = error.response?.data?.detail ||
+                          error.response?.data?.current_password?.[0] ||
+                          error.response?.data?.new_password?.[0] ||
+                          'Failed to change password';
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Save profile changes
-  const handleSaveChanges = () => {
-    // In a real implementation, this would call an API to update user data
-    alert('Profile changes saved successfully!');
+  const handleSaveChanges = async () => {
+    try {
+      setLoading(true);
+
+      if (avatarFile) {
+        // Use FormData when uploading avatar
+        const formData = new FormData();
+        formData.append('first_name', userData.firstName);
+        formData.append('last_name', userData.lastName);
+        formData.append('bio', userData.bio);
+        formData.append('avatar', avatarFile);
+
+        await updateProfile(formData);
+      } else {
+        // Use JSON for text-only updates
+        const profileData = {
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          bio: userData.bio
+        };
+
+        await updateProfile(profileData);
+      }
+
+      // Fetch updated user profile to refresh avatar and other data
+      const updatedUser = await fetchProfile();
+      login(updatedUser);
+      toast.success('Profile updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      const errorMessage = error.response?.data?.detail ||
+                          error.response?.data?.email?.[0] ||
+                          error.response?.data?.first_name?.[0] ||
+                          error.response?.data?.last_name?.[0] ||
+                          'Failed to update profile';
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Connect Google account
@@ -165,9 +258,15 @@ export function Settings({ userRole }: SettingsProps) {
 
             <div className="flex items-start gap-6 mb-6 pb-6 border-b border-slate-200">
               <Avatar className="w-20 h-20">
-                <AvatarFallback className="bg-green-100 text-green-800 text-xl">
-                  {userData.firstName?.charAt(0)}{userData.lastName?.charAt(0)}
-                </AvatarFallback>
+                {avatarFile ? (
+                  <img src={URL.createObjectURL(avatarFile)} alt="Avatar preview" className="w-full h-full object-cover rounded-full" />
+                ) : user?.avatar ? (
+                  <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+                ) : (
+                  <AvatarFallback className="bg-green-100 text-green-800 text-xl">
+                    {userData.firstName?.charAt(0)}{userData.lastName?.charAt(0)}
+                  </AvatarFallback>
+                )}
               </Avatar>
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
@@ -177,9 +276,22 @@ export function Settings({ userRole }: SettingsProps) {
                   </Badge>
                 </div>
                 <p className="text-sm text-slate-600 mb-3">{userData.email}</p>
-                <Button variant="outline" size="sm">
-                  Change Avatar
-                </Button>
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                    id="avatar-upload"
+                  />
+                  <label htmlFor="avatar-upload">
+                    <Button variant="outline" size="sm" asChild>
+                      <span className="cursor-pointer">
+                        {avatarFile ? 'Avatar Selected' : 'Change Avatar'}
+                      </span>
+                    </Button>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -214,8 +326,10 @@ export function Settings({ userRole }: SettingsProps) {
                   name="email"
                   value={userData.email}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  disabled
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-500 cursor-not-allowed"
                 />
+                <p className="text-xs text-slate-500 mt-1">Email cannot be changed</p>
               </div>
 
               <div>
@@ -244,8 +358,12 @@ export function Settings({ userRole }: SettingsProps) {
                 ></textarea>
               </div>
 
-              <Button className="bg-green-700 hover:bg-green-800 text-white">
-                Save Changes
+              <Button
+                className="bg-green-700 hover:bg-green-800 text-white"
+                onClick={handleSaveChanges}
+                disabled={loading}
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </div>
@@ -262,6 +380,9 @@ export function Settings({ userRole }: SettingsProps) {
                 <label className="block text-sm text-slate-700 mb-2">Current Password</label>
                 <input
                   type="password"
+                  name="currentPassword"
+                  value={passwordData.currentPassword}
+                  onChange={handlePasswordChange}
                   placeholder="Enter current password"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
@@ -272,6 +393,9 @@ export function Settings({ userRole }: SettingsProps) {
                   <label className="block text-sm text-slate-700 mb-2">New Password</label>
                   <input
                     type="password"
+                    name="newPassword"
+                    value={passwordData.newPassword}
+                    onChange={handlePasswordChange}
                     placeholder="Enter new password"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
@@ -280,13 +404,18 @@ export function Settings({ userRole }: SettingsProps) {
                   <label className="block text-sm text-slate-700 mb-2">Confirm Password</label>
                   <input
                     type="password"
+                    name="confirmPassword"
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordChange}
                     placeholder="Confirm new password"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
 
-              <Button variant="outline">Change Password</Button>
+              <Button variant="outline" onClick={handleChangePassword} disabled={loading}>
+                {loading ? 'Changing...' : 'Change Password'}
+              </Button>
 
               <div className="pt-4 border-t border-slate-200">
                 <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">

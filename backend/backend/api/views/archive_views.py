@@ -126,6 +126,7 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
             'abstract': thesis.abstract,
             'status': thesis.status,
             'adviser': str(thesis.adviser.id) if thesis.adviser else None,
+            'adviser_name': f"{thesis.adviser.first_name} {thesis.adviser.last_name}" if thesis.adviser else None,
             'group': str(thesis.group.id),
             'group_name': thesis.group.name if thesis.group else 'Unknown Group',
             'panels': panel_members,
@@ -257,9 +258,10 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(archive_record)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def download_pdf_report(self, request):
+    def download_pdf_report(self, request, year=None):
         """Download PDF report of finished theses for a specific year"""
-        year = request.GET.get('year')
+        if year is None:
+            year = request.GET.get('year')
         if not year:
             return HttpResponse('Year parameter is required', status=400, content_type='text/plain')
 
@@ -279,19 +281,29 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         start_date = timezone.make_aware(timezone.datetime(year_int, 1, 1))
         end_date = timezone.make_aware(timezone.datetime(year_int + 1, 1, 1))
 
+        print(f"DEBUG: Filtering archives for year {year_int}")
+        print(f"DEBUG: Start date: {start_date}")
+        print(f"DEBUG: End date: {end_date}")
+        print(f"DEBUG: User role: {request.user.role}")
+
         # Filter based on user role
         queryset = ArchiveRecord.objects.filter(
             content_type='thesis',
             archived_at__gte=start_date,
             archived_at__lt=end_date
-        )
+        ).filter(data__status='FINAL_APPROVED')  # Only include finalized approved theses
 
-        # Temporarily disable adviser filtering for testing
-        # if request.user.role == 'ADVISER':
-        #     # Advisers can only see theses they advised
-        #     queryset = queryset.filter(
-        #         data__adviser=str(request.user.id)
-        #     )
+        print(f"DEBUG: Base queryset count: {queryset.count()}")
+
+        # Apply adviser filtering if needed
+        if request.user.role == 'ADVISER':
+            # Advisers can only see theses they advised
+            queryset = queryset.filter(
+                data__adviser=str(request.user.id)
+            )
+            print(f"DEBUG: Adviser filtered queryset count: {queryset.count()}")
+
+        print(f"DEBUG: Final queryset count: {queryset.count()}")
 
         # Create PDF document
         buffer = BytesIO()
@@ -307,25 +319,18 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
             alignment=1  # Center alignment
         )
 
-        header_style = ParagraphStyle(
-            'CustomHeader',
-            parent=styles['Normal'],
-            fontSize=12,
-            fontName='Helvetica-Bold',
-            alignment=1
-        )
-
         normal_style = styles['Normal']
 
         story = []
 
         # Title
-        title = Paragraph(f"Thesis Archive Report - {year}", title_style)
+        title_text = f"Thesis Archive Report - {year}"
+        title = Paragraph(title_text, title_style)
         story.append(title)
         story.append(Spacer(1, 12))
 
         # Report info
-        info_text = f"Generated on: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Total theses: {queryset.count()}"
+        info_text = f"Generated on: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}\nTotal theses: {queryset.count()}"
         info = Paragraph(info_text, normal_style)
         story.append(info)
         story.append(Spacer(1, 20))
@@ -337,6 +342,8 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
 
                 # Extract data with safe defaults
                 group_name = str(archive_data.get('group_name', 'Unknown Group'))
+                group_members = archive_data.get('group_members', [])
+                group_members_str = ', '.join(str(m) for m in group_members) if group_members else 'No members listed'
                 topic = str(archive_data.get('title', 'Unknown Topic'))
                 abstract = str(archive_data.get('abstract', 'No abstract available'))
                 finished_at = archive.archived_at.strftime('%Y-%m-%d %H:%M:%S') if archive.archived_at else 'Unknown'
@@ -344,12 +351,12 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
                 panel_names = ', '.join(str(p) for p in panels) if panels else 'No panel assigned'
 
                 # Add thesis info
-                thesis_info = f"""
-<b>Group:</b> {group_name}<br/>
-<b>Topic:</b> {topic}<br/>
-<b>Abstract:</b> {abstract[:300]}{'...' if len(abstract) > 300 else ''}<br/>
-<b>Finished:</b> {finished_at}<br/>
-<b>Panel:</b> {panel_names}
+                thesis_info = f"""Group: {group_name}
+Group Members: {group_members_str}
+Topic: {topic}
+Abstract: {abstract[:300]}{'...' if len(abstract) > 300 else ''}
+Finished: {finished_at}
+Panel: {panel_names}
 """
                 story.append(Paragraph(thesis_info, normal_style))
                 story.append(Spacer(1, 12))
@@ -358,22 +365,29 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
             no_data = Paragraph("No archived theses found for the selected year.", normal_style)
             story.append(no_data)
 
+        # Ensure we have at least one element in the story
+        if not story:
+            story.append(Paragraph("Error: Unable to generate report.", normal_style))
+
         # Build PDF
         doc.build(story)
         buffer.seek(0)
+        pdf_data = buffer.getvalue()
+        buffer.close()
 
         response = HttpResponse(
-            buffer.getvalue(),
+            pdf_data,
             content_type='application/pdf'
         )
         response['Content-Disposition'] = f'attachment; filename=thesis_report_{year}.pdf'
-        response['Content-Length'] = buffer.tell()
+        response['Content-Length'] = len(pdf_data)
 
         return response
 
-    def download_excel_report(self, request):
+    def download_excel_report(self, request, year=None):
         """Download Excel report of finished theses for a specific year"""
-        year = request.GET.get('year')
+        if year is None:
+            year = request.GET.get('year')
         if not year:
             return HttpResponse('Year parameter is required', status=400, content_type='text/plain')
 
@@ -398,12 +412,24 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
             content_type='thesis',
             archived_at__gte=start_date,
             archived_at__lt=end_date
-        )
+        ).filter(data__status='FINAL_APPROVED')  # Only include finalized approved theses
+
+        # Apply adviser filtering if needed
+        if request.user.role == 'ADVISER':
+            # Advisers can only see theses they advised or sample theses with no adviser
+            queryset = queryset.filter(
+                data__adviser__isnull=True
+            ) | queryset.filter(
+                data__adviser=str(request.user.id)
+            )
 
         # Create Excel workbook
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = f"Thesis Report {year}"
+        if ws is None:
+            ws = wb.create_sheet(f"Thesis Report {year}")
+        else:
+            ws.title = f"Thesis Report {year}"
 
         # Header styling
         header_font = Font(bold=True, color="FFFFFF")
@@ -411,7 +437,7 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         center_alignment = Alignment(horizontal="center", vertical="center")
 
         # Headers
-        headers = ['Group Name', 'Topic', 'Abstract', 'Date & Time Finished', 'Panel Members']
+        headers = ['Group Name', 'Group Members', 'Topic', 'Abstract', 'Date & Time Finished', 'Panel Members']
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_num, value=header)
             cell.font = header_font
@@ -426,6 +452,10 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
 
                 # Extract group name
                 group_name = str(data.get('group_name', 'Unknown Group'))
+
+                # Extract group members
+                group_members = data.get('group_members', [])
+                group_members_str = ', '.join(str(m) for m in group_members) if group_members else 'No members listed'
 
                 # Extract topic (title)
                 topic = str(data.get('title', 'Unknown Topic'))
@@ -442,16 +472,17 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
 
                 # Write data to Excel
                 ws.cell(row=row_num, column=1, value=group_name)
-                ws.cell(row=row_num, column=2, value=topic)
-                ws.cell(row=row_num, column=3, value=abstract)
-                ws.cell(row=row_num, column=4, value=finished_at)
-                ws.cell(row=row_num, column=5, value=panel_names)
+                ws.cell(row=row_num, column=2, value=group_members_str)
+                ws.cell(row=row_num, column=3, value=topic)
+                ws.cell(row=row_num, column=4, value=abstract)
+                ws.cell(row=row_num, column=5, value=finished_at)
+                ws.cell(row=row_num, column=6, value=panel_names)
 
                 row_num += 1
         else:
             # Add a row indicating no data
             ws.cell(row=row_num, column=1, value='No archived theses found for the selected year')
-            ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=5)
+            ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=6)
             ws.cell(row=row_num, column=1).alignment = Alignment(horizontal='center')
 
         # Auto-adjust column widths
@@ -471,19 +502,22 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         buffer = BytesIO()
         wb.save(buffer)
         buffer.seek(0)
+        file_data = buffer.getvalue()
+        buffer.close()
 
         response = HttpResponse(
-            buffer.getvalue(),
+            file_data,
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         response['Content-Disposition'] = f'attachment; filename=thesis_report_{year}.xlsx'
-        response['Content-Length'] = buffer.tell()
+        response['Content-Length'] = len(file_data)
 
         return response
 
-    def download_doc_report(self, request):
+    def download_doc_report(self, request, year=None):
         """Download DOC (HTML) report of finished theses for a specific year"""
-        year = request.GET.get('year')
+        if year is None:
+            year = request.GET.get('year')
         if not year:
             return HttpResponse('Year parameter is required', status=400, content_type='text/plain')
 
@@ -503,12 +537,29 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         start_date = timezone.make_aware(timezone.datetime(year_int, 1, 1))
         end_date = timezone.make_aware(timezone.datetime(year_int + 1, 1, 1))
 
+        print(f"DEBUG: Filtering archives for year {year_int}")
+        print(f"DEBUG: Start date: {start_date}")
+        print(f"DEBUG: End date: {end_date}")
+        print(f"DEBUG: User role: {request.user.role}")
+
         # Filter based on user role
         queryset = ArchiveRecord.objects.filter(
             content_type='thesis',
             archived_at__gte=start_date,
             archived_at__lt=end_date
-        )
+        ).filter(data__status='FINAL_APPROVED')  # Only include finalized approved theses
+
+        print(f"DEBUG: Base queryset count: {queryset.count()}")
+
+        # Apply adviser filtering if needed
+        if request.user.role == 'ADVISER':
+            # Advisers can only see theses they advised
+            queryset = queryset.filter(
+                data__adviser=str(request.user.id)
+            )
+            print(f"DEBUG: Adviser filtered queryset count: {queryset.count()}")
+
+        print(f"DEBUG: Final queryset count: {queryset.count()}")
 
         # Create HTML content that can be opened as DOC
         html_content = f"""
@@ -540,6 +591,8 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
                 data = archive.data or {}
 
                 group_name = str(data.get('group_name', 'Unknown Group'))
+                group_members = data.get('group_members', [])
+                group_members_str = ', '.join(str(m) for m in group_members) if group_members else 'No members listed'
                 topic = str(data.get('title', 'Unknown Topic'))
                 abstract = str(data.get('abstract', 'No abstract available'))
                 finished_at = archive.archived_at.strftime('%Y-%m-%d %H:%M:%S') if archive.archived_at else 'Unknown'
@@ -551,6 +604,10 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         <div class="field">
             <span class="label">Group:</span>
             <span class="value">{group_name}</span>
+        </div>
+        <div class="field">
+            <span class="label">Group Members:</span>
+            <span class="value">{group_members_str}</span>
         </div>
         <div class="field">
             <span class="label">Topic:</span>
@@ -597,6 +654,7 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         year = request.data.get('year')
         format_type = request.data.get('format', 'pdf')  # Default to PDF
 
+
         if not year:
             return Response(
                 {'detail': 'Year is required'},
@@ -609,20 +667,13 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Create a mock GET request with the year and format parameters
-        from django.http import HttpRequest, QueryDict
-        mock_request = HttpRequest()
-        mock_request.GET = QueryDict(f'year={year}&format={format_type}')
-        mock_request.user = request.user
-        mock_request.method = 'GET'
-        mock_request.META = request.META.copy()  # Copy meta information
-
+        # Call the appropriate method directly with the year parameter
         if format_type == 'pdf':
-            return self.download_pdf_report(mock_request)
+            return self.download_pdf_report(request, year)
         elif format_type == 'excel':
-            return self.download_excel_report(mock_request)
+            return self.download_excel_report(request, year)
         else:  # doc
-            return self.download_doc_report(mock_request)
+            return self.download_doc_report(request, year)
 
     @action(detail=False, methods=['post'])
     def archive_document(self, request):

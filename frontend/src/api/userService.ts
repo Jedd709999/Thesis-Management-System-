@@ -32,8 +32,20 @@ export async function updateUser(id: number, data: Partial<User>): Promise<User>
 /**
  * Update current user profile
  */
-export async function updateProfile(data: Partial<User>): Promise<User> {
-  const res = await api.patch('auth/me/', data)
+export async function updateProfile(data: Partial<User> | FormData): Promise<User> {
+  const res = await api.patch('users/update_profile/', data)
+  return res.data
+}
+
+/**
+ * Change current user password
+ */
+export async function changePassword(data: {
+  current_password: string
+  new_password: string
+  confirm_password: string
+}): Promise<{ detail: string }> {
+  const res = await api.post('users/change_password/', data)
   return res.data
 }
 

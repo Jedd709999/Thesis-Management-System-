@@ -119,6 +119,7 @@ export async function searchTopics(query: string): Promise<{
     adviser_name: string | null;
     adviser_email: string | null;
     panel_members: string[];
+    group_members: string[];
     // Dates
     created_at: string;
     updated_at: string;

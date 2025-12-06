@@ -27,9 +27,10 @@ export const Topbar: React.FC<TopbarProps> = ({ unreadCount = 0, onMenuToggle, o
       const results = await searchTopics(searchQuery.trim())
       setSearchResults(results)
       setIsSearchModalOpen(true)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Search failed:', error)
-      // Show error state or notification
+      // Handle general errors
+      alert('Search failed. Please try again.')
     } finally {
       setIsSearching(false)
     }

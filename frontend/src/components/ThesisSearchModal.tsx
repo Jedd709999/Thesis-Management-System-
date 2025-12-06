@@ -26,6 +26,7 @@ interface SearchResult {
   adviser_name: string | null
   adviser_email: string | null
   panel_members: string[]
+  group_members: string[]
   created_at: string
   updated_at: string
   created_date_display: string
@@ -141,6 +142,16 @@ export const ThesisSearchModal: React.FC<ThesisSearchModalProps> = ({
                           )}
                           {result.adviser_name && (
                             <p><span className="font-medium">Adviser:</span> {result.adviser_name}</p>
+                          )}
+                          {result.group_members.length > 0 && (
+                            <div>
+                              <span className="font-medium">Group Members:</span>
+                              <ul className="list-disc list-inside ml-2 mt-1">
+                                {result.group_members.map((member, idx) => (
+                                  <li key={idx} className="text-xs">{member}</li>
+                                ))}
+                              </ul>
+                            </div>
                           )}
                           {result.panel_members.length > 0 && (
                             <div>

@@ -9,6 +9,7 @@ from api.models.user_models import User
 from api.models.thesis_models import Thesis
 from api.serializers.group_serializers import GroupSerializer, GroupMemberSerializer
 from api.permissions.role_permissions import IsAdviserForGroup, IsGroupMemberOrAdmin, IsGroupLeaderOrAdmin
+from api.services.notification_service import NotificationService
 
 print("DEBUG: group_views.py module loaded!")
 
@@ -509,7 +510,10 @@ class GroupViewSet(viewsets.ModelViewSet):
         group.adviser = adviser
         group.save()
         print(f"DEBUG: Adviser assigned successfully")
-        
+
+        # Send notifications for adviser assignment
+        NotificationService.notify_adviser_assigned(group)
+
         serializer = self.get_serializer(group)
         return Response(serializer.data)
 
@@ -590,38 +594,38 @@ class GroupViewSet(viewsets.ModelViewSet):
         """Remove a specific panel member from a group (Admin or Adviser for their groups)"""
         print(f"DEBUG: remove_panel called with pk={pk}")
         print(f"DEBUG: request.user: {request.user.email}, role: {request.user.role}")
-        
+
         try:
             group = self.get_object()
             print(f"DEBUG: Found group: {group.name}, ID: {group.id}")
         except Exception as e:
             print(f"DEBUG: Error getting group: {e}")
             return Response({'error': f'Group not found: {e}'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         # Check if user is admin or adviser of this specific group
         is_admin = request.user.role == 'ADMIN'
         is_adviser = request.user.role == 'ADVISER' and group.adviser == request.user
-        
+
         print(f"DEBUG: is_admin={is_admin}, is_adviser={is_adviser}")
-        
+
         if not (is_admin or is_adviser):
             return Response({'error': 'Only admins or the group adviser can remove panel members'}, status=status.HTTP_403_FORBIDDEN)
-        
+
         panel_id = request.data.get('panel_id')
         print(f"DEBUG: panel_id from request: {panel_id}")
-        
+
         if not panel_id:
             return Response({'error': 'panel_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             panel_user = User.objects.get(pk=panel_id, role='PANEL')
         except User.DoesNotExist:
             return Response({'error': 'Panel member not found or user is not a panel user'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         # Check if the panel user is actually assigned to this group
         if not group.panels.filter(pk=panel_id).exists():
             return Response({'error': 'Panel member is not assigned to this group'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # Remove the panel member
         print(f"DEBUG: About to remove panel member")
         try:
@@ -631,7 +635,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(f"DEBUG: Error removing panel member: {e}")
             return Response({'error': f'Error removing panel member: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
         print(f"DEBUG: About to serialize group for remove_panel")
         try:
             serializer = self.get_serializer(group)
@@ -639,7 +643,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(f"DEBUG: Error serializing group in remove_panel: {e}")
             return Response({'error': f'Error serializing group: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
         print(f"DEBUG: About to return response for remove_panel")
         try:
             response = Response(serializer.data)
@@ -648,3 +652,22 @@ class GroupViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(f"DEBUG: Error creating response in remove_panel: {e}")
             return Response({'error': f'Error creating response: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def statistics(self, request):
+        """Get group statistics for admin dashboard"""
+        if request.user.role != 'ADMIN':
+            return Response({'error': 'Only admins can view group statistics'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Get all groups (no filtering for admin statistics)
+        total_groups = Group.objects.count()
+        active_groups = Group.objects.filter(status='APPROVED').count()
+        pending_groups = Group.objects.filter(status='PENDING').count()
+        rejected_groups = Group.objects.filter(status='REJECTED').count()
+
+        return Response({
+            'total_registered_groups': total_groups,
+            'active_groups': active_groups,
+            'pending_groups': pending_groups,
+            'rejected_groups': rejected_groups
+        })

@@ -9,8 +9,9 @@ from api.models.thesis_models import Thesis
 from api.models.group_models import Group
 from api.serializers.thesis_serializers import ThesisSerializer
 from api.permissions.role_permissions import IsStudent, IsStudentOrAdviserForThesis
-from api.utils.notifications import create_notification
+
 from api.services.google_drive_service import GoogleDriveService
+from api.services.notification_service import NotificationService
 
 # Create a global drive service instance
 drive_service = GoogleDriveService()
@@ -199,12 +200,9 @@ class ThesisViewSet(viewsets.ModelViewSet):
             )
             
         thesis.submit()
-        if thesis.adviser:
-            print(f"Creating notification for adviser {thesis.adviser}")
-            try:
-                create_notification(thesis.adviser, f'New thesis submitted: {thesis.title}', link=f'/thesis/{thesis.id}')
-            except Exception as e:
-                print(f"Failed to create notification: {e}")
+
+        # Send thesis submission notification
+        NotificationService.notify_thesis_submitted(thesis, request.user)
         return Response(self.get_serializer(thesis).data)
 
     @action(detail=True, methods=['post'])
@@ -241,42 +239,35 @@ class ThesisViewSet(viewsets.ModelViewSet):
             # Approve the topic proposal - status becomes TOPIC_APPROVED
             thesis.status = 'TOPIC_APPROVED'
             thesis.adviser_feedback = feedback
-            
+
             # Ensure Google Drive folder exists for the thesis
             try:
                 ensure_thesis_drive_folder(thesis)
             except Exception as e:
                 print(f"Failed to create Google Drive folder: {e}")
-            
+
             thesis.save()
-            
-            if thesis.proposer:
-                try:
-                    create_notification(thesis.proposer, f'Topic proposal approved: {thesis.title}', body='Your topic has been approved. You can now start working on the full thesis.')
-                except Exception as e:
-                    print(f"Failed to create notification: {e}")
+
+            # Send topic approval notifications
+            NotificationService.notify_topic_approved(thesis, request.user)
             return Response(self.get_serializer(thesis).data)
         elif action == 'request_revision':
             # Request revision for the topic proposal
             thesis.status = 'REVISIONS_REQUIRED'
             thesis.adviser_feedback = feedback
             thesis.save()
-            if thesis.proposer:
-                try:
-                    create_notification(thesis.proposer, f'Revision requested for topic: {thesis.title}', body=feedback)
-                except Exception as e:
-                    print(f"Failed to create notification: {e}")
+
+            # Send revision request notifications
+            NotificationService.notify_revision_request(thesis, feedback, request.user)
             return Response(self.get_serializer(thesis).data)
         elif action == 'reject':
             # Reject the topic proposal
             thesis.status = 'TOPIC_REJECTED'
             thesis.adviser_feedback = feedback
             thesis.save()
-            if thesis.proposer:
-                try:
-                    create_notification(thesis.proposer, f'Topic proposal rejected: {thesis.title}', body=feedback or 'No reason provided')
-                except Exception as e:
-                    print(f"Failed to create notification: {e}")
+
+            # Send rejection notifications
+            NotificationService.notify_rejection(thesis, feedback or 'No reason provided', request.user)
             return Response(self.get_serializer(thesis).data)
         elif action == 'approve_thesis':
             # Approve the full thesis (after topic was approved)
@@ -304,20 +295,9 @@ class ThesisViewSet(viewsets.ModelViewSet):
                     print(f"Failed to ensure Google Drive folder exists: {e}")
                 
                 thesis.save()
-                
-                # Notify panels
-                if thesis.group:
-                    for p in thesis.group.panels.all():
-                        if p:
-                            try:
-                                create_notification(p, f'Thesis ready for panel review: {thesis.title}', link=f'/thesis/{thesis.id}')
-                            except Exception as e:
-                                print(f"Failed to create notification for panel member: {e}")
-                if thesis.proposer:
-                    try:
-                        create_notification(thesis.proposer, f'Thesis proposal submitted for panel review: {thesis.title}', body='Your thesis proposal has been submitted for panel review.')
-                    except Exception as e:
-                        print(f"Failed to create notification for proposer: {e}")
+
+                # Send notifications for thesis status change
+                NotificationService.notify_thesis_status_change(thesis, 'TOPIC_APPROVED', 'PROPOSAL_SUBMITTED')
                 return Response(self.get_serializer(thesis).data)
             else:
                 return Response(
@@ -337,11 +317,9 @@ class ThesisViewSet(viewsets.ModelViewSet):
                     print(f"Failed to ensure Google Drive folder exists: {e}")
                 
                 thesis.save()
-                if thesis.proposer:
-                    try:
-                        create_notification(thesis.proposer, f'Proposal approved: {thesis.title}', body='Your proposal has been approved. You can now proceed with your research.')
-                    except Exception as e:
-                        print(f"Failed to create notification: {e}")
+
+                # Send proposal approval notifications
+                NotificationService.notify_proposal_approved(thesis, request.user)
                 return Response(self.get_serializer(thesis).data)
             else:
                 return Response(
@@ -361,11 +339,9 @@ class ThesisViewSet(viewsets.ModelViewSet):
                     print(f"Failed to ensure Google Drive folder exists: {e}")
                 
                 thesis.save()
-                if thesis.proposer:
-                    try:
-                        create_notification(thesis.proposer, f'Final thesis approved: {thesis.title}', body='Congratulations! Your final thesis has been approved.')
-                    except Exception as e:
-                        print(f"Failed to create notification: {e}")
+
+                # Send notifications for final approval
+                NotificationService.notify_final_approved(thesis, request.user)
                 return Response(self.get_serializer(thesis).data)
             else:
                 return Response(
@@ -375,7 +351,7 @@ class ThesisViewSet(viewsets.ModelViewSet):
             
         return Response({'detail':'invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def search_topics(self, request):
         """Search for thesis topics by keyword and return detailed information to prevent duplication"""
         query = request.query_params.get('q', '').strip()
@@ -404,6 +380,13 @@ class ThesisViewSet(viewsets.ModelViewSet):
                     f"{panel.first_name} {panel.last_name}" for panel in thesis.group.panels.all()
                 ]
 
+            # Get group members (students)
+            group_members = []
+            if thesis.group and thesis.group.members.exists():
+                group_members = [
+                    f"{member.first_name} {member.last_name}" for member in thesis.group.members.all()
+                ]
+
             results.append({
                 'id': str(thesis.id),
                 'title': thesis.title,
@@ -421,6 +404,7 @@ class ThesisViewSet(viewsets.ModelViewSet):
                 'adviser_name': f"{thesis.adviser.first_name} {thesis.adviser.last_name}" if thesis.adviser else None,
                 'adviser_email': thesis.adviser.email if thesis.adviser else None,
                 'panel_members': panel_members,
+                'group_members': group_members,
                 # Dates
                 'created_at': thesis.created_at.isoformat(),
                 'updated_at': thesis.updated_at.isoformat(),

@@ -447,6 +447,22 @@ export async function searchGroupsByTopics(topics: string): Promise<Group[]> {
 }
 
 /**
+ * Get group statistics for admin dashboard
+ */
+export async function getGroupStatistics(): Promise<{
+  total_registered_groups: number;
+  active_groups: number;
+  pending_groups: number;
+  rejected_groups: number;
+}> {
+  console.log('GroupService: Fetching group statistics');
+  console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
+  const res = await api.get('/groups/statistics/')
+  console.log('GroupService: Group statistics response received', res);
+  return res.data;
+}
+
+/**
  * Fetch current user's groups (simplified version without debugging)
  */
 export async function fetchUserGroups(): Promise<Group[]> {

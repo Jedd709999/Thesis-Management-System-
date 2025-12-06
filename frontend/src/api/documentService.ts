@@ -128,13 +128,44 @@ export async function updateDocumentStatus(
 }
 
 /**
+ * Search documents
+ */
+export async function searchDocuments(query: string): Promise<{
+  query: string;
+  results: Array<{
+    id: string;
+    title: string;
+    document_type: string;
+    status: string;
+    provider: string;
+    file_size: number;
+    mime_type: string;
+    created_at: string;
+    thesis_title: string | null;
+    thesis_id: string | null;
+    uploaded_by: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    viewer_url: string;
+    doc_embed_url: string;
+  }>;
+  message: string;
+  total_results: number;
+}> {
+  const res = await api.get('/documents/search_documents/', { params: { q: query } });
+  return res.data;
+}
+
+/**
  * Check if user has a thesis
  */
 export async function checkUserHasThesis() {
   try {
     const groupsRes = await api.get('/groups/get_current_user_groups/')
     const groups = groupsRes.data || []
-    
+
     const groupTheses = groups.filter((g: any) => g.thesis)
     return {
       hasThesis: groupTheses.length > 0,

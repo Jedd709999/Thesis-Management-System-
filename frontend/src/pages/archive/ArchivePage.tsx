@@ -31,7 +31,7 @@ const ArchivePage = () => {
   const { user } = useAuth();
   const [archives, setArchives] = useState<ArchiveRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState<string>('2024');
+  const [selectedYear, setSelectedYear] = useState<string>('2025');
   const [selectedFormat, setSelectedFormat] = useState<string>('pdf');
   const [downloading, setDownloading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -41,6 +41,11 @@ const ArchivePage = () => {
 
   useEffect(() => {
     loadArchives();
+  }, []);
+
+  // Set default year to current year
+  useEffect(() => {
+    setSelectedYear(getCurrentYear().toString());
   }, []);
 
   const loadArchives = async () => {
@@ -134,7 +139,8 @@ const ArchivePage = () => {
   const getYears = () => {
     const currentYear = getCurrentYear();
     const years = [];
-    for (let i = currentYear; i >= currentYear - 10; i--) {
+    // Go back 30 years to accommodate extensive historical archives
+    for (let i = currentYear; i >= currentYear - 30; i--) {
       years.push(i.toString());
     }
     return years;
