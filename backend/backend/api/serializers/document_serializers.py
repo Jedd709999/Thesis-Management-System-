@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from api.models.document_models import Document
 from api.models.thesis_models import Thesis
-from .thesis_serializers import ThesisSerializer
+from api.serializers.thesis_serializers import ThesisSerializer
 
 class DocumentSerializer(serializers.ModelSerializer):
     embed_url = serializers.SerializerMethodField()

@@ -9,15 +9,80 @@ export type Tokens = {
 
 
 // Login function
-export async function login(email: string, password: string): Promise<Tokens> {
+export interface LoginResponse extends Tokens {
+  user: {
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: UserRole;
+    is_email_verified: boolean;
+  };
+}
+
+export interface ApiError extends Error {
+  response?: {
+    data?: {
+      detail?: string;
+      resend_verification?: boolean;
+      [key: string]: any;
+    };
+    status?: number;
+  };
+}
+
+// Login function
+export async function login(email: string, password: string): Promise<LoginResponse> {
   console.log('AuthService: Logging in with email:', email);
   try {
-    const res = await api.post('auth/login/', { email, password })
+    const res = await api.post('auth/login/', { email, password });
     console.log('AuthService: Login response:', res.data);
-    return res.data as Tokens
+    
+    // If we have tokens and user data, save tokens and return the response
+    console.log('AuthService: Full login response data:', res.data);
+    if (res.data.access && res.data.refresh && res.data.user) {
+      const tokens: Tokens = {
+        access: res.data.access,
+        refresh: res.data.refresh
+      };
+      saveTokens(tokens);
+      
+      // Check if user has Google Drive credentials
+      if (res.data.drive_connected !== undefined) {
+        console.log('AuthService: Google Drive connection status - connected:', res.data.drive_connected, 'reconnected:', res.data.drive_reconnected);
+        // Store Google Drive connection status in localStorage
+        localStorage.setItem('drive_connected', res.data.drive_connected.toString());
+        localStorage.setItem('drive_reconnected', res.data.drive_reconnected?.toString() || 'false');
+      } else {
+        console.log('AuthService: No Google Drive connection information in response');
+      }
+      
+      return res.data as LoginResponse;
+    }
+    
+    throw new Error('Invalid response format from server');
   } catch (error: any) {
     console.error('AuthService: Login error:', error);
-    // Re-throw the error so it can be handled by the caller
+    
+    // Handle unverified email case
+    if (error.response?.status === 403 && error.response?.data?.resend_verification) {
+      const customError = new Error(error.response.data.detail || 'Please verify your email before logging in.') as ApiError;
+      customError.response = {
+        data: {
+          ...error.response.data,
+          requiresVerification: true
+        },
+        status: error.response.status
+      };
+      throw customError;
+    }
+    
+    // Handle other error cases
+    if (error.response?.data?.detail) {
+      throw new Error(error.response.data.detail);
+    }
+    
+    // Re-throw the original error if we don't have a specific handler for it
     throw error;
   }
 }
@@ -198,7 +263,7 @@ export async function register(userData: {
   email: string;
   password: string;
   role: UserRole;
-}): Promise<User> {
+}): Promise<{user: User, detail?: string, email_verification_needed?: boolean}> {
   console.log('AuthService: Registering new user with email:', userData.email);
   try {
     // Use the public registration endpoint
@@ -208,7 +273,7 @@ export async function register(userData: {
       },
     });
     console.log('AuthService: Registration successful', res.data);
-    return res.data.user;
+    return res.data;
   } catch (error: any) {
     console.error('AuthService: Registration error:', error);
     throw error;

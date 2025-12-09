@@ -227,10 +227,10 @@ export function GoogleDocsEmbed() {
           <div className="border-t border-slate-200 p-4">
             <textarea
               placeholder="Add a comment..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
               rows={3}
             ></textarea>
-            <Button className="w-full mt-2 bg-green-700 hover:bg-green-800 text-white">
+            <Button className="w-full mt-2 bg-primary hover:bg-primary/90 text-primary-foreground">
               Post Comment
             </Button>
           </div>

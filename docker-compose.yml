@@ -17,7 +17,7 @@ services:
 
   backend:
     build: ./backend
-    working_dir: /app/backend
+    working_dir: /app
     entrypoint: ["/app/entrypoint.sh"]
     command: ["daphne", "-b", "0.0.0.0", "-p", "8000", "backend.asgi:application"]
     volumes:
@@ -32,11 +32,23 @@ services:
       - DATABASE_PASSWORD=thesis_pass
       - DJANGO_SECRET_KEY=your-secret-key-here
       - DEBUG=False
+      # Email Configuration
+      - EMAIL_HOST=smtp.gmail.com
+      - EMAIL_PORT=587
+      - EMAIL_USE_TLS=True
+      - EMAIL_HOST_USER=jedd709999@gmail.com
+      - EMAIL_HOST_PASSWORD=dxfw tcag uctr cmrd
+      - DEFAULT_FROM_EMAIL=jedd709999@gmail.com
+      - GOOGLE_CLIENT_ID=47765248404-3cio0hk7oasn17dfg86grrf3sh69okgg.apps.googleusercontent.com
+      - GOOGLE_CLIENT_SECRET=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
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "8000:8000"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
       interval: 30s
@@ -44,7 +56,14 @@ services:
       retries: 3
 
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      args:
+        - VITE_GOOGLE_CLIENT_ID=47765248404-3cio0hk7oasn17dfg86grrf3sh69okgg.apps.googleusercontent.com
+        - VITE_GOOGLE_CLIENT_SECRET=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
+        - VITE_API_BASE_URL=http://localhost:8000/api
+        - VITE_GOOGLE_REDIRECT_URI=http://localhost:8080/auth/complete/google-oauth2/
+
     volumes:
       - staticfiles:/static
       - mediafiles:/media
@@ -55,6 +74,14 @@ services:
         condition: service_started
     environment:
       - NODE_ENV=production
+      - VITE_GOOGLE_CLIENT_ID=47765248404-3cio0hk7oasn17dfg86grrf3sh69okgg.apps.googleusercontent.com
+      - VITE_GOOGLE_CLIENT_SECRET=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
+      - VITE_API_BASE_URL=http://localhost:8000/api
+      - VITE_GOOGLE_REDIRECT_URI=http://localhost:8080/auth/complete/google-oauth2/
+
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
 
 volumes:
   db_data:

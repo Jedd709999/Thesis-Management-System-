@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Search, Filter, Plus, Eye, Edit, Trash2, AlertCircle, Check, X, AlertTriangle } from 'lucide-react';
+import { Search, Filter, Plus, Eye, Edit, Trash2, AlertCircle, Check, X, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -17,8 +17,10 @@ import { Textarea } from '../../components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { useAuth } from '../../hooks/useAuth';
-import { fetchTheses, fetchCurrentUserTheses, fetchOtherTheses, createThesis, updateThesis, deleteThesis, adviserReview } from '../../api/thesisService';
+import { fetchTheses, fetchCurrentUserTheses, fetchOtherTheses, createThesis, updateThesis, deleteThesis, adviserReview, archiveThesis, submitThesis } from '../../api/thesisService';
 import { fetchCurrentUserGroups } from '../../api/groupService';
+import { fetchSchedules } from '../../api/scheduleService';
+import { panelActions } from '../../services/panelService'; // Correct import
 import { accountLinkingService } from '../../services/accountLinkingService';
 import { Thesis, Group } from '../../types';
 
@@ -53,6 +55,20 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showGoogleConnectDialog, setShowGoogleConnectDialog] = useState(false);
   const [isCheckingGoogle, setIsCheckingGoogle] = useState(false);
+  
+  // Panel action state
+  const [isPanelActionDialogOpen, setIsPanelActionDialogOpen] = useState(false);
+  const [panelActionType, setPanelActionType] = useState<'approve' | 'request_revision' | 'reject' | null>(null);
+  const [selectedThesisForPanelAction, setSelectedThesisForPanelAction] = useState<Thesis | null>(null);
+  const [panelComments, setPanelComments] = useState('');
+  const [isPanelActionSubmitting, setIsPanelActionSubmitting] = useState(false);
+  
+  // Panel scheduled defenses state
+  const [scheduledDefenses, setScheduledDefenses] = useState<Record<string, any>>({});
+  const [loadingScheduledDefenses, setLoadingScheduledDefenses] = useState(false);
+  
+  // Archive state
+  const [isArchiving, setIsArchiving] = useState(false);
   
   // Debug log
   console.log('ThesisManagement component mounted with:', { userRole, currentUser: currentUser?.id, currentUserRole: currentUser?.role });
@@ -96,7 +112,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         } else if (userRole?.toLowerCase() === 'student') {
           // For students, fetch all theses and categorize them properly
           console.log('Fetching theses for student user');
-          fetchedTheses = await fetchTheses();
+          fetchedTheses = await fetchCurrentUserTheses();
           console.log('Fetched all theses for student:', fetchedTheses);
         } else {
           // For admins, fetch all theses
@@ -143,6 +159,86 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     loadUserGroups();
   }, [userRole]);
 
+  // Load scheduled defenses for panel members
+  useEffect(() => {
+    const loadScheduledDefenses = async () => {
+      // Only load for panel members
+      if (userRole?.toUpperCase() !== 'PANEL' || !currentUser) {
+        return;
+      }
+
+      console.log('Checking if we should load scheduled defenses:', {
+        userRole: userRole?.toUpperCase(),
+        isPanel: userRole?.toUpperCase() === 'PANEL',
+        hasCurrentUser: !!currentUser,
+        thesesLength: theses.length,
+        otherThesesLength: otherTheses.length
+      });
+
+      // Check if we have theses to load defenses for
+      // Ensure both arrays are actually arrays before concatenating
+      const thesesArray = Array.isArray(theses) ? theses : [];
+      const otherThesesArray = Array.isArray(otherTheses) ? otherTheses : [];
+      const allTheses = [...thesesArray, ...otherThesesArray];
+      if (allTheses.length === 0) {
+        return;
+      }
+
+      console.log('Loading scheduled defenses');
+      console.log('Loading scheduled defenses for panel user:', {
+        currentUser: currentUser.id,
+        thesesCount: thesesArray.length,
+        otherThesesCount: otherThesesArray.length
+      });
+
+      try {
+        setLoadingScheduledDefenses(true);
+        const defenses: Record<string, any> = {};
+
+        // Process theses in batches to avoid overwhelming the API
+        console.log('Processing theses for scheduled defenses:', allTheses.length);
+        for (const thesis of allTheses) {
+          try {
+            console.log('Fetching schedules for thesis:', thesis.id);
+            const schedules = await fetchSchedules({ thesis_id: thesis.id });
+            console.log('Fetched schedules for thesis:', thesis.id, schedules);
+            
+            // Find scheduled defenses (status = 'scheduled') where current user is a panel member
+            const scheduled = schedules.find((schedule: any) => {
+              return schedule.status === 'scheduled' && 
+                     Array.isArray(schedule.panel_members) && 
+                     schedule.panel_members.some((panel: any) => {
+                       // Handle different panel member ID formats
+                       const panelId = typeof panel === 'object' && panel !== null ? panel.id : panel;
+                       
+                       // Safely handle currentUser.id which might be null
+                       if (!currentUser?.id) return false;
+                       
+                       // Simple approach: just compare the IDs directly
+                       return String(panelId) === String(currentUser!.id);
+                     });
+            });
+            
+            if (scheduled) {
+              defenses[thesis.id] = scheduled;
+            }
+          } catch (err) {
+            console.error('Error fetching schedules for thesis:', thesis.id, err);
+          }
+        }
+
+        console.log('Setting scheduled defenses:', defenses);
+        setScheduledDefenses(defenses);
+      } catch (err) {
+        console.error('Error loading scheduled defenses:', err);
+      } finally {
+        setLoadingScheduledDefenses(false);
+      }
+    };
+
+    loadScheduledDefenses();
+  }, [userRole, currentUser, theses, otherTheses]);
+
   // Group theses by user role for tab organization
   const groupedTheses = useMemo(() => {
     const groups: Record<string, Thesis[]> = {
@@ -151,7 +247,16 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       others: []
     };
 
-    theses.forEach(thesis => {
+    // Ensure theses is an array before using forEach
+    const thesesArray = Array.isArray(theses) ? theses : [];
+    
+    console.log('Processing theses for grouping:', {
+      userRole,
+      thesesCount: thesesArray.length,
+      theses: thesesArray
+    });
+    
+    thesesArray.forEach(thesis => {
       groups.all.push(thesis);
       
       // For students, categorize by access rights
@@ -162,9 +267,17 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         // Check if user is the proposer of the thesis
         const isProposer = thesis.proposer && (
           (typeof thesis.proposer === 'object' && String(thesis.proposer.id) === String(currentUser?.id)) ||
-          (typeof thesis.proposer === 'number' && thesis.proposer === currentUser?.id) ||
-          (typeof thesis.proposer === 'string' && thesis.proposer === currentUser?.id)
+          (typeof thesis.proposer === 'number' && String(thesis.proposer) === String(currentUser?.id)) ||
+          (typeof thesis.proposer === 'string' && String(thesis.proposer) === String(currentUser?.id))
         );
+        
+        console.log('Thesis proposer check:', {
+          thesisId: thesis.id,
+          proposer: thesis.proposer,
+          proposerType: typeof thesis.proposer,
+          currentUserId: currentUser?.id,
+          isProposer
+        });
         
         // Check if the group is a Group object
         if (typeof thesis.group === 'object' && thesis.group !== null) {
@@ -214,21 +327,26 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       }
       // For admins, show all theses in "my" tab for now
       else {
+        console.log('Adding thesis to admin "my" group:', thesis.id);
         groups.my.push(thesis);
       }
     });
 
     // For advisers and panels, use the separately fetched other theses
-    if (userRole?.toLowerCase() === 'adviser' || userRole?.toLowerCase() === 'panel') {
-      groups.others = otherTheses;
-    }
+    // Ensure otherTheses is an array
+    groups.others = Array.isArray(otherTheses) ? otherTheses : [];
+    
+    console.log('Final grouped theses:', groups);
 
     return groups;
   }, [theses, otherTheses, userRole, currentUser]);
 
   // Filter theses based on search and filters
   const getFilteredTheses = (thesisList: Thesis[]) => {
-    return thesisList.filter((thesis) => {
+    // Ensure thesisList is an array before filtering
+    const thesesArray = Array.isArray(thesisList) ? thesisList : [];
+    
+    return thesesArray.filter((thesis) => {
       const matchesSearch = searchQuery === '' || 
                            thesis.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            (thesis.group && typeof thesis.group !== 'string' && thesis.group.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -282,7 +400,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                   </td>
                   <td className="px-6 py-4">
                     <Badge className={`border ${getStatusColor(thesis.status)}`}>
-                      {thesis.status.replace('_', ' ')}
+                      {getStatusDisplayText(thesis.status)}
                     </Badge>
                   </td>
                   <td className="px-6 py-4">
@@ -347,6 +465,48 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                           </TooltipContent>
                         </Tooltip>
                       )}
+                      {/* Submit button for students when thesis status is REVISIONS_REQUIRED */}
+                      {userRole?.toLowerCase() === 'student' && isThesisOwner(thesis) && (
+                        thesis.status === 'CONCEPT_REVISIONS_REQUIRED' || 
+                        thesis.status === 'PROPOSAL_REVISIONS_REQUIRED' || 
+                        thesis.status === 'FINAL_REVISIONS_REQUIRED'
+                      ) && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleResubmitThesis(thesis)}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Resubmit Thesis</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {userRole?.toLowerCase() === 'admin' && thesis.status === 'FINAL_APPROVED' && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleArchiveThesis(thesis.id)}
+                              disabled={isArchiving}
+                              className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 p-2"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                              </svg>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Archive Thesis</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                       {userRole?.toLowerCase() === 'adviser' && isAdviserForThesis(thesis) && thesis.status === 'TOPIC_SUBMITTED' && (
                         <>
                           <Tooltip>
@@ -381,6 +541,79 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                           </Tooltip>
                         </>
                       )}
+                      
+                      {/* Panel Action Buttons - Show only for panel members when viewing theses with scheduled defenses in the "my" tab */}
+                      {(() => {
+                        const isPanel = userRole?.toUpperCase() === 'PANEL';
+                        const isMember = isPanelMemberForThesis(thesis);
+                        const hasDefense = hasScheduledDefenses(thesis);
+                        const showPanelActions = isPanel && isMember && hasDefense && tabType === 'my';
+                        
+                        console.log('Panel action button check:', { 
+                          thesisId: thesis.id, 
+                          isPanel, 
+                          isMember, 
+                          hasDefense, 
+                          tabType,
+                          thesisStatus: thesis.status,
+                          showPanelActions 
+                        });
+                        
+                        // Additional debugging to understand why panel actions aren't showing
+                        if (isPanel && isMember && tabType === 'my' && !hasDefense) {
+                          console.log('Panel member viewing own thesis in "my" tab, but no scheduled defenses. Thesis status:', thesis.status);
+                        }
+                        
+                        return showPanelActions && (
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handlePanelAction(thesis, 'approve')}
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Approve Thesis</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handlePanelAction(thesis, 'request_revision')}
+                                  className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 p-2"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Request Revisions</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handlePanelAction(thesis, 'reject')}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Reject Thesis</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </>
+                        );
+                      })()}
                     </div>
                   </td>
                 </tr>
@@ -409,9 +642,14 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       case 'CONCEPT_SUBMITTED':
       case 'PROPOSAL_SUBMITTED':
       case 'FINAL_SUBMITTED':
+      case 'READY_FOR_CONCEPT_DEFENSE':
+      case 'READY_FOR_PROPOSAL_DEFENSE':
+      case 'READY_FOR_FINAL_DEFENSE':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'CONCEPT_SCHEDULED':
       case 'PROPOSAL_SCHEDULED':
       case 'FINAL_SCHEDULED':
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'CONCEPT_DEFENDED':
       case 'PROPOSAL_DEFENDED':
       case 'FINAL_DEFENDED':
@@ -423,12 +661,33 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       case 'TOPIC_REJECTED':
       case 'REJECTED':
         return 'bg-red-100 text-red-800 border-red-200';
-      case 'REVISIONS_REQUIRED':
+      case 'CONCEPT_REVISIONS_REQUIRED':
+      case 'PROPOSAL_REVISIONS_REQUIRED':
+      case 'FINAL_REVISIONS_REQUIRED':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'ARCHIVED':
         return 'bg-gray-100 text-gray-800 border-gray-200';
       default:
         return 'bg-slate-100 text-slate-800 border-slate-200';
+    }
+  };
+  const getStatusDisplayText = (status: string) => {
+    switch (status) {
+      case 'REVISIONS_REQUIRED':
+        // Determine the specific revision type based on the current thesis stage
+        return 'Revisions Required';
+      case 'CONCEPT_REVISIONS_REQUIRED':
+        return 'Concept Revisions Required';
+      case 'PROPOSAL_REVISIONS_REQUIRED':
+        return 'Proposal Revisions Required';
+      case 'FINAL_REVISIONS_REQUIRED':
+        return 'Final Revisions Required';
+      default:
+        // For other statuses, format them nicely
+        return status
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
     }
   };
 
@@ -496,7 +755,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         fetchedTheses = currentUserTheses;
         fetchedOtherTheses = otherTheses;
       } else {
-        fetchedTheses = await fetchTheses();
+        fetchedTheses = await fetchCurrentUserTheses();
       }
       setTheses(fetchedTheses);
       setOtherTheses(fetchedOtherTheses);
@@ -516,30 +775,45 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     }
   };
 
-  const handleDeleteThesis = async (thesisId: string) => {
-    if (window.confirm('Are you sure you want to delete this thesis? This action cannot be undone.')) {
-      try {
-        await deleteThesis(thesisId);
-        // Refresh theses based on user role
-        let fetchedTheses: Thesis[] = [];
-        let fetchedOtherTheses: Thesis[] = [];
-        if (userRole === 'adviser' || userRole === 'panel') {
-          const [currentUserTheses, otherTheses] = await Promise.all([
-            fetchCurrentUserTheses(),
-            fetchOtherTheses()
-          ]);
-          fetchedTheses = currentUserTheses;
-          fetchedOtherTheses = otherTheses;
-        } else {
-          fetchedTheses = await fetchTheses();
-        }
-        setTheses(fetchedTheses);
-        setOtherTheses(fetchedOtherTheses);
-        alert('Thesis deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting thesis:', error);
-        alert('Failed to delete thesis. Please try again.');
-      }
+  const handleDeleteThesis = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this thesis? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      await deleteThesis(id);
+      setTheses(prev => prev.filter(thesis => thesis.id !== id));
+      setOtherTheses(prev => prev.filter(thesis => thesis.id !== id));
+      alert('Thesis deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting thesis:', error);
+      alert('Failed to delete thesis. Please try again.');
+    }
+  };
+
+  const handleArchiveThesis = async (id: string) => {
+    if (!window.confirm('Are you sure you want to archive this thesis? This will change the status to ARCHIVED and move it to the archive page.')) {
+      return;
+    }
+    
+    try {
+      setIsArchiving(true);
+      await archiveThesis(id);
+      
+      // Update the thesis status in state
+      setTheses(prev => prev.map(thesis => 
+        thesis.id === id ? { ...thesis, status: 'ARCHIVED' } : thesis
+      ));
+      setOtherTheses(prev => prev.map(thesis => 
+        thesis.id === id ? { ...thesis, status: 'ARCHIVED' } : thesis
+      ));
+      
+      alert('Thesis archived successfully!');
+    } catch (error) {
+      console.error('Error archiving thesis:', error);
+      alert('Failed to archive thesis. Please try again.');
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -589,9 +863,17 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     // Check if user is the proposer of the thesis
     const isProposer = thesis.proposer && (
       (typeof thesis.proposer === 'object' && String(thesis.proposer.id) === String(currentUser.id)) ||
-      (typeof thesis.proposer === 'number' && thesis.proposer === currentUser.id) ||
-      (typeof thesis.proposer === 'string' && thesis.proposer === currentUser.id)
+      (typeof thesis.proposer === 'number' && String(thesis.proposer) === String(currentUser.id)) ||
+      (typeof thesis.proposer === 'string' && String(thesis.proposer) === String(currentUser.id))
     );
+    
+    console.log('canViewThesis - isProposer check:', {
+      thesisId: thesis.id,
+      proposer: thesis.proposer,
+      proposerType: typeof thesis.proposer,
+      currentUserId: currentUser.id,
+      isProposer
+    });
     
     // Check if the group is a Group object
     if (typeof thesis.group === 'object' && thesis.group !== null) {
@@ -729,6 +1011,28 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     onViewDetail(thesis.id);
   };
 
+  const handleResubmitThesis = async (thesis: Thesis) => {
+    try {
+      // Call the submit function from thesisService
+      const updatedThesis = await submitThesis(thesis.id);
+      
+      // Update the thesis in state
+      const updateThesisInState = (thesisList: Thesis[]) => {
+        return thesisList.map(t => 
+          t.id === updatedThesis.id ? updatedThesis : t
+        );
+      };
+      
+      setTheses(prev => updateThesisInState(prev));
+      setOtherTheses(prev => updateThesisInState(prev));
+      
+      alert('Thesis resubmitted successfully!');
+    } catch (error) {
+      console.error('Error resubmitting thesis:', error);
+      alert('Failed to resubmit thesis. Please try again.');
+    }
+  };
+
   const isThesisOwner = (thesis: Thesis) => {
     // Check if the current user is the proposer of the thesis
     // The proposer can be either a full User object or just the user ID
@@ -736,7 +1040,197 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       ? thesis.proposer.id 
       : thesis.proposer;
       
-    return String(proposerId) === String(currentUser?.id);
+    const result = String(proposerId) === String(currentUser?.id);
+    
+    console.log('isThesisOwner check:', {
+      thesisId: thesis.id,
+      proposerId,
+      proposerType: typeof thesis.proposer,
+      currentUserId: currentUser?.id,
+      result
+    });
+      
+    return result;
+  };
+  
+  // Function to check if current user is a panel member for a thesis
+  const isPanelMemberForThesis = (thesis: Thesis): boolean => {
+    // First check if current user is a panel member and we have a user
+    if (userRole?.toUpperCase() !== 'PANEL' || !currentUser) return false;
+    
+    console.log('Checking if user is panel member for thesis:', {
+      thesisId: thesis.id,
+      userRole,
+      currentUserId: currentUser?.id,
+      thesisGroup: thesis.group,
+      groupType: typeof thesis.group
+    });
+    
+    // Check if the group is a Group object and has panels
+    if (typeof thesis.group === 'object' && thesis.group !== null && 'panels' in thesis.group) {
+      // Check if user is in the panels array
+      const panels = thesis.group.panels;
+      if (Array.isArray(panels)) {
+        const result = panels.some(panel => {
+          if (panel && typeof panel === 'object' && 'id' in panel) {
+            return String(panel.id) === String(currentUser.id);
+          }
+          return false;
+        });
+        console.log('Panel member check result:', result);
+        return result;
+      }
+    }
+    
+    console.log('Group is not a valid object or has no panels');
+    return false;
+  };
+  
+  // Function to check if a thesis has a scheduled defense
+  const isThesisScheduledForDefense = (thesis: Thesis): boolean => {
+    // For the table view, we'll check if the thesis has any scheduled oral defenses
+    // In the detail view, this is done by fetching schedules with status 'scheduled'
+    // For now, we'll use the thesis status as an indicator
+    const scheduledStatuses = ['CONCEPT_SCHEDULED', 'PROPOSAL_SCHEDULED', 'FINAL_SCHEDULED'];
+    const result = scheduledStatuses.includes(thesis.status);
+    
+    console.log('Thesis scheduled check:', { 
+      thesisId: thesis.id, 
+      status: thesis.status, 
+      scheduledStatuses,
+      isScheduled: result 
+    });
+    return result;
+  };
+  
+  // Updated function to check if a thesis has scheduled defenses
+  // Simplified to check only thesis status
+  const hasScheduledDefenses = (thesis: Thesis): boolean => {
+    // Check if thesis has a scheduled status
+    const scheduledStatuses = ['CONCEPT_SCHEDULED', 'PROPOSAL_SCHEDULED', 'FINAL_SCHEDULED'];
+    const result = scheduledStatuses.includes(thesis.status);
+    
+    console.log('Thesis scheduled check:', { 
+      thesisId: thesis.id, 
+      status: thesis.status, 
+      scheduledStatuses,
+      isScheduled: result 
+    });
+    return result;
+  };
+  
+  // Function to handle panel actions
+  const handlePanelAction = (thesis: Thesis, action: 'approve' | 'request_revision' | 'reject') => {
+    console.log('Panel action triggered:', { thesisId: thesis.id, action });
+    
+    // Check if thesis has a scheduled status
+    const scheduledStatuses = ['CONCEPT_SCHEDULED', 'PROPOSAL_SCHEDULED', 'FINAL_SCHEDULED'];
+    if (!scheduledStatuses.includes(thesis.status)) {
+      alert('This thesis does not have a scheduled defense.');
+      return;
+    }
+    
+    // Set the action type and open the dialog
+    setPanelActionType(action);
+    setSelectedThesisForPanelAction(thesis);
+    setPanelComments('');
+    setIsPanelActionDialogOpen(true);
+  };
+  
+  // Function to submit panel action
+  const handlePanelActionSubmit = async () => {
+    if (!selectedThesisForPanelAction || !panelActionType) return;
+    
+    try {
+      setIsPanelActionSubmitting(true);
+      
+      // Instead of getting a schedule ID, we'll directly call the panel action
+      // with the thesis ID and the action type
+      let response;
+      
+      // Perform the appropriate action based on the action type
+      switch (panelActionType) {
+        case 'approve':
+          response = await panelActions.approveByThesis(selectedThesisForPanelAction.id, panelComments);
+          break;
+        case 'request_revision':
+          response = await panelActions.requestRevisionByThesis(selectedThesisForPanelAction.id, panelComments);
+          break;
+        case 'reject':
+          response = await panelActions.rejectByThesis(selectedThesisForPanelAction.id, panelComments);
+          break;
+        default:
+          throw new Error('Invalid action type');
+      }
+      
+      // Update the thesis in state based on the action
+      const updateThesisInState = (thesisList: Thesis[]) => {
+        return thesisList.map(thesis => {
+          if (thesis.id === selectedThesisForPanelAction.id) {
+            // Update the thesis status based on the action
+            let newStatus = thesis.status;
+            switch (panelActionType) {
+              case 'approve':
+                // Change status based on current status
+                if (thesis.status === 'CONCEPT_SCHEDULED') {
+                  newStatus = 'CONCEPT_APPROVED';
+                } else if (thesis.status === 'PROPOSAL_SCHEDULED') {
+                  newStatus = 'PROPOSAL_APPROVED';
+                } else if (thesis.status === 'FINAL_SCHEDULED') {
+                  newStatus = 'FINAL_APPROVED';
+                }
+                break;
+              case 'request_revision':
+                // Update thesis status to stage-specific revision status
+                if (selectedThesisForPanelAction.status === 'CONCEPT_SCHEDULED') {
+                  newStatus = 'CONCEPT_REVISIONS_REQUIRED';
+                } else if (selectedThesisForPanelAction.status === 'PROPOSAL_SCHEDULED') {
+                  newStatus = 'PROPOSAL_REVISIONS_REQUIRED';
+                } else if (selectedThesisForPanelAction.status === 'FINAL_SCHEDULED') {
+                  newStatus = 'FINAL_REVISIONS_REQUIRED';
+                } else {
+                  // Fallback to concept revision status for other cases
+                  newStatus = 'CONCEPT_REVISIONS_REQUIRED';
+                }
+                break;
+              case 'reject':
+                newStatus = 'REJECTED';
+                break;
+            }
+            
+            return {
+              ...thesis,
+              status: newStatus
+            };
+          }
+          return thesis;
+        });
+      };
+      
+      setTheses(prev => updateThesisInState(prev));
+      setOtherTheses(prev => updateThesisInState(prev));
+      
+      // Close the dialog and reset state
+      setIsPanelActionDialogOpen(false);
+      setPanelActionType(null);
+      setSelectedThesisForPanelAction(null);
+      setPanelComments('');
+      
+      alert(`Thesis ${panelActionType.replace('_', ' ')}d successfully!`);
+    } catch (error: any) {
+      console.error('Error performing panel action:', error);
+      alert(`Failed to ${panelActionType} the thesis. Please try again. Error: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setIsPanelActionSubmitting(false);
+    }
+  };
+
+  // Function to cancel panel action
+  const handlePanelActionCancel = () => {
+    setIsPanelActionDialogOpen(false);
+    setPanelActionType(null);
+    setSelectedThesisForPanelAction(null);
+    setPanelComments('');
   };
   
   // Check if the current student already has a thesis
@@ -745,13 +1239,28 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     
     // Check if any thesis in the 'my' group belongs to the current user
     // A student has a thesis if they are the proposer
-    return groupedTheses.my.some(thesis => {
+    const result = groupedTheses.my.some(thesis => {
       // Check if the current user is the proposer of the thesis
       const proposerId = typeof thesis.proposer === 'object' && thesis.proposer !== null 
         ? thesis.proposer.id 
         : thesis.proposer;
       return String(proposerId) === String(currentUser?.id);
     });
+    
+    console.log('hasExistingThesis check:', {
+      userRole,
+      currentUser: currentUser?.id,
+      myThesesCount: groupedTheses.my.length,
+      myTheses: groupedTheses.my.map(t => ({
+        id: t.id,
+        title: t.title,
+        proposer: t.proposer,
+        proposerType: typeof t.proposer
+      })),
+      result
+    });
+    
+    return result;
   }, [groupedTheses, userRole, currentUser]);
 
   if (loading || groupsLoading) {
@@ -792,35 +1301,34 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         </div>
         {(userRole === 'student' || userRole === 'admin') && (
           <div className="flex flex-col items-end">
-            <div className="flex flex-col items-end w-full">
-              {!hasApprovedGroup && userRole === 'student' && (
-                <p className="text-yellow-600 text-sm mb-2 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  You need an approved group to create a thesis proposal
+            {userRole === 'student' && (!hasApprovedGroup || hasExistingThesis) ? (
+              <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 w-full max-w-md">
+                <p className="text-amber-700 text-sm flex items-start">
+                  <AlertCircle className="w-4 h-4 inline mr-2 mt-0.5 flex-shrink-0" />
+                  <span>You cannot create a thesis proposal at this time. 
+                  {hasExistingThesis 
+                    ? "Students can only have one thesis." 
+                    : "You need to be part of an approved group before you can create a thesis proposal."}</span>
                 </p>
-              )}
-              {hasExistingThesis && userRole === 'student' && (
-                <p className="text-yellow-600 text-sm mb-2 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  You already have a thesis proposal. Students can only have one thesis.
-                </p>
-              )}
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2 rounded-md px-4 py-2 disabled:opacity-50 whitespace-nowrap"
-                  disabled={userRole === 'student' && (!hasApprovedGroup || hasExistingThesis)}
-                  onClick={() => setIsCreateDialogOpen(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Create Thesis Proposal
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Create a new thesis proposal</p>
-              </TooltipContent>
-            </Tooltip>
+              </div>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 rounded-md px-4 py-2 disabled:opacity-50 whitespace-nowrap"
+                    disabled={userRole === 'student' && (!hasApprovedGroup || hasExistingThesis)}
+                    onClick={() => setIsCreateDialogOpen(true)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Thesis Proposal
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Create a new thesis proposal</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogContent className="max-w-2xl max-h-[80vh]">
                 <DialogHeader>
@@ -912,7 +1420,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
               placeholder="Search by thesis title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
           <div className="flex gap-3">
@@ -944,7 +1452,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       </Card>
 
       {/* Tabs for different thesis views */}
-      <Tabs defaultValue={userRole === 'student' ? "my" : (userRole === 'adviser' || userRole === 'panel') ? "my" : "all"}>
+      <Tabs defaultValue={userRole === 'student' ? "my" : (userRole === 'adviser' || userRole === 'panel') ? "my" : "my"}>
         {userRole === 'student' ? (
           <>
             <TabsList>
@@ -966,9 +1474,9 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         ) : (
           <>
             <TabsList>
-              <TabsTrigger value="all">All Theses</TabsTrigger>
+              <TabsTrigger value="my">All Theses</TabsTrigger>
             </TabsList>
-            <TabsContent value="all">{renderThesisTable(groupedTheses.all, 'all')}</TabsContent>
+            <TabsContent value="my">{renderThesisTable(groupedTheses.my, 'my')}</TabsContent>
           </>
         )}
       </Tabs>
@@ -982,7 +1490,9 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
           'PROPOSAL_SUBMITTED', 
           'FINAL_APPROVED'
         ].map((status) => {
-          const count = theses.filter((t) => t.status === status).length;
+          // Ensure theses is an array before filtering
+          const thesesArray = Array.isArray(theses) ? theses : [];
+          const count = thesesArray.filter((t) => t.status === status).length;
           return (
             <Card key={status} className="p-4 border-0 shadow-sm">
               <p className="text-sm text-slate-600 mb-1">{status.replace('_', ' ')}</p>
@@ -1023,7 +1533,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                 Cancel
               </Button>
               <Button 
-                className="bg-green-700 hover:bg-green-800 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 onClick={handleApproveSubmit}
                 disabled={isSubmitting}
               >
@@ -1119,12 +1629,92 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                     setIsCheckingGoogle(false);
                   }
                 }}
-                className="w-full sm:w-auto flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full sm:w-auto flex-1 bg-green-700 hover:bg-green-800 text-white"
                 disabled={isCheckingGoogle}
               >
                 {isCheckingGoogle ? 'Connecting...' : 'Connect with Google'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Panel Action Dialog */}
+      <Dialog open={isPanelActionDialogOpen} onOpenChange={(open) => {
+        setIsPanelActionDialogOpen(open);
+        if (!open) {
+          setPanelActionType(null);
+          setSelectedThesisForPanelAction(null);
+          setPanelComments('');
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {panelActionType === 'approve' && 'Approve Thesis'}
+              {panelActionType === 'request_revision' && 'Request Revisions'}
+              {panelActionType === 'reject' && 'Reject Thesis'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedThesisForPanelAction?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="panel-comments">
+                {panelActionType === 'approve' && 'Comments (Optional)'}
+                {panelActionType === 'request_revision' && 'Revision Details'}
+                {panelActionType === 'reject' && 'Reason for Rejection'}
+              </Label>
+              <Textarea
+                id="panel-comments"
+                value={panelComments}
+                onChange={(e) => setPanelComments(e.target.value)}
+                placeholder={
+                  panelActionType === 'approve' 
+                    ? 'Provide feedback for the student (optional)' 
+                    : panelActionType === 'request_revision'
+                    ? 'Describe the revisions needed for this thesis'
+                    : 'Provide reason for rejecting this thesis'
+                }
+                className="mt-1"
+                disabled={isPanelActionSubmitting}
+              />
+            </div>
+            <DialogFooter className="gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handlePanelActionCancel}
+                disabled={isPanelActionSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className={
+                  panelActionType === 'approve' 
+                    ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                    : panelActionType === 'request_revision'
+                    ? "bg-yellow-600 hover:bg-yellow-700 text-white"
+                    : "bg-red-700 hover:bg-red-800 text-white"
+                }
+                onClick={handlePanelActionSubmit}
+                disabled={isPanelActionSubmitting}
+              >
+                {isPanelActionSubmitting ? (
+                  <>
+                    {panelActionType === 'approve' && 'Approving...'}
+                    {panelActionType === 'request_revision' && 'Requesting Revisions...'}
+                    {panelActionType === 'reject' && 'Rejecting...'}
+                  </>
+                ) : (
+                  <>
+                    {panelActionType === 'approve' && 'Approve'}
+                    {panelActionType === 'request_revision' && 'Request Revisions'}
+                    {panelActionType === 'reject' && 'Reject'}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>

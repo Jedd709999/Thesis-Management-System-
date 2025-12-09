@@ -62,7 +62,13 @@ export function DocumentUploadDialog({ thesis, onUploadSuccess, children }: Docu
         allowedStatuses: ['PROPOSAL_APPROVED', 'RESEARCH_IN_PROGRESS', 'FINAL_SUBMITTED']
       }
     ];
-
+    
+    // Ensure thesis and thesis.status are defined before filtering
+    if (!thesis || !thesis.status) {
+      console.warn('Thesis or thesis.status is not defined:', thesis);
+      return [];
+    }
+    
     // Filter document types based on current thesis status
     return documentTypes
       .filter(docType => docType.allowedStatuses.includes(thesis.status))
@@ -334,7 +340,7 @@ export function DocumentUploadDialog({ thesis, onUploadSuccess, children }: Docu
                   checked={convertToGoogleDoc}
                   onChange={(e) => setConvertToGoogleDoc(e.target.checked)}
                   disabled={isUploading}
-                  className="rounded border-slate-300 text-green-600 focus:ring-green-500"
+                  className="rounded border-slate-300 text-primary focus:ring-ring"
                 />
                 <Label htmlFor="convertToGoogleDoc" className="text-sm">
                   Convert to Google Doc (recommended)

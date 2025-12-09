@@ -1,5 +1,5 @@
 import api from './api'
-import { Schedule, ScheduleFormData, PanelAvailability, AutoScheduleRun } from '../types'
+import { Schedule, ScheduleFormData, PanelAvailability } from '../types'
 
 /**
  * Fetch all schedules
@@ -10,8 +10,28 @@ export async function fetchSchedules(params?: {
   date_from?: string
   date_to?: string
 }): Promise<Schedule[]> {
-  const res = await api.get('/schedules/', { params })
-  return res.data
+  try {
+    const res = await api.get('/schedules/', { params })
+    console.log('fetchSchedules response:', res);
+    
+    // Handle paginated response
+    if (res.data && typeof res.data === 'object' && 'results' in res.data) {
+      console.log('Returning paginated results:', res.data.results);
+      // Ensure we return an array even if results is not an array
+      return Array.isArray(res.data.results) ? res.data.results : [];
+    }
+    
+    // Fallback for non-paginated responses
+    console.log('Returning direct data:', res.data);
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error) {
+    console.error('Error fetching schedules:', error);
+    // Log more details about the error
+    if (error.response) {
+      console.error('Error response:', error.response.status, error.response.data);
+    }
+    return []; // Return empty array on error
+  }
 }
 
 /**
@@ -167,28 +187,4 @@ export async function updatePanelAvailability(
  */
 export async function deletePanelAvailability(id: string): Promise<void> {
   await api.delete(`panel-availability/${id}/`)
-}
-
-/**
- * Run auto-scheduler
- */
-export async function runAutoSchedule(parameters: Record<string, any>): Promise<AutoScheduleRun> {
-  const res = await api.post('schedules/auto-run/', { parameters })
-  return res.data
-}
-
-/**
- * Fetch auto-schedule results
- */
-export async function fetchAutoScheduleResults(runId: string): Promise<AutoScheduleRun> {
-  const res = await api.get(`schedules/auto-run/${runId}/`)
-  return res.data
-}
-
-/**
- * Accept an auto-schedule candidate
- */
-export async function acceptScheduleCandidate(candidateId: string): Promise<Schedule> {
-  const res = await api.post(`schedules/candidates/${candidateId}/accept/`)
-  return res.data
 }

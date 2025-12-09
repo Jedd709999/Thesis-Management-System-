@@ -94,6 +94,10 @@ class IsAdviserOrPanelForSchedule(permissions.BasePermission):
 
 class IsStudentOrAdviserForThesis(permissions.BasePermission):
     def has_permission(self, request, view):
+        # Admins can access everything
+        if request.user.role == 'ADMIN':
+            return True
+            
         # For create action, only students can create theses
         if view.action == 'create':
             return request.user and request.user.role in ['STUDENT', 'ADMIN']
@@ -104,6 +108,7 @@ class IsStudentOrAdviserForThesis(permissions.BasePermission):
         return request.user and request.user.role in ['STUDENT', 'ADVISER', 'PANEL', 'ADMIN']
     
     def has_object_permission(self, request, view, obj):
+        # Admins can access all theses
         if request.user.role == 'ADMIN':
             return True
             
@@ -121,14 +126,28 @@ class IsStudentOrAdviserForThesis(permissions.BasePermission):
             if request.user.role == 'PANEL':
                 return request.user in obj.group.panels.all()
             
+            # Admins have already been handled above, but just in case
+            if request.user.role == 'ADMIN':
+                return True
+                
         # For write operations, be more restrictive
         # Students can only modify their own theses
         if request.user.role == 'STUDENT':
-            return request.user == obj.proposer
+            # Allow thesis proposer to modify
+            if request.user == obj.proposer:
+                return True
+            # Allow group leader to delete thesis when status is TOPIC_SUBMITTED or TOPIC_REJECTED
+            if view.action == 'destroy' and hasattr(obj.group, 'leader') and request.user == obj.group.leader:
+                return obj.status in ['TOPIC_SUBMITTED', 'TOPIC_REJECTED']
+            return False
             
         # Advisers can modify theses of their groups
         if request.user.role == 'ADVISER':
             return request.user == obj.group.adviser
+            
+        # Admins have already been handled above
+        if request.user.role == 'ADMIN':
+            return True
             
         return False
 
@@ -178,7 +197,7 @@ class IsGroupLeaderOrAdmin(permissions.BasePermission):
             return False
             
         try:
-            from api.models.group_models import Group, GroupMember
+            from backend.api.models.group_models import Group, GroupMember
             # Check if the user is the leader of the group
             return Group.objects.filter(
                 id=group_id,
@@ -191,16 +210,6 @@ class IsGroupLeaderOrAdmin(permissions.BasePermission):
         # Allow admins to do anything
         if request.user.role == 'ADMIN':
             return True
-            
-        # For group member objects, check if the user is the group leader
-        if hasattr(obj, 'group'):
-            return obj.group.leader == request.user
-            
-        # For group objects, check if the user is the leader
-        if hasattr(obj, 'leader'):
-            return obj.leader == request.user
-            
-        return False
 
 class CanManageNotifications(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
@@ -227,11 +236,25 @@ class IsDocumentOwnerOrGroupMember(permissions.BasePermission):
         thesis = obj.thesis
         if thesis:
             group = thesis.group
-            return (
+            is_member = (
                 request.user in group.members.all() or
                 request.user == group.adviser or
                 request.user in group.panels.all()
             )
+            
+            print(f"DEBUG: IsDocumentOwnerOrGroupMember.has_object_permission")
+            print(f"  - Document: {obj.title} (ID: {obj.id})")
+            print(f"  - Uploaded by: {obj.uploaded_by.email} (ID: {obj.uploaded_by.id})")
+            print(f"  - Current user: {request.user.email} (ID: {request.user.id})")
+            print(f"  - Thesis: {thesis.title} (ID: {thesis.id})")
+            print(f"  - Group: {group.name} (ID: {group.id})")
+            print(f"  - User is uploader: {obj.uploaded_by == request.user}")
+            print(f"  - User is member: {request.user in group.members.all()}")
+            print(f"  - User is adviser: {request.user == group.adviser}")
+            print(f"  - User is panel: {request.user in group.panels.all()}")
+            print(f"  - Overall access: {is_member}")
+            
+            return is_member
             
         return False
 

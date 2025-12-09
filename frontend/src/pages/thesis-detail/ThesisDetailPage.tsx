@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { ArrowLeft, Users, FileText, Calendar, CheckCircle, Clock, Edit, Upload, Send, Check, X, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Users, FileText, Calendar, CheckCircle, Clock, Edit, Upload, Send, Check, X, MessageSquare, FilePenLine } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -10,9 +10,9 @@ import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { useAuth } from '../../hooks/useAuth';
-import { fetchThesis, adviserReview, submitThesis } from '../../api/thesisService';
-import { Document } from '../../types';
-import { Thesis, Group, User } from '../../types';
+import { fetchThesis, adviserReview, submitThesis, fetchPanelActions } from '../../api/thesisService';
+import { Document, PanelAction } from '../../types';
+import { Thesis, Group, User, ThesisStatus } from '../../types';
 import { DocumentUploadDialog } from '../../components/document/DocumentUploadDialog';
 
 interface ThesisDetailProps {
@@ -26,6 +26,7 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
   
   const { user } = useAuth();
   const [thesis, setThesis] = useState<Thesis | null>(null);
+  const [panelActions, setPanelActions] = useState<PanelAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
@@ -45,6 +46,15 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
       const data = await fetchThesis(thesisId!);
       setThesis(data);
       setError(null);
+      
+      // Fetch panel actions for this thesis
+      try {
+        const actions = await fetchPanelActions(thesisId!);
+        setPanelActions(actions);
+      } catch (err) {
+        console.error('Error fetching panel actions:', err);
+        setPanelActions([]);
+      }
     } catch (err) {
       console.error('Error fetching thesis:', err);
       setError('Failed to load thesis details');
@@ -187,7 +197,62 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
   // Check if current user is the adviser for this thesis
   const isAdviser = user?.role === 'ADVISER' && groupObj?.adviser && groupObj.adviser.id === user.id;
   const isStudent = user?.role === 'STUDENT';
-  const canSubmit = isStudent && ['TOPIC_REJECTED', 'REVISIONS_REQUIRED'].includes(thesis.status);
+  const isPanel = user?.role === 'PANEL';
+  const canSubmit = isStudent && (
+    thesis.status === 'TOPIC_REJECTED' || 
+    thesis.status === 'CONCEPT_REVISIONS_REQUIRED' ||
+    thesis.status === 'PROPOSAL_REVISIONS_REQUIRED' ||
+    thesis.status === 'FINAL_REVISIONS_REQUIRED'
+  );
+
+  // Function to determine if a timeline step is completed based on current thesis status
+  const isStepCompleted = (stepStatus: import('../../types').ThesisStatus | import('../../types').ThesisStatus[]): boolean => {
+    const statuses = Array.isArray(stepStatus) ? stepStatus : [stepStatus];
+    
+    // Define the progression order of statuses
+    const statusOrder: import('../../types').ThesisStatus[] = [
+      'DRAFT',
+      'TOPIC_SUBMITTED',
+      'TOPIC_APPROVED',
+      'TOPIC_REJECTED',
+      'CONCEPT_SUBMITTED',
+      'READY_FOR_CONCEPT_DEFENSE',
+      'CONCEPT_SCHEDULED',
+      'CONCEPT_DEFENDED',
+      'CONCEPT_APPROVED',
+      'PROPOSAL_SUBMITTED',
+      'READY_FOR_PROPOSAL_DEFENSE',
+      'PROPOSAL_SCHEDULED',
+      'PROPOSAL_DEFENDED',
+      'PROPOSAL_APPROVED',
+      'RESEARCH_IN_PROGRESS',
+      'FINAL_SUBMITTED',
+      'READY_FOR_FINAL_DEFENSE',
+      'FINAL_SCHEDULED',
+      'FINAL_DEFENDED',
+      'FINAL_APPROVED',
+      'CONCEPT_REVISIONS_REQUIRED',
+      'PROPOSAL_REVISIONS_REQUIRED',
+      'FINAL_REVISIONS_REQUIRED',
+      'REJECTED',
+      'ARCHIVED'
+    ];
+    
+    // Get the index of the current thesis status
+    const currentIndex = statusOrder.indexOf(thesis.status);
+    
+    // Check if any of the step statuses have an index less than or equal to current status
+    return statuses.some(status => {
+      const stepIndex = statusOrder.indexOf(status);
+      return stepIndex >= 0 && stepIndex <= currentIndex;
+    });
+  };
+
+  // Function to determine if a timeline step is the current active step
+  const isCurrentStep = (stepStatus: import('../../types').ThesisStatus | import('../../types').ThesisStatus[]): boolean => {
+    const statuses = Array.isArray(stepStatus) ? stepStatus : [stepStatus];
+    return statuses.includes(thesis.status);
+  };
 
   return (
     <div className="p-8 space-y-6">
@@ -387,13 +452,25 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
           <Card className="p-6 border-0 shadow-sm">
             <h2 className="text-slate-900 mb-6">Progress Timeline</h2>
             <div className="space-y-4">
+              {/* Thesis Creation */}
               <div className="flex items-start gap-4">
                 <div className="flex flex-col items-center">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-green-100 text-green-700">
-                    <CheckCircle className="w-5 h-5" />
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isStepCompleted('DRAFT') 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {isStepCompleted('DRAFT') ? (
+                      <CheckCircle className="w-5 h-5" />
+                    ) : (
+                      <Clock className="w-5 h-5" />
+                    )}
                   </div>
+                  {isStepCompleted('TOPIC_SUBMITTED') && (
+                    <div className="w-0.5 h-8 bg-slate-200 mt-1"></div>
+                  )}
                 </div>
-                <div className="flex-1 pb-4">
+                <div className={`flex-1 pb-4 ${isStepCompleted('TOPIC_SUBMITTED') ? '' : 'opacity-60'}`}>
                   <p className="text-sm text-slate-900">Thesis Created</p>
                   <p className="text-sm text-slate-600">
                     {new Date(thesis.created_at).toLocaleDateString()}
@@ -401,46 +478,380 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
                 </div>
               </div>
               
+              {/* Topic Submission */}
               <div className="flex items-start gap-4">
                 <div className="flex flex-col items-center">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    ['TOPIC_SUBMITTED', 'TOPIC_APPROVED', 'TOPIC_REJECTED'].includes(thesis.status)
-                      ? 'bg-blue-100 text-blue-700'
+                    isStepCompleted(['TOPIC_SUBMITTED', 'TOPIC_APPROVED', 'TOPIC_REJECTED']) 
+                      ? (isCurrentStep('TOPIC_SUBMITTED') 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : 'bg-green-100 text-green-700')
                       : 'bg-slate-100 text-slate-400'
                   }`}>
-                    {['TOPIC_SUBMITTED', 'TOPIC_APPROVED', 'TOPIC_REJECTED'].includes(thesis.status) ? (
-                      <CheckCircle className="w-5 h-5" />
+                    {isStepCompleted(['TOPIC_SUBMITTED', 'TOPIC_APPROVED', 'TOPIC_REJECTED']) ? (
+                      isCurrentStep('TOPIC_SUBMITTED') ? (
+                        <Clock className="w-5 h-5" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )
                     ) : (
                       <Clock className="w-5 h-5" />
                     )}
                   </div>
+                  {isStepCompleted('CONCEPT_SUBMITTED') && (
+                    <div className="w-0.5 h-8 bg-slate-200 mt-1"></div>
+                  )}
                 </div>
-                <div className="flex-1 pb-4">
+                <div className={`flex-1 pb-4 ${isStepCompleted('CONCEPT_SUBMITTED') ? '' : 'opacity-60'}`}>
                   <p className="text-sm text-slate-900">Topic Submitted</p>
                   <p className="text-sm text-slate-600">
-                    {thesis.status === 'TOPIC_SUBMITTED' ? 'Pending Review' : 'Completed'}
+                    {isCurrentStep('TOPIC_SUBMITTED') 
+                      ? 'Pending Review' 
+                      : isStepCompleted(['TOPIC_APPROVED', 'TOPIC_REJECTED'])
+                        ? 'Completed'
+                        : 'Pending'}
                   </p>
                 </div>
               </div>
               
+              {/* Topic Review */}
               <div className="flex items-start gap-4">
                 <div className="flex flex-col items-center">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    ['TOPIC_APPROVED'].includes(thesis.status)
-                      ? 'bg-green-100 text-green-700'
+                    isStepCompleted(['TOPIC_APPROVED', 'TOPIC_REJECTED']) 
+                      ? (isCurrentStep(['TOPIC_APPROVED', 'TOPIC_REJECTED']) 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : 'bg-green-100 text-green-700')
                       : 'bg-slate-100 text-slate-400'
                   }`}>
-                    {['TOPIC_APPROVED'].includes(thesis.status) ? (
+                    {isStepCompleted(['TOPIC_APPROVED', 'TOPIC_REJECTED']) ? (
+                      isCurrentStep(['TOPIC_APPROVED', 'TOPIC_REJECTED']) ? (
+                        <Clock className="w-5 h-5" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )
+                    ) : (
+                      <Clock className="w-5 h-5" />
+                    )}
+                  </div>
+                  {(isStepCompleted('CONCEPT_SUBMITTED') || isStepCompleted('REJECTED')) && (
+                    <div className="w-0.5 h-8 bg-slate-200 mt-1"></div>
+                  )}
+                </div>
+                <div className={`flex-1 pb-4 ${isStepCompleted('CONCEPT_SUBMITTED') || isStepCompleted('REJECTED') ? '' : 'opacity-60'}`}>
+                  <p className="text-sm text-slate-900">Topic Review</p>
+                  <p className="text-sm text-slate-600">
+                    {isCurrentStep('TOPIC_APPROVED') 
+                      ? 'Approved' 
+                      : isCurrentStep('TOPIC_REJECTED')
+                        ? 'Rejected'
+                        : isStepCompleted(['TOPIC_APPROVED', 'TOPIC_REJECTED'])
+                          ? 'Completed'
+                          : 'Pending'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Concept Stage */}
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isStepCompleted([
+                      'CONCEPT_SUBMITTED',
+                      'READY_FOR_CONCEPT_DEFENSE',
+                      'CONCEPT_SCHEDULED',
+                      'CONCEPT_DEFENDED',
+                      'CONCEPT_APPROVED',
+                      'CONCEPT_REVISIONS_REQUIRED'
+                    ]) 
+                      ? (isCurrentStep([
+                          'CONCEPT_SUBMITTED',
+                          'READY_FOR_CONCEPT_DEFENSE',
+                          'CONCEPT_SCHEDULED',
+                          'CONCEPT_DEFENDED'
+                        ]) 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : isCurrentStep('CONCEPT_REVISIONS_REQUIRED')
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-green-100 text-green-700')
+                      : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {isStepCompleted([
+                      'CONCEPT_SUBMITTED',
+                      'READY_FOR_CONCEPT_DEFENSE',
+                      'CONCEPT_SCHEDULED',
+                      'CONCEPT_DEFENDED',
+                      'CONCEPT_APPROVED',
+                      'CONCEPT_REVISIONS_REQUIRED'
+                    ]) ? (
+                      isCurrentStep([
+                        'CONCEPT_SUBMITTED',
+                        'READY_FOR_CONCEPT_DEFENSE',
+                        'CONCEPT_SCHEDULED',
+                        'CONCEPT_DEFENDED'
+                      ]) ? (
+                        <Clock className="w-5 h-5" />
+                      ) : isCurrentStep('CONCEPT_REVISIONS_REQUIRED') ? (
+                        <FilePenLine className="w-5 h-5" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )
+                    ) : (
+                      <Clock className="w-5 h-5" />
+                    )}
+                  </div>
+                  {isStepCompleted(['PROPOSAL_SUBMITTED', 'REJECTED']) && (
+                    <div className="w-0.5 h-8 bg-slate-200 mt-1"></div>
+                  )}
+                </div>
+                <div className={`flex-1 pb-4 ${isStepCompleted(['PROPOSAL_SUBMITTED', 'REJECTED']) ? '' : 'opacity-60'}`}>
+                  <p className="text-sm text-slate-900">Concept Stage</p>
+                  <p className="text-sm text-slate-600">
+                    {isCurrentStep('CONCEPT_SUBMITTED') 
+                      ? 'Submitted for Review'
+                      : isCurrentStep('READY_FOR_CONCEPT_DEFENSE')
+                        ? 'Ready for Defense'
+                        : isCurrentStep('CONCEPT_SCHEDULED')
+                          ? 'Scheduled for Defense'
+                          : isCurrentStep('CONCEPT_DEFENDED')
+                            ? 'Defended'
+                            : isCurrentStep('CONCEPT_APPROVED')
+                              ? 'Approved'
+                              : isCurrentStep('CONCEPT_REVISIONS_REQUIRED')
+                                ? 'Revisions Required'
+                                : isStepCompleted([
+                                    'CONCEPT_SUBMITTED',
+                                    'READY_FOR_CONCEPT_DEFENSE',
+                                    'CONCEPT_SCHEDULED',
+                                    'CONCEPT_DEFENDED',
+                                    'CONCEPT_APPROVED',
+                                    'CONCEPT_REVISIONS_REQUIRED'
+                                  ])
+                                  ? 'Completed'
+                                  : 'Pending'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Proposal Stage */}
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isStepCompleted([
+                      'PROPOSAL_SUBMITTED',
+                      'READY_FOR_PROPOSAL_DEFENSE',
+                      'PROPOSAL_SCHEDULED',
+                      'PROPOSAL_DEFENDED',
+                      'PROPOSAL_APPROVED',
+                      'PROPOSAL_REVISIONS_REQUIRED'
+                    ]) 
+                      ? (isCurrentStep([
+                          'PROPOSAL_SUBMITTED',
+                          'READY_FOR_PROPOSAL_DEFENSE',
+                          'PROPOSAL_SCHEDULED',
+                          'PROPOSAL_DEFENDED'
+                        ]) 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : isCurrentStep('PROPOSAL_REVISIONS_REQUIRED')
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-green-100 text-green-700')
+                      : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {isStepCompleted([
+                      'PROPOSAL_SUBMITTED',
+                      'READY_FOR_PROPOSAL_DEFENSE',
+                      'PROPOSAL_SCHEDULED',
+                      'PROPOSAL_DEFENDED',
+                      'PROPOSAL_APPROVED',
+                      'PROPOSAL_REVISIONS_REQUIRED'
+                    ]) ? (
+                      isCurrentStep([
+                        'PROPOSAL_SUBMITTED',
+                        'READY_FOR_PROPOSAL_DEFENSE',
+                        'PROPOSAL_SCHEDULED',
+                        'PROPOSAL_DEFENDED'
+                      ]) ? (
+                        <Clock className="w-5 h-5" />
+                      ) : isCurrentStep('PROPOSAL_REVISIONS_REQUIRED') ? (
+                        <FilePenLine className="w-5 h-5" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )
+                    ) : (
+                      <Clock className="w-5 h-5" />
+                    )}
+                  </div>
+                  {isStepCompleted(['RESEARCH_IN_PROGRESS', 'REJECTED']) && (
+                    <div className="w-0.5 h-8 bg-slate-200 mt-1"></div>
+                  )}
+                </div>
+                <div className={`flex-1 pb-4 ${isStepCompleted(['RESEARCH_IN_PROGRESS', 'REJECTED']) ? '' : 'opacity-60'}`}>
+                  <p className="text-sm text-slate-900">Proposal Stage</p>
+                  <p className="text-sm text-slate-600">
+                    {isCurrentStep('PROPOSAL_SUBMITTED') 
+                      ? 'Submitted for Review'
+                      : isCurrentStep('READY_FOR_PROPOSAL_DEFENSE')
+                        ? 'Ready for Defense'
+                        : isCurrentStep('PROPOSAL_SCHEDULED')
+                          ? 'Scheduled for Defense'
+                          : isCurrentStep('PROPOSAL_DEFENDED')
+                            ? 'Defended'
+                            : isCurrentStep('PROPOSAL_APPROVED')
+                              ? 'Approved'
+                              : isCurrentStep('PROPOSAL_REVISIONS_REQUIRED')
+                                ? 'Revisions Required'
+                                : isStepCompleted([
+                                    'PROPOSAL_SUBMITTED',
+                                    'READY_FOR_PROPOSAL_DEFENSE',
+                                    'PROPOSAL_SCHEDULED',
+                                    'PROPOSAL_DEFENDED',
+                                    'PROPOSAL_APPROVED',
+                                    'PROPOSAL_REVISIONS_REQUIRED'
+                                  ])
+                                  ? 'Completed'
+                                  : 'Pending'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Research Stage */}
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isStepCompleted('RESEARCH_IN_PROGRESS') 
+                      ? (isCurrentStep('RESEARCH_IN_PROGRESS') 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : 'bg-green-100 text-green-700')
+                      : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {isStepCompleted('RESEARCH_IN_PROGRESS') ? (
+                      isCurrentStep('RESEARCH_IN_PROGRESS') ? (
+                        <Clock className="w-5 h-5" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )
+                    ) : (
+                      <Clock className="w-5 h-5" />
+                    )}
+                  </div>
+                  {isStepCompleted('FINAL_SUBMITTED') && (
+                    <div className="w-0.5 h-8 bg-slate-200 mt-1"></div>
+                  )}
+                </div>
+                <div className={`flex-1 pb-4 ${isStepCompleted('FINAL_SUBMITTED') ? '' : 'opacity-60'}`}>
+                  <p className="text-sm text-slate-900">Research in Progress</p>
+                  <p className="text-sm text-slate-600">
+                    {isCurrentStep('RESEARCH_IN_PROGRESS') 
+                      ? 'In Progress' 
+                      : isStepCompleted('RESEARCH_IN_PROGRESS')
+                        ? 'Completed'
+                        : 'Pending'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Final Manuscript Stage */}
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isStepCompleted([
+                      'FINAL_SUBMITTED',
+                      'READY_FOR_FINAL_DEFENSE',
+                      'FINAL_SCHEDULED',
+                      'FINAL_DEFENDED',
+                      'FINAL_APPROVED',
+                      'FINAL_REVISIONS_REQUIRED'
+                    ]) 
+                      ? (isCurrentStep([
+                          'FINAL_SUBMITTED',
+                          'READY_FOR_FINAL_DEFENSE',
+                          'FINAL_SCHEDULED',
+                          'FINAL_DEFENDED'
+                        ]) 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : isCurrentStep('FINAL_REVISIONS_REQUIRED')
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-green-100 text-green-700')
+                      : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {isStepCompleted([
+                      'FINAL_SUBMITTED',
+                      'READY_FOR_FINAL_DEFENSE',
+                      'FINAL_SCHEDULED',
+                      'FINAL_DEFENDED',
+                      'FINAL_APPROVED',
+                      'FINAL_REVISIONS_REQUIRED'
+                    ]) ? (
+                      isCurrentStep([
+                        'FINAL_SUBMITTED',
+                        'READY_FOR_FINAL_DEFENSE',
+                        'FINAL_SCHEDULED',
+                        'FINAL_DEFENDED'
+                      ]) ? (
+                        <Clock className="w-5 h-5" />
+                      ) : isCurrentStep('FINAL_REVISIONS_REQUIRED') ? (
+                        <FilePenLine className="w-5 h-5" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )
+                    ) : (
+                      <Clock className="w-5 h-5" />
+                    )}
+                  </div>
+                  {isStepCompleted('FINAL_APPROVED') && (
+                    <div className="w-0.5 h-8 bg-slate-200 mt-1"></div>
+                  )}
+                </div>
+                <div className={`flex-1 pb-4 ${isStepCompleted('FINAL_APPROVED') ? '' : 'opacity-60'}`}>
+                  <p className="text-sm text-slate-900">Final Manuscript</p>
+                  <p className="text-sm text-slate-600">
+                    {isCurrentStep('FINAL_SUBMITTED') 
+                      ? 'Submitted for Review'
+                      : isCurrentStep('READY_FOR_FINAL_DEFENSE')
+                        ? 'Ready for Defense'
+                        : isCurrentStep('FINAL_SCHEDULED')
+                          ? 'Scheduled for Defense'
+                          : isCurrentStep('FINAL_DEFENDED')
+                            ? 'Defended'
+                            : isCurrentStep('FINAL_APPROVED')
+                              ? 'Approved'
+                              : isCurrentStep('FINAL_REVISIONS_REQUIRED')
+                                ? 'Revisions Required'
+                                : isStepCompleted([
+                                    'FINAL_SUBMITTED',
+                                    'READY_FOR_FINAL_DEFENSE',
+                                    'FINAL_SCHEDULED',
+                                    'FINAL_DEFENDED',
+                                    'FINAL_APPROVED',
+                                    'FINAL_REVISIONS_REQUIRED'
+                                  ])
+                                  ? 'Completed'
+                                  : 'Pending'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Completion */}
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isStepCompleted('FINAL_APPROVED') 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {isStepCompleted('FINAL_APPROVED') ? (
                       <CheckCircle className="w-5 h-5" />
                     ) : (
                       <Clock className="w-5 h-5" />
                     )}
                   </div>
                 </div>
-                <div className="flex-1 pb-4">
-                  <p className="text-sm text-slate-900">Topic Approved</p>
+                <div className={`flex-1 ${isStepCompleted('FINAL_APPROVED') ? '' : 'opacity-60'}`}>
+                  <p className="text-sm text-slate-900">Thesis Completed</p>
                   <p className="text-sm text-slate-600">
-                    {thesis.status === 'TOPIC_APPROVED' ? 'Completed' : 'Pending'}
+                    {isStepCompleted('FINAL_APPROVED') 
+                      ? 'Congratulations!' 
+                      : 'Pending'}
                   </p>
                 </div>
               </div>
@@ -497,14 +908,96 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
             </Card>
           )}
 
-          {/* Feedback */}
-          {thesis.adviser_feedback && (
+          {/* Panel Members */}
+          {groupObj && groupObj.panels && groupObj.panels.length > 0 && (
+            <Card className="p-6 border-0 shadow-sm">
+              <h2 className="text-slate-900 mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-600" />
+                Panel Members
+              </h2>
+              <div className="space-y-3">
+                {groupObj.panels.map((panel: User) => (
+                  <div key={panel.id} className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarFallback className="bg-purple-100 text-purple-800 text-xs">
+                        {panel.first_name?.charAt(0)}{panel.last_name?.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm text-slate-900">
+                        {panel.first_name} {panel.last_name}
+                      </p>
+                      <p className="text-xs text-slate-600">{panel.email}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Panel Feedback */}
+          {panelActions && panelActions.length > 0 && (
+            <Card className="p-6 border-0 shadow-sm">
+              <h2 className="text-slate-900 mb-4 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-purple-600" />
+                Panel Feedback
+              </h2>
+              <div className="space-y-4">
+                {panelActions.map((action) => (
+                  <div key={action.id} className="border-l-4 border-purple-200 pl-4 py-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          {action.panel_member.first_name} {action.panel_member.last_name}
+                        </p>
+                        <Badge 
+                          className={`text-xs ${
+                            action.action === 'approved' 
+                              ? 'bg-green-100 text-green-800' 
+                              : action.action === 'needs_revision'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {action.action_display}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {new Date(action.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {action.comments && (
+                      <p className="text-sm text-slate-700 mt-2">{action.comments}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Adviser Feedback */}
+          {thesis.adviser_feedback && groupObj?.adviser && (
             <Card className="p-6 border-0 shadow-sm">
               <h2 className="text-slate-900 mb-4 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-blue-600" />
                 Adviser Feedback
               </h2>
-              <p className="text-slate-700">{thesis.adviser_feedback}</p>
+              <div className="border-l-4 border-blue-200 pl-4 py-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">
+                      {groupObj.adviser.first_name} {groupObj.adviser.last_name}
+                    </p>
+                    <Badge className="bg-blue-100 text-blue-800 text-xs">
+                      Adviser Review
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {new Date(thesis.updated_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <p className="text-sm text-slate-700 mt-2">{thesis.adviser_feedback}</p>
+              </div>
             </Card>
           )}
 

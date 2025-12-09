@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from api.models.thesis_models import Thesis
+from api.models.thesis_models import Thesis  # Changed back from 'backend.api.models.thesis_models'
 
 class Command(BaseCommand):
     help = 'Debug thesis adviser assignments'

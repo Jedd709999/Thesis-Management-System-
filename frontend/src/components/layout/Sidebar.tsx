@@ -42,22 +42,10 @@ const navItems: NavItem[] = [
     roles: ['STUDENT', 'ADVISER', 'PANEL', 'ADMIN']
   },
   {
-    label: 'Evaluations',
-    path: '/evaluations',
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-    roles: ['PANEL', 'ADMIN']
-  },
-  {
-    label: 'Approvals',
-    path: '/approvals',
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
-    roles: ['PANEL', 'ADMIN']
-  },
-  {
     label: 'Archive',
     path: '/archive',
     icon: <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
-    roles: ['ADVISER', 'ADMIN']
+    roles: ['STUDENT', 'ADVISER', 'PANEL', 'ADMIN']
   },
   {
     label: 'Notifications',
@@ -88,9 +76,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout, isOpen = true,
     return null
   }
 
-  const filteredNavItems = navItems.filter(
+  const filteredNavItems = Array.isArray(navItems) ? navItems.filter(
     item => !item.roles || (user?.role && item.roles.includes(user.role))
-  )
+  ) : [];
 
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/')

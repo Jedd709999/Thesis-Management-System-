@@ -9,7 +9,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Label } from '../../components/ui/label';
-import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 import { searchUsers } from '../../api/groupService';
 import { Group, User } from '../../types/group';
 
@@ -25,6 +25,24 @@ export function AssignPanelDialog({ open, onOpenChange, group, onAssignPanel }: 
   const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
   const [isPanelSelectionOpen, setIsPanelSelectionOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // States for panel search functionality
+  const [panelSearchQuery, setPanelSearchQuery] = useState('');
+  const [filteredPanels, setFilteredPanels] = useState<User[]>([]);
+  
+  // Effect to filter panels based on search query
+  useEffect(() => {
+    if (panelSearchQuery.trim() === '') {
+      setFilteredPanels(availablePanels);
+    } else {
+      const query = panelSearchQuery.toLowerCase();
+      const filtered = availablePanels.filter(panel => 
+        panel.first_name.toLowerCase().includes(query) || 
+        panel.last_name.toLowerCase().includes(query) ||
+        panel.email.toLowerCase().includes(query)
+      );
+      setFilteredPanels(filtered);
+    }
+  }, [panelSearchQuery, availablePanels]);
 
   // Load panel members when dialog opens
   useEffect(() => {
@@ -47,7 +65,9 @@ export function AssignPanelDialog({ open, onOpenChange, group, onAssignPanel }: 
       setIsLoading(true);
       const response = await searchUsers('');
       const users = response.data.results || response.data;
-      const panels = users.filter((user: User) => user.role === 'PANEL');
+      // Ensure users is an array before filtering
+      const usersArray = Array.isArray(users) ? users : [];
+      const panels = usersArray.filter((user: User) => user.role === 'PANEL');
       setAvailablePanels(panels);
     } catch (error) {
       console.error('Error loading panel members:', error);
@@ -65,13 +85,13 @@ export function AssignPanelDialog({ open, onOpenChange, group, onAssignPanel }: 
     try {
       // Send the panel IDs as they are (strings or numbers)
       // The backend can handle both string UUIDs and integer IDs
-      const panelIds = selectedPanelIds.map(id => {
+      const panelIds = Array.isArray(selectedPanelIds) ? selectedPanelIds.map(id => {
         // If it's a numeric string, convert to number; otherwise keep as string
         if (typeof id === 'string' && /^\d+$/.test(id)) {
           return parseInt(id, 10);
         }
         return id;
-      }).filter(id => id !== null && id !== undefined && id !== '');
+      }).filter(id => id !== null && id !== undefined && id !== '') : [];
       
       if (panelIds.length === 0) {
         alert('No valid panel members selected.');
@@ -92,15 +112,21 @@ export function AssignPanelDialog({ open, onOpenChange, group, onAssignPanel }: 
   };
 
   const togglePanelSelection = (panelId: string) => {
-    setSelectedPanelIds(prev => 
-      prev.includes(panelId) 
-        ? prev.filter(id => id !== panelId) 
-        : [...prev, panelId]
-    );
+    setSelectedPanelIds(prev => {
+      // Ensure prev is an array before using includes and filter
+      const prevArray = Array.isArray(prev) ? prev : [];
+      return prevArray.includes(panelId) 
+        ? prevArray.filter(id => id !== panelId) 
+        : [...prevArray, panelId];
+    });
   };
 
   const removeSelectedPanel = (panelId: string) => {
-    setSelectedPanelIds(prev => prev.filter(id => id !== panelId));
+    setSelectedPanelIds(prev => {
+      // Ensure prev is an array before filtering
+      const prevArray = Array.isArray(prev) ? prev : [];
+      return prevArray.filter(id => id !== panelId);
+    });
   };
 
   return (
@@ -164,36 +190,54 @@ export function AssignPanelDialog({ open, onOpenChange, group, onAssignPanel }: 
                   
                   {/* Collapsible panel selection content */}
                   {isPanelSelectionOpen && (
-                    <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
-                      {isLoading ? (
-                        <div className="p-2 text-slate-500">Loading panel members...</div>
-                      ) : availablePanels.length > 0 ? (
-                        availablePanels.map((panel) => (
-                          <div 
-                            key={panel.id} 
-                            className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
-                              selectedPanelIds.includes(panel.id) ? 'bg-purple-50 border border-purple-200' : ''
-                            }`}
-                            onClick={() => togglePanelSelection(panel.id)}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedPanelIds.includes(panel.id)}
-                              onChange={() => {}}
-                              className="cursor-pointer"
-                            />
-                            <div>
-                              <div className="font-medium">{panel.first_name} {panel.last_name}</div>
-                              <div className="text-sm text-slate-500">{panel.email}</div>
+                    <div className="border rounded-md">
+                      {/* Search input for panels */}
+                      <div className="p-3 border-b">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search panel members by name or email..."
+                            value={panelSearchQuery}
+                            onChange={(e) => setPanelSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Panel list with search results */}
+                      <div className="max-h-40 overflow-y-auto">
+                        {isLoading ? (
+                          <div className="p-2 text-slate-500">Loading panel members...</div>
+                        ) : filteredPanels.length > 0 ? (
+                          filteredPanels.map((panel) => (
+                            <div 
+                              key={panel.id} 
+                              className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
+                                selectedPanelIds.includes(panel.id) ? 'bg-purple-50 border border-purple-200' : ''
+                              }`}
+                              onClick={() => togglePanelSelection(panel.id)}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedPanelIds.includes(panel.id)}
+                                onChange={() => {}}
+                                className="cursor-pointer"
+                              />
+                              <div>
+                                <div className="font-medium">{panel.first_name} {panel.last_name}</div>
+                                <div className="text-sm text-slate-500">{panel.email}</div>
+                              </div>
                             </div>
+                          ))
+                        ) : (
+                          <div className="p-2 text-slate-500 text-center">
+                            {panelSearchQuery ? 'No panel members found matching your search' : 'No panel members available'}
                           </div>
-                        ))
-                      ) : (
-                        <div className="p-2 text-slate-500">No panel members available</div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )}
-
                   {/* Always visible selected panels display */}
                   {selectedPanelIds.length > 0 && (
                     <div className="mt-2">

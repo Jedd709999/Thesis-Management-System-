@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from api.models.user_models import User
+from api.models.user_models import User  # Changed back from 'backend.api.models.user_models'
 
 class Command(BaseCommand):
     help = 'Approve a user account'

@@ -3,9 +3,9 @@ import { CheckCircle, Clock, Users, TrendingUp, Calendar, Upload, Leaf, Droplets
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { fetchCurrentUserGroups } from '../../api/groupService';
+import { fetchCurrentUserGroups, fetchGroups } from '../../api/groupService';
 import { fetchUnreadNotifications, fetchRecentActivities, markNotificationAsRead, Activity, ActivityNotification } from '../../api/activityService';
-import { fetchCurrentUserTheses } from '../../api/thesisService';
+import { fetchCurrentUserTheses, fetchTheses } from '../../api/thesisService'; // Import fetchTheses
 import { Group, Thesis } from '../../types';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../hooks/useAuth'; // Import useAuth hook
@@ -41,7 +41,15 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
       setError(prev => ({ ...prev, groups: null }));
       
       console.log('Dashboard: Loading user groups...');
-      const userGroups = await fetchCurrentUserGroups();
+      let userGroups: Group[] = [];
+      
+      // For admins, fetch all groups
+      if (userRole === 'admin') {
+        userGroups = await fetchGroups();
+      } else {
+        userGroups = await fetchCurrentUserGroups();
+      }
+      
       console.log('Dashboard: Loaded groups:', userGroups);
       
       // Deduplicate groups by ID to prevent duplicates
@@ -57,7 +65,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     } finally {
       setLoading(prev => ({ ...prev, groups: false }));
     }
-  }, []);
+  }, [userRole]);
 
   const loadTheses = useCallback(async () => {
     try {
@@ -67,8 +75,12 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
       console.log('Dashboard: Loading user theses...');
       let userTheses: Thesis[] = [];
       
+      // For admins, fetch all theses
+      if (userRole === 'admin') {
+        userTheses = await fetchTheses();
+      }
       // For students, fetch all theses and filter by access
-      if (userRole === 'student') {
+      else if (userRole === 'student') {
         const allTheses = await fetchCurrentUserTheses();
         // Filter to only show theses the student has access to
         userTheses = allTheses.filter(thesis => {
@@ -152,14 +164,14 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     try {
       switch (type) {
         case 'groups':
-          await loadGroups();
-          break;
+            await loadGroups();
+            break;
         case 'theses':
-          await loadTheses();
-          break;
+            await loadTheses();
+            break;
         case 'notifications':
-          await loadNotifications();
-          break;
+            await loadNotifications();
+            break;
       }
     } catch (err) {
       console.error(`Dashboard: Retry failed for ${type}:`, err);
@@ -350,9 +362,8 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-xl text-slate-900 font-semibold truncate whitespace-nowrap overflow-hidden" title={stat.value}>{stat.value}</p>
+                <p className="text-sm text-slate-900 font-semibold truncate whitespace-nowrap overflow-hidden" title={stat.value}>{stat.value}</p>
                 <p className="text-sm text-slate-500 font-medium">{stat.label}</p>
-
               </div>
             </Card>
           );

@@ -1,5 +1,7 @@
 import os
 import json
+import time
+import random
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.auth.transport.requests import Request
@@ -8,13 +10,19 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from django.conf import settings
 from django.utils import timezone
 import io
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Callable, Any
 from django.contrib.contenttypes.models import ContentType
 from ..models.drive_models import DriveCredential, DriveFolder
 from ..models.group_models import Group
 from ..models.thesis_models import Thesis
 from ..models.document_models import Document
 
+# Retry configuration
+MAX_RETRIES = 3
+INITIAL_DELAY = 1  # seconds
+MAX_DELAY = 60  # seconds
+BACKOFF_MULTIPLIER = 2
+JITTER_RANGE = 0.1  # 10% jitter
 
 
 class GoogleDriveService:
@@ -32,136 +40,61 @@ class GoogleDriveService:
         self.user = user
         self._authenticate()
     
+    def _retry_with_backoff(self, func: Callable, *args, **kwargs) -> Any:
+        """
+        Execute a function with exponential backoff retry logic.
+        
+        Args:
+            func: Function to execute
+            *args: Positional arguments for the function
+            **kwargs: Keyword arguments for the function
+            
+        Returns:
+            Result of the function call
+            
+        Raises:
+            Last exception encountered after all retries are exhausted
+        """
+        delay = INITIAL_DELAY
+        last_exception = None
+        
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                result = func(*args, **kwargs)
+                if attempt > 0:
+                    print(f"Retry successful on attempt {attempt + 1}")
+                return result
+            except Exception as e:
+                last_exception = e
+                print(f"Attempt {attempt + 1} failed: {str(e)}")
+                
+                # If this was the last attempt, don't retry
+                if attempt == MAX_RETRIES:
+                    break
+                
+                # Calculate delay with exponential backoff and jitter
+                jitter = random.uniform(-JITTER_RANGE, JITTER_RANGE) * delay
+                actual_delay = max(0, delay + jitter)
+                actual_delay = min(actual_delay, MAX_DELAY)
+                
+                print(f"Retrying in {actual_delay:.2f} seconds...")
+                time.sleep(actual_delay)
+                
+                # Increase delay for next attempt
+                delay = min(delay * BACKOFF_MULTIPLIER, MAX_DELAY)
+        
+        # If we get here, all retries failed
+        print(f"All {MAX_RETRIES + 1} attempts failed. Raising last exception.")
+        raise last_exception
+    
     def _authenticate(self):
         """Authenticate with Google Drive API using user credentials or OAuth2"""
         try:
-            # Re-import Credentials to ensure it's available
             from google.oauth2.credentials import Credentials
             credentials = None
             
-            # Try OAuth2 authentication first (preferred for normal Google Drive usage)
-            credentials_path = os.path.join(settings.BASE_DIR, 'google_credentials.json')
-            token_path = os.path.join(settings.BASE_DIR, 'google_token.json')
-            
-            if os.path.exists(credentials_path):
-                print(f"Using OAuth authentication with file: {credentials_path}")
-                # Check if the credentials file contains placeholder values
-                has_valid_credentials = False
-                try:
-                    with open(credentials_path, 'r') as f:
-                        creds_data = json.load(f)
-                        client_id = creds_data.get('web', {}).get('client_id', '')
-                        if 'YOUR_GOOGLE_CLIENT_ID' in client_id:
-                            print("Google credentials file contains placeholder values. Please update with real OAuth credentials.")
-                            # Don't try to authenticate with placeholder credentials
-                            has_valid_credentials = False
-                        else:
-                            has_valid_credentials = True
-                            if os.path.exists(token_path):
-                                credentials = Credentials.from_authorized_user_file(token_path, self.SCOPES)
-                                # Override the refresh method to prevent automatic refresh if needed
-                                if credentials and (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token):
-                                    def no_op_refresh(request):
-                                        # Do nothing - this prevents the Google library from trying to refresh
-                                        pass
-                                    credentials.refresh = no_op_refresh
-                except json.JSONDecodeError:
-                    print("Invalid JSON in Google credentials file")
-                    has_valid_credentials = False
-                except ValueError as ve:
-                    if "missing fields refresh_token" in str(ve):
-                        print("Google credentials file found but it contains placeholder values. Please update with real OAuth credentials.")
-                        has_valid_credentials = False
-                    else:
-                        raise ve
-                
-                # Check if credentials are valid in a timezone-safe way
-                credentials_valid = True
-                if credentials:
-                    try:
-                        # First try the normal valid check, but catch datetime errors
-                        credentials_valid = credentials.valid
-                    except TypeError as e:
-                        if "can't compare offset-naive and offset-aware datetimes" in str(e):
-                            # Handle the datetime comparison error by checking expiry manually
-                            if hasattr(credentials, 'expiry') and credentials.expiry:
-                                # Handle both naive and timezone-aware datetimes
-                                if credentials.expiry.tzinfo is None:
-                                    # Naive datetime - compare directly
-                                    credentials_valid = credentials.expiry >= timezone.now().replace(tzinfo=None)
-                                else:
-                                    # Timezone-aware datetime - compare with timezone-aware
-                                    credentials_valid = credentials.expiry >= timezone.now()
-                            else:
-                                # No expiry set, assume valid
-                                credentials_valid = True
-                        else:
-                            # Re-raise if it's a different error
-                            raise e
-                
-                if not credentials or not credentials_valid:
-                    # Check if credentials are expired in a timezone-safe way
-                    credentials_expired = False
-                    if credentials and credentials.refresh_token:
-                        try:
-                            # First try the normal expired check, but catch datetime errors
-                            credentials_expired = credentials.expired
-                        except TypeError as e:
-                            if "can't compare offset-naive and offset-aware datetimes" in str(e):
-                                # Handle the datetime comparison error by checking expiry manually
-                                if hasattr(credentials, 'expiry') and credentials.expiry:
-                                    # Handle both naive and timezone-aware datetimes
-                                    if credentials.expiry.tzinfo is None:
-                                        # Naive datetime - compare directly
-                                        credentials_expired = credentials.expiry < timezone.now().replace(tzinfo=None)
-                                    else:
-                                        # Timezone-aware datetime - compare with timezone-aware
-                                        credentials_expired = credentials.expiry < timezone.now()
-                                else:
-                                    # No expiry set, assume not expired
-                                    credentials_expired = False
-                            else:
-                                # Re-raise if it's a different error
-                                raise e
-                    
-                    if credentials and credentials_expired and credentials.refresh_token:
-                        try:
-                            credentials.refresh(Request())
-                            print("Successfully refreshed OAuth credentials from file")
-                            # Override the refresh method to prevent automatic refresh if needed
-                            if credentials and (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token):
-                                def no_op_refresh(request):
-                                    # Do nothing - this prevents the Google library from trying to refresh
-                                    pass
-                                credentials.refresh = no_op_refresh
-                        except Exception as e:
-                            print(f"Failed to refresh OAuth credentials: {e}")
-                            credentials = None
-                    elif has_valid_credentials:
-                        # For development, we might need to run the OAuth flow
-                        # In production, users should authorize through the web interface
-                        try:
-                            # Only run OAuth flow if we have real credentials
-                            flow = InstalledAppFlow.from_client_secrets_file(
-                                credentials_path, self.SCOPES
-                            )
-                            credentials = flow.run_local_server(port=8082)
-                            # Override the refresh method to prevent automatic refresh if needed
-                            if credentials and (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token):
-                                def no_op_refresh(request):
-                                    # Do nothing - this prevents the Google library from trying to refresh
-                                    pass
-                                credentials.refresh = no_op_refresh
-                        except Exception as e:
-                            print(f"OAuth flow failed: {e}")
-                    
-                    # Save the credentials for the next run if we have valid credentials
-                    if credentials:
-                        with open(token_path, 'w') as token:
-                            token.write(credentials.to_json())
-            
-            # Try to get user-specific credentials second
-            if not credentials and self.user and hasattr(self.user, 'drive_credentials'):
+            # Try to get user-specific credentials first (higher priority)
+            if self.user and hasattr(self.user, 'drive_credentials'):
                 try:
                     drive_credential = self.user.drive_credentials
                     if drive_credential.is_active and not drive_credential.is_expired():
@@ -187,135 +120,113 @@ class GoogleDriveService:
                                 scopes=self.SCOPES
                             )
                             
-                            # For credentials with refresh capability, don't set expiry either
-                            # This prevents the Google library from trying to check expiration
-                            # and avoids datetime comparison errors
-                            credentials.expiry = None
-                            print(f"Using user credentials with refresh capability for: {self.user.email}")
-                        else:
-                            # Create credentials without refresh capability
-                            # Check if the token is still valid
-                            if token_data and 'access_token' in token_data:
-                                # Create credentials that won't attempt to refresh
-                                credentials = Credentials(
-                                    token=token_data.get('access_token'),
-                                    scopes=self.SCOPES,
-                                    refresh_token=None  # Explicitly set to None to prevent refresh attempts
-                                )
-                                
-                                # For credentials without refresh capability, don't set expiry
-                                # This prevents the Google library from trying to check expiration
-                                # and avoids datetime comparison errors
-                                credentials.expiry = None
-                                print(f"Using user credentials without refresh capability for: {self.user.email}")
-                                
-                                # Override the refresh method to prevent automatic refresh
-                                def no_op_refresh(request):
-                                    # Do nothing - this prevents the Google library from trying to refresh
-                                    pass
-                                credentials.refresh = no_op_refresh
-                                
-                                # Skip expiry check since we're setting expiry to None
-                                # This prevents datetime comparison errors
-                            else:
-                                print("User credentials are invalid or missing access token.")
-                                credentials = None
-                except DriveCredential.DoesNotExist:
-                    pass
-            
-            if credentials:
-                # Check if credentials need to be refreshed
-                # Handle timezone-aware vs timezone-naive datetime comparison safely
-                try:
-                    # Check if credentials are valid in a timezone-safe way
-                    # Avoid calling credentials.valid directly as it may cause datetime comparison errors
-                    credentials_valid = True
-                    try:
-                        # First try the normal valid check, but catch datetime errors
-                        credentials_valid = credentials.valid
-                    except TypeError as e:
-                        if "can't compare offset-naive and offset-aware datetimes" in str(e):
-                            # Handle the datetime comparison error by checking expiry manually
-                            if hasattr(credentials, 'expiry') and credentials.expiry:
-                                # Handle both naive and timezone-aware datetimes
-                                if credentials.expiry.tzinfo is None:
-                                    # Naive datetime - compare directly
-                                    credentials_valid = credentials.expiry >= timezone.now().replace(tzinfo=None)
-                                else:
-                                    # Timezone-aware datetime - compare with timezone-aware
-                                    credentials_valid = credentials.expiry >= timezone.now()
-                            else:
-                                # No expiry set, assume valid
-                                credentials_valid = True
-                        else:
-                            # Re-raise if it's a different error
-                            raise e
-                    
-                    # NEW: Test credentials with Google's API to make sure they actually work
-                    if credentials_valid:
-                        credentials_valid = self._test_credentials(credentials)
-                    
-                    if not credentials_valid:
-                        # If credentials are invalid, try to refresh them if possible
-                        if hasattr(credentials, 'refresh_token') and credentials.refresh_token:
+                            # Check if credentials need to be refreshed
                             try:
-                                credentials.refresh(Request())
-                                print("Successfully refreshed Google Drive credentials")
-                                
-                                # Test the refreshed credentials
-                                if self._test_credentials(credentials):
-                                    print("Refreshed credentials are valid")
-                                    # Override the refresh method to prevent automatic refresh if needed
-                                    if credentials and (not hasattr(credentials, 'refresh_token') or not credentials.refresh_token):
-                                        def no_op_refresh(request):
-                                            # Do nothing - this prevents the Google library from trying to refresh
-                                            pass
-                                        credentials.refresh = no_op_refresh
-                                    
-                                    # Update stored credentials if this is a user credential
-                                    if self.user and hasattr(self.user, 'drive_credentials'):
-                                        try:
-                                            drive_credential = self.user.drive_credentials
-                                            # Update the stored token data
+                                # Test if credentials are valid
+                                if not self._test_credentials(credentials):
+                                    # Try to refresh if they're invalid
+                                    if credentials.refresh_token:
+                                        credentials.refresh(Request())
+                                        # Test refreshed credentials
+                                        if self._test_credentials(credentials):
+                                            # Update stored credentials
                                             drive_credential.token = {
                                                 'access_token': credentials.token,
                                                 'expires_in': credentials.expiry.timestamp() if credentials.expiry else None
                                             }
                                             drive_credential.expires_at = credentials.expiry
                                             drive_credential.save(update_fields=['token', 'expires_at', 'updated_at'])
-                                        except DriveCredential.DoesNotExist:
-                                            pass
-                                else:
-                                    print("Refreshed credentials are still invalid")
-                                    credentials = None
+                                            print(f"Successfully refreshed credentials for user: {self.user.email}")
+                                        else:
+                                            print(f"Refreshed credentials are still invalid for user: {self.user.email}")
+                                            credentials = None
+                                    else:
+                                        print(f"Credentials invalid and no refresh token available for user: {self.user.email}")
+                                        credentials = None
                             except Exception as e:
-                                print(f"Failed to refresh Google Drive credentials: {e}")
+                                print(f"Error checking or refreshing user credentials: {e}")
                                 credentials = None
+                            
+                            if credentials:
+                                print(f"Using user credentials with refresh capability for: {self.user.email}")
                         else:
-                            print("Credentials are invalid and no refresh token available")
-                            credentials = None
-                except Exception as e:
-                    print(f"Error checking credential validity: {e}")
-                    credentials = None
+                            # Create credentials without refresh capability
+                            if token_data and 'access_token' in token_data:
+                                credentials = Credentials(
+                                    token=token_data.get('access_token'),
+                                    scopes=self.SCOPES
+                                )
+                                print(f"Using user credentials without refresh capability for: {self.user.email}")
+                            else:
+                                print("User credentials are invalid or missing access token.")
+                                credentials = None
+                except DriveCredential.DoesNotExist:
+                    pass
+            
+            # Try OAuth2 authentication second if user credentials aren't available
+            if not credentials:
+                credentials_path = os.path.join(settings.BASE_DIR, 'google_credentials.json')
+                token_path = os.path.join(settings.BASE_DIR, 'google_token.json')
                 
-                if credentials:
-                    # Build services with increased timeout
-                    self.service = build('drive', 'v3', credentials=credentials, cache_discovery=False)
-                    self.docs_service = build('docs', 'v1', credentials=credentials, cache_discovery=False)
-                    print("Successfully authenticated with Google Drive API")
-                    
-                    # Update last used timestamp for user credentials
-                    if self.user and hasattr(self.user, 'drive_credentials'):
-                        try:
-                            drive_credential = self.user.drive_credentials
-                            drive_credential.update_usage()
-                        except DriveCredential.DoesNotExist:
-                            pass
-                else:
-                    print("Failed to authenticate with Google Drive API")
-                    self.service = None
-                    self.docs_service = None
-                    
+                if os.path.exists(credentials_path):
+                    print(f"Using OAuth authentication with file: {credentials_path}")
+                    # Check if the credentials file contains placeholder values
+                    try:
+                        with open(credentials_path, 'r') as f:
+                            creds_data = json.load(f)
+                            client_id = creds_data.get('web', {}).get('client_id', '')
+                            if 'YOUR_GOOGLE_CLIENT_ID' in client_id:
+                                print("Google credentials file contains placeholder values. Please update with real OAuth credentials.")
+                            else:
+                                # Load credentials from token file
+                                if os.path.exists(token_path):
+                                    credentials = Credentials.from_authorized_user_file(token_path, self.SCOPES)
+                                    
+                                    # Check if credentials need to be refreshed
+                                    try:
+                                        # Test if credentials are valid
+                                        if not self._test_credentials(credentials):
+                                            # Try to refresh if they're invalid
+                                            if credentials.refresh_token:
+                                                credentials.refresh(Request())
+                                                # Save refreshed credentials
+                                                with open(token_path, 'w') as token:
+                                                    token.write(credentials.to_json())
+                                                print("Successfully refreshed OAuth credentials from file")
+                                            else:
+                                                print("OAuth credentials invalid and no refresh token available")
+                                                credentials = None
+                                    except Exception as e:
+                                        print(f"Error checking or refreshing OAuth credentials: {e}")
+                                        credentials = None
+                                else:
+                                    print("No token file found. User needs to authenticate through OAuth flow.")
+                    except json.JSONDecodeError:
+                        print("Invalid JSON in Google credentials file")
+                    except ValueError as ve:
+                        if "missing fields refresh_token" in str(ve):
+                            print("Google credentials file found but it contains placeholder values. Please update with real OAuth credentials.")
+                        else:
+                            raise ve
+            
+            if credentials:
+                # Build services with increased timeout
+                self.service = build('drive', 'v3', credentials=credentials, cache_discovery=False)
+                self.docs_service = build('docs', 'v1', credentials=credentials, cache_discovery=False)
+                print("Successfully authenticated with Google Drive API")
+                
+                # Update last used timestamp for user credentials
+                if self.user and hasattr(self.user, 'drive_credentials'):
+                    try:
+                        drive_credential = self.user.drive_credentials
+                        drive_credential.update_usage()
+                    except DriveCredential.DoesNotExist:
+                        pass
+            else:
+                print("Failed to authenticate with Google Drive API")
+                self.service = None
+                self.docs_service = None
+                
         except Exception as e:
             print(f"Google Drive authentication error: {e}")
             import traceback
@@ -573,8 +484,7 @@ class GoogleDriveService:
     def upload_file(self, file_content: bytes, filename: str, mime_type: str, 
                    folder_id: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
         """
-        Upload a file to Google Drive in a Shared Drive
-        
+        Upload a file to Google Drive in a Shared Drive with retry mechanism        
         Args:
             file_content: File content as bytes
             filename: Name of the file
@@ -707,8 +617,7 @@ class GoogleDriveService:
     
     def convert_to_google_doc(self, file_id: str) -> Tuple[bool, Optional[str]]:
         """
-        Convert a file to Google Docs format in a Shared Drive
-        
+        Convert a file to Google Docs format in a Shared Drive with retry mechanism        
         Args:
             file_id: Google Drive file ID
             
@@ -1070,3 +979,7 @@ class GoogleDriveService:
             import traceback
             traceback.print_exc()
             return False
+    
+    def delete_folder(self, folder_id: str) -> bool:
+        """Delete a folder from Google Drive"""
+        return self.delete_file(folder_id)

@@ -62,31 +62,42 @@ export function useNotifications(pollInterval: number = 30000) {
   const deleteNotif = useCallback(async (id: string) => {
     try {
       await deleteNotification(id)
-      setNotifications(prev => prev.filter(n => n.id !== id))
-      const deletedNotif = notifications.find(n => n.id === id)
+      // Ensure notifications is an array before filtering
+      setNotifications(prev => {
+        const notificationsArray = Array.isArray(prev) ? prev : [];
+        return notificationsArray.filter(n => n.id !== id);
+      });
+      const notificationsArray = Array.isArray(notifications) ? notifications : [];
+      const deletedNotif = notificationsArray.find(n => n.id === id);
       if (deletedNotif && !deletedNotif.is_read) {
-        setUnreadCount(prev => Math.max(0, prev - 1))
+        setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (err) {
-      setError(getErrorMessage(err))
+      setError(getErrorMessage(err));
     }
   }, [notifications])
 
   // Poll for new notifications
   const poll = useCallback(async () => {
     try {
-      const newNotifs = await pollNotifications()
-      if (newNotifs.length > 0) {
+      const newNotifs = await pollNotifications();
+      // Ensure newNotifs is an array before checking length
+      if (Array.isArray(newNotifs) && newNotifs.length > 0) {
         setNotifications(prev => {
-          const existingIds = new Set(prev.map(n => n.id))
-          const unique = newNotifs.filter(n => !existingIds.has(n.id))
-          return [...unique, ...prev]
-        })
-        setUnreadCount(prev => prev + newNotifs.length)
+          // Ensure prev is an array before using map
+          const prevArray = Array.isArray(prev) ? prev : [];
+          const existingIds = new Set(prevArray.map(n => n.id));
+          // Ensure newNotifs is an array before filtering
+          const newNotifsArray = Array.isArray(newNotifs) ? newNotifs : [];
+          const unique = newNotifsArray.filter(n => !existingIds.has(n.id));
+          return [...unique, ...prevArray];
+        });
+        // Ensure newNotifs is an array before checking length
+        const newNotifsArray = Array.isArray(newNotifs) ? newNotifs : [];
+        setUnreadCount(prev => prev + newNotifsArray.length);
       }
     } catch (err) {
-      // Silent fail for polling
-      console.error('Polling error:', err)
+      setError(getErrorMessage(err));
     }
   }, [])
 

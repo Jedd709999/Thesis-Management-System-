@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, Plus, Clock, MapPin, List } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, Clock, MapPin, List, Edit, Trash2, Eye } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Calendar } from '../../components/ui/calendar';
-import { fetchSchedules, createSchedule } from '../../api/scheduleService';
+import { fetchSchedules, createSchedule, deleteSchedule } from '../../api/scheduleService';
 import { fetchTheses } from '../../api/thesisService';
 import { Schedule, Thesis, ScheduleFormData } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
@@ -48,30 +48,55 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
         setLoading(true);
 
         // Fetch schedules and theses in parallel
+        // Only fetch theses that are ready for defense
+        console.log('Fetching theses with status filter');
+        // Temporarily fetch all theses to see if any exist
         const [fetchedSchedules, fetchedTheses] = await Promise.all([
           fetchSchedules(),
-          fetchTheses()
+          fetchTheses() // Remove status filter temporarily to see all theses
         ]);
+        
+        console.log('Full fetchedTheses response:', fetchedTheses);
+        console.log('Type of fetchedTheses:', typeof fetchedTheses);
+        console.log('Is fetchedTheses an array:', Array.isArray(fetchedTheses));
+        if (Array.isArray(fetchedTheses)) {
+          console.log('Number of theses:', fetchedTheses.length);
+          if (fetchedTheses.length > 0) {
+            console.log('First thesis:', fetchedTheses[0]);
+          }
+        }
 
+        // Ensure fetchedTheses is an array before using it
+        const validTheses = Array.isArray(fetchedTheses) ? fetchedTheses : [];
+        console.log('Valid theses to set in state:', validTheses);
+        
+        // Set theses state first
+        setTheses(validTheses);
+        console.log('Theses state set to:', validTheses);
+        
+        // Then set schedules with the theses data
         setSchedules(
           fetchedSchedules.map(schedule => ({
             ...schedule,
+            // Log schedule data for debugging
+            ...(console.log('Schedule data:', schedule), {}),
             // Ensure date_time is a proper string and formatted for datetime-local input
             // Handle both date_time (new format) and start (old format) fields
             date_time: (schedule.date_time || (schedule as any).start) && 
               typeof (schedule.date_time || (schedule as any).start) === 'string' 
-              ? (schedule.date_time || (schedule as any).start).includes('T') 
-                ? (schedule.date_time || (schedule as any).start).substring(0, 16)  // ISO format
-                : (schedule.date_time || (schedule as any).start)  // Already in datetime-local format
-              : '',
+                ? (schedule.date_time || (schedule as any).start).includes('T') 
+                  ? (schedule.date_time || (schedule as any).start).substring(0, 16)  // ISO format
+                  : (schedule.date_time || (schedule as any).start)  // Already in datetime-local format
+                : '',
             // Handle duration_minutes field
             duration_minutes: schedule.duration_minutes || 60,
-            thesis: fetchedTheses.find(t => t.id === schedule.thesis) || schedule.thesis,
+            thesis: Array.isArray(validTheses) ? validTheses.find(t => t.id === schedule.thesis) || schedule.thesis : schedule.thesis,
             thesis_id: schedule.thesis as string
           }))
         );
-        setTheses(fetchedTheses);
+        console.log('Schedules state set');
         setLoading(false);
+        console.log('Loading state set to false');
       } catch (err) {
         console.error('Error fetching data:', err);
         setLoading(false);
@@ -121,11 +146,52 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
 
   // Helper function to get thesis title
   const getThesisTitle = (thesis: string | { id: string; title: string }) => {
-    if (typeof thesis === 'string') {
-      const foundThesis = theses.find(t => t.id === thesis);
+    console.log('getThesisTitle called with:', thesis);
+    console.log('Current theses state:', theses);
+    console.log('Is theses an array:', Array.isArray(theses));
+    
+    // Ensure theses is an array before using it
+    const validThesesArray = Array.isArray(theses) ? theses : [];
+    
+    if (typeof thesis === 'string' && validThesesArray.length > 0) {
+      const foundThesis = validThesesArray.find(t => t.id === thesis);
       return foundThesis?.title || 'Thesis';
     }
-    return thesis?.title || 'Thesis';
+    // At this point, thesis is guaranteed to be an object with id and title properties
+    if (typeof thesis === 'object' && thesis !== null) {
+      return (thesis as { id: string; title: string }).title || 'Thesis';
+    }
+    return 'Thesis';
+  };
+
+  // Helper function to get defense type based on thesis status
+  const getDefenseType = (thesisStatus: string) => {
+    console.log('Checking defense type for thesis status:', thesisStatus);
+    switch (thesisStatus) {
+      case 'CONCEPT_SCHEDULED':
+        return 'Concept Defense';
+      case 'PROPOSAL_SCHEDULED':
+        return 'Proposal Defense';
+      case 'FINAL_SCHEDULED':
+        return 'Final Defense';
+      default:
+        console.log('Unknown defense type for thesis status:', thesisStatus);
+        return 'Unknown Defense';
+    }
+  };
+
+  // Helper function to get thesis status from schedule
+  const getThesisStatus = (schedule: ScheduleWithThesis): string => {
+    // If thesis is an object with a status property, return that
+    if (typeof schedule.thesis === 'object' && schedule.thesis !== null && 'status' in schedule.thesis) {
+      return (schedule.thesis as Thesis).status;
+    }
+    // If we have a thesis_id, try to find the thesis in our theses array
+    if (typeof schedule.thesis === 'string') {
+      const thesis = theses.find(t => t.id === schedule.thesis);
+      return thesis ? thesis.status : 'UNKNOWN';
+    }
+    return 'UNKNOWN';
   };
 
   // Format duration in minutes to hours and minutes
@@ -243,6 +309,8 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
         ...prev,
         {
           ...newSchedule,
+          // Log the schedule data for debugging
+          ...(console.log('New schedule data:', newSchedule), {}),
           // Ensure date_time is a proper string and formatted for datetime-local input
           // Handle both date_time (new format) and start (old format) fields
           date_time: (newSchedule.date_time || (newSchedule as any).start) && 
@@ -283,6 +351,16 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
       } else {
         setFormError('Failed to create schedule. Please try again.');
       }
+    }
+  };
+
+  const handleDeleteSchedule = async (scheduleId: string) => {
+    try {
+      await deleteSchedule(scheduleId);
+      setSchedules(prev => prev.filter(schedule => schedule.id !== scheduleId));
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+      setFormError('Failed to delete schedule. Please try again.');
     }
   };
 
@@ -339,11 +417,35 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
                     required
                   >
                     <option value="">Select a thesis</option>
-                    {theses.map(thesis => (
-                      <option key={thesis.id} value={thesis.id}>
-                        {thesis.title}
-                      </option>
-                    ))}
+                    {(() => {
+                      console.log('Rendering thesis dropdown, theses state:', theses);
+                      console.log('Is theses an array:', Array.isArray(theses));
+                      console.log('Theses length:', theses?.length);
+                      
+                      // Ensure theses is an array before mapping
+                      const validThesesArray = Array.isArray(theses) ? theses : [];
+                      console.log('Valid theses array:', validThesesArray);
+                      console.log('Valid theses array length:', validThesesArray.length);
+                      
+                      if (validThesesArray.length > 0) {
+                        console.log('Mapping over theses to create options');
+                        return validThesesArray.map(thesis => {
+                          console.log('Creating option for thesis:', thesis);
+                          return (
+                            <option key={thesis.id} value={thesis.id}>
+                              {thesis.title}
+                            </option>
+                          );
+                        });
+                      } else {
+                        console.log('No theses available, showing appropriate message');
+                        return (
+                          <option value="" disabled>
+                            {loading ? "Loading..." : "No theses available"}
+                          </option>
+                        );
+                      }
+                    })()}
                   </select>
                 </div>
 
@@ -421,11 +523,179 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
       </div>
 
       {/* Calendar and List View */}
-      <div className="mt-8 space-y-8">
-        {/* Calendar Section */}
-        <div className="flex flex-col items-center gap-8">
-          <div className="w-full max-w-4xl">
-            <Card className="p-8">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Section - Tables */}
+          <div className="space-y-6">
+            {/* Upcoming Defenses Table */}
+            <div className="w-full">
+              <Card className="border-0 shadow-sm overflow-hidden p-0">
+                <div className="p-6 border-b border-slate-200">
+                  <h2 className="text-xl font-semibold text-slate-800">Upcoming Defenses</h2>
+                </div>
+                {schedules.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">No Scheduled Defenses</h3>
+                    {userRole === 'adviser' && (
+                      <p className="text-slate-500">Click the button above to schedule a new defense.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Thesis Title</th>
+                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Defense Type</th>
+                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Date & Time</th>
+                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Location</th>
+                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Duration</th>
+                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Status</th>
+                          {userRole === 'admin' && (
+                            <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Actions</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {schedules.map((schedule) => (
+                          <tr key={schedule.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4">
+                              <p className="text-sm text-slate-900">{getThesisTitle(schedule.thesis)}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm text-slate-900">{getDefenseType(getThesisStatus(schedule))}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm text-slate-600">{formatDateTime(schedule.date_time)}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm text-slate-600">{schedule.location || '-'}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm text-slate-600">
+                                {schedule.duration_minutes && schedule.duration_minutes > 0 
+                                  ? formatDuration(schedule.duration_minutes) 
+                                  : '-'}
+                              </p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <Badge className={`border ${getStatusColor(schedule.status || 'scheduled')}`}>
+                                {schedule.status?.replace('_', ' ') || 'scheduled'}
+                              </Badge>
+                            </td>
+                            {userRole === 'admin' && (
+                              <td className="px-6 py-4">
+                                <div className="flex space-x-2">
+                                  <Button variant="outline" size="sm" className="p-2 h-8 w-8">
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="outline" size="sm" className="p-2 h-8 w-8">
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="p-2 h-8 w-8 text-red-600 hover:text-red-700"
+                                    onClick={() => handleDeleteSchedule(schedule.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </div>
+            
+            {/* Schedules for Selected Date */}
+            {selectedDate && (
+              <div className="w-full">
+                <Card className="border-0 shadow-sm overflow-hidden p-0">
+                  <div className="p-6 border-b border-slate-200">
+                    <h2 className="text-xl font-semibold text-slate-800">
+                      Defenses on {format(selectedDate, 'MMMM d, yyyy')}
+                    </h2>
+                  </div>
+                  {getSchedulesForDate(selectedDate).length === 0 ? (
+                    <div className="py-8 text-center">
+                      <CalendarIcon className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-500">No defenses scheduled for this date</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Thesis</th>
+                            <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Defense Type</th>
+                            <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Time</th>
+                            <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Location</th>
+                            {userRole === 'admin' && (
+                              <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Actions</th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {getSchedulesForDate(selectedDate).map((schedule) => (
+                            <tr key={schedule.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-6 py-3">
+                                <p className="text-sm text-slate-900 font-medium">{getThesisTitle(schedule.thesis)}</p>
+                              </td>
+                              <td className="px-6 py-3">
+                                <p className="text-sm text-slate-900">{getDefenseType(getThesisStatus(schedule))}</p>
+                              </td>
+                              <td className="px-6 py-3">
+                                <p className="text-sm text-slate-600">
+                                  {schedule.date_time ? format(parseISO(schedule.date_time), 'h:mm a') : '-'}
+                                </p>
+                              </td>
+                              <td className="px-6 py-3">
+                                <p className="text-sm text-slate-600">{schedule.location || '-'}</p>
+                              </td>
+                              {userRole === 'admin' && (
+                                <td className="px-6 py-3">
+                                  <div className="flex space-x-2">
+                                    <Button variant="outline" size="sm" className="p-2 h-8 w-8">
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="outline" size="sm" className="p-2 h-8 w-8">
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="p-2 h-8 w-8 text-red-600 hover:text-red-700"
+                                      onClick={() => handleDeleteSchedule(schedule.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+              </div>
+            )}
+          </div>
+          
+          {/* Right Section - Calendar */}
+          <div>
+            <Card className="p-6 h-full">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold text-slate-800 mb-2">Calendar</h2>
+                <p className="text-sm text-slate-600">Select a date to view scheduled defenses</p>
+              </div>
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -448,7 +718,7 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
                   head_row: "flex w-full",
                   head_cell: "text-muted-foreground rounded-md w-12 font-normal text-[0.9rem] flex-1",
                   row: "flex w-full mt-3",
-                  cell: "h-16 w-16 text-center text-lg p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20 flex-1",
+                  cell: "h-16 w-16 p-0 font-normal aria-selected:opacity-100 flex items-center justify-center text-lg",
                   day: "h-16 w-16 p-0 font-normal aria-selected:opacity-100 flex items-center justify-center text-lg",
                   day_selected:
                     "bg-green-700 text-white hover:bg-green-800 focus:bg-green-700",
@@ -461,67 +731,22 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
                   day_hidden: "invisible",
                 }}
               />
+              {/* Legend */}
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                <h3 className="text-sm font-medium text-slate-700 mb-2">Legend</h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center">
+                    <div className="w-4 h-4 bg-green-100 rounded-sm mr-2"></div>
+                    <span className="text-xs text-slate-600">Scheduled</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-4 h-4 bg-green-700 rounded-sm mr-2"></div>
+                    <span className="text-xs text-slate-600">Selected</span>
+                  </div>
+                </div>
+              </div>
             </Card>
           </div>
-        </div>
-      
-        {/* Upcoming Defenses Table */}
-        <div className="w-full max-w-6xl mx-auto">
-          <Card className="border-0 shadow-sm overflow-hidden p-0">
-            <div className="p-6 border-b border-slate-200">
-              <h2 className="text-2xl font-semibold text-slate-800 text-center">Upcoming Defenses</h2>
-            </div>
-            {schedules.length === 0 ? (
-              <div className="py-12 text-center">
-                <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-slate-900 mb-2">No Scheduled Defenses</h3>
-                {userRole === 'adviser' && (
-                  <p className="text-slate-500">Click the button above to schedule a new defense.</p>
-                )}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Thesis Title</th>
-                      <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Date & Time</th>
-                      <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Location</th>
-                      <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Duration</th>
-                      <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {schedules.map((schedule) => (
-                      <tr key={schedule.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-slate-900">{getThesisTitle(schedule.thesis)}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-slate-600">{formatDateTime(schedule.date_time)}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-slate-600">{schedule.location || '-'}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-slate-600">
-                            {schedule.duration_minutes && schedule.duration_minutes > 0 
-                              ? formatDuration(schedule.duration_minutes) 
-                              : '-'}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge className={`border ${getStatusColor(schedule.status || 'scheduled')}`}>
-                            {schedule.status?.replace('_', ' ') || 'scheduled'}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
         </div>
       </div>
     </div>

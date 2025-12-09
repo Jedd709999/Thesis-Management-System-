@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { googleOAuthService } from '../../services/googleOAuthService';
 import { accountLinkingService } from '../../services/accountLinkingService';
 import { useAuth } from '../../hooks/useAuth';
+import { useDriveConnection } from '../../hooks/useDriveConnection';
 
 interface SettingsProps {
   userRole: 'student' | 'adviser' | 'panel' | 'admin';
@@ -12,7 +13,7 @@ interface SettingsProps {
 
 export function Settings({ userRole }: SettingsProps) {
   const { user } = useAuth();
-  const [googleDriveConnected, setGoogleDriveConnected] = useState(false);
+  const { isDriveConnected: googleDriveConnected, checkDriveConnection } = useDriveConnection();
   const [checkingConnection, setCheckingConnection] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -48,15 +49,20 @@ export function Settings({ userRole }: SettingsProps) {
 
   // Check if user has Google account connected
   const checkGoogleConnection = async () => {
+    console.log('SettingsPage: Checking Google connection');
     setCheckingConnection(true);
     setConnectionError(null);
     try {
       const isConnected = await accountLinkingService.isGoogleConnected();
-      setGoogleDriveConnected(isConnected);
+      console.log('SettingsPage: accountLinkingService says connected:', isConnected);
+      // Update localStorage with the actual connection status
+      localStorage.setItem('drive_connected', isConnected.toString());
+      checkDriveConnection(); // This will update the state through the hook
+      console.log('SettingsPage: Drive connection after check - connected:', googleDriveConnected);
     } catch (error: any) {
-      console.error('Google connection check error:', error);
+      console.error('SettingsPage: Google connection check error:', error);
       setConnectionError('Failed to check Google account connection');
-      setGoogleDriveConnected(false);
+      checkDriveConnection(); // This will update the state through the hook
     } finally {
       setCheckingConnection(false);
     }
@@ -92,7 +98,9 @@ export function Settings({ userRole }: SettingsProps) {
       const result = await accountLinkingService.connectGoogleAccount();
       
       if (result.connected) {
-        setGoogleDriveConnected(true);
+        console.log('SettingsPage: Google account connected successfully');
+        // Update the connection state through the hook
+        checkDriveConnection();
         toast.success(result.message || 'Google account connected successfully', {
           duration: 5000,
         });
@@ -103,10 +111,27 @@ export function Settings({ userRole }: SettingsProps) {
       }
     } catch (error: any) {
       console.error('Error connecting Google account:', error);
-      const errorMessage = error.message || 'Failed to connect Google account';
+      let errorMessage = error.message || 'Failed to connect Google account';
+      
+      // Provide more user-friendly error messages
+      if (errorMessage.includes('insufficient_scope')) {
+        errorMessage = 'Please grant all required Google Drive permissions when prompted.';
+      } else if (errorMessage.includes('invalid_grant')) {
+        errorMessage = 'Authentication failed. Please try again and make sure you select the correct Google account.';
+      } else if (errorMessage.includes('Invalid Google credentials')) {
+        errorMessage = 'Invalid credentials. Please try connecting your Google account again.';
+      } else if (errorMessage.includes('Connection failed')) {
+        // Keep the specific connection failed message
+      } else if (errorMessage.includes('Connection error')) {
+        // Keep the specific connection error message
+      } else {
+        // Generic error message
+        errorMessage = 'Failed to connect Google account. Please try again. If the problem persists, contact support.';
+      }
+      
       setConnectionError(errorMessage);
       toast.error(errorMessage, {
-        duration: 5000,
+        duration: 7000, // Show longer for important messages
       });
     } finally {
       setLoading(false);
@@ -123,7 +148,9 @@ export function Settings({ userRole }: SettingsProps) {
       const result = await accountLinkingService.disconnectGoogleAccount();
       
       if (!result.connected) {
-        setGoogleDriveConnected(false);
+        console.log('SettingsPage: Google account disconnected successfully');
+        // Update the connection state through the hook
+        checkDriveConnection();
         toast.success(result.message || 'Google account disconnected successfully', {
           duration: 5000,
         });
@@ -134,7 +161,7 @@ export function Settings({ userRole }: SettingsProps) {
       }
     } catch (error: any) {
       console.error('Error disconnecting Google account:', error);
-      const errorMessage = error.message || 'Failed to disconnect Google account';
+      const errorMessage = error.message || 'Failed to disconnect Google account. Please try again later.';
       setConnectionError(errorMessage);
       toast.error(errorMessage, {
         duration: 5000,
@@ -381,8 +408,8 @@ export function Settings({ userRole }: SettingsProps) {
                     {checkingConnection 
                       ? 'Checking connection status...' 
                       : googleDriveConnected 
-                        ? `Connected as ${userData.email}. You can now save files directly to your Google Drive.`
-                        : 'Connect your Google account to save files directly to your Google Drive.'}
+                        ? `Connected as ${userData.email}. You can now save files directly to your Google Drive. Refresh this page if you experience any issues.`
+                        : 'Connect your Google account to save files directly to your Google Drive. Make sure to grant all requested permissions.'}
                   </p>
                 </div>
               </div>

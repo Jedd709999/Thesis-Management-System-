@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Leaf, Mail, Lock, ArrowRight, Eye, EyeOff, Users, FileText, 
   Calendar, UserPlus, CheckCircle, User, ChevronDown
@@ -7,7 +7,8 @@ import {
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { useAuth } from '../../hooks/useAuth';
-import { login as apiLogin, saveTokens, register } from '../../api/authService';
+import { login as apiLogin, saveTokens, register, fetchProfile, ApiError } from '../../api/authService';
+import api from '../../api/api';
 import { User as UserType, UserRole } from '../../types';
 
 interface LoginFormData {
@@ -22,15 +23,10 @@ interface SignupFormData extends LoginFormData {
   confirmPassword: string;
 }
 
-export function Login() {
-  const navigate = useNavigate();
-  const { login, checkAuthStatus, user } = useAuth();
+const LoginPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState<LoginFormData | SignupFormData>({
     email: '',
     password: '',
@@ -39,6 +35,31 @@ export function Login() {
     role: 'STUDENT',
     confirmPassword: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [isResending, setIsResending] = useState(false);
+  
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login, user, checkAuthStatus } = useAuth();
+
+  // Check for registration success message from SignupPage
+  useEffect(() => {
+    if (location.state?.registrationSuccess) {
+      setSuccess(true);
+      // Check if email verification is needed
+      if (location.state?.emailVerificationNeeded) {
+        setShowVerificationMessage(true);
+        setVerificationEmail(location.state?.email || '');
+        setError('Registration successful, but we couldn\'t send the verification email. Please contact support or request a new verification email.');
+      }
+      // Clear the location state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // If user is already authenticated, redirect to dashboard
   useEffect(() => {
@@ -56,47 +77,72 @@ export function Login() {
     }));
   };
 
+  // Function to handle resending verification email
+  const handleResendVerification = async (email: string) => {
+    try {
+      setIsResending(true);
+      await api.post('auth/resend-verification/', { email });
+      setSuccess(true);
+      setError('A new verification email has been sent. Please check your inbox.');
+    } catch (error: any) {
+      console.error('Error resending verification email:', error);
+      setError(error.response?.data?.detail || 'Failed to resend verification email. Please try again later.');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setShowVerificationMessage(false);
 
     try {
       if (isLogin) {
         // Handle login
         console.log('Attempting real login with:', formData.email);
-        const tokens = await apiLogin(formData.email, formData.password);
-        console.log('Login successful, received tokens:', tokens);
-        saveTokens(tokens);
-        
-        // Fetch user profile
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/'}auth/me/`, {
-            headers: {
-              'Authorization': `Bearer ${tokens.access}`
-            }
-          });
+          const tokens = await apiLogin(formData.email, formData.password);
+          console.log('Login successful, received tokens:', tokens);
+          saveTokens(tokens);
           
-          if (response.ok) {
-            const userData: UserType = await response.json();
+          // Fetch user profile using the proper API client
+          try {
+            const userData: UserType = await fetchProfile();
             console.log('User profile fetched:', userData);
             login(userData);
             
             // Check auth status to ensure context is updated
             await checkAuthStatus();
             
+            // Check if Google Drive was reconnected
+            const driveReconnected = localStorage.getItem('drive_reconnected') === 'true';
+            if (driveReconnected) {
+              // Show a success message about Google Drive reconnection
+              console.log('Google Drive reconnected successfully');
+              // You could show a toast notification here if desired
+            }
+            
             // Navigate to dashboard
             navigate('/dashboard', { replace: true });
-          } else {
-            throw new Error('Failed to fetch user profile');
+          } catch (profileError) {
+            console.error('Error fetching user profile:', profileError);
+            setError('Authentication failed. Please try again.');
+            // Clear tokens on error
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
           }
-        } catch (profileError) {
-          console.error('Error fetching user profile:', profileError);
-          setError('Authentication failed. Please try again.');
-          // Clear tokens on error
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
+        } catch (error: any) {
+          console.error('Login error:', error);
+          if (error.response?.data?.detail?.includes('verify your email')) {
+            setVerificationEmail(formData.email);
+            setShowVerificationMessage(true);
+            setError(error.response.data.detail);
+          } else {
+            setError(error.message || 'Login failed. Please check your credentials.');
+          }
         }
       } else {
         // Handle signup
@@ -106,41 +152,35 @@ export function Login() {
         
         // Remove confirmPassword before sending to API
         const { confirmPassword, ...registrationData } = formData as SignupFormData;
-        await register(registrationData);
+        const response = await register(registrationData);
         
-        // Show success message and switch to login
-        setSuccess(true);
-        setFormData({
-          email: formData.email,
-          password: '',
-          first_name: '',
-          last_name: '',
-          role: 'STUDENT',
-          confirmPassword: ''
-        });
-        
-        // Auto-switch to login after a delay
-        setTimeout(() => {
-          setSuccess(false);
-          setIsLogin(true);
-        }, 3000);
-      }
-    } catch (err: any) {
-      console.error(isLogin ? 'Login' : 'Registration error:', err);
-      // Handle specific error messages
-      if (err.response?.data) {
-        if (err.response.data.email) {
-          setError(`Email ${err.response.data.email[0]}`);
-        } else if (err.response.data.non_field_errors) {
-          setError(err.response.data.non_field_errors[0]);
-        } else if (err.response.data.detail) {
-          setError(err.response.data.detail);
+        // Show appropriate message based on email verification status
+        if (response.email_verification_needed) {
+          setVerificationEmail(formData.email);
+          setShowVerificationMessage(true);
+          setError(response.detail);
         } else {
-          setError('An error occurred. Please try again.');
+          // Show success message and switch to login
+          setSuccess(true);
+          setFormData({
+            email: formData.email,
+            password: '',
+            first_name: '',
+            last_name: '',
+            role: 'STUDENT',
+            confirmPassword: ''
+          });
+          
+          // Auto-switch to login after a delay
+          setTimeout(() => {
+            setSuccess(false);
+            setIsLogin(true);
+          }, 3000);
         }
-      } else {
-        setError(err.message || `Failed to ${isLogin ? 'log in' : 'sign up'}. Please try again.`);
       }
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      setError(error.response?.data?.detail || error.message || 'An error occurred during registration');
     } finally {
       setLoading(false);
     }
@@ -252,14 +292,20 @@ export function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-lg text-sm">
-                  Registration successful! You can now log in with your credentials.
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4" role="alert">
+                  <div className="flex flex-col space-y-2">
+                    <span className="block sm:inline text-sm">{error}</span>
+                    {showVerificationMessage && verificationEmail && (
+                      <button
+                        type="button"
+                        onClick={() => handleResendVerification(verificationEmail)}
+                        disabled={isResending}
+                        className="text-sm text-red-700 hover:text-red-900 underline focus:outline-none font-medium"
+                      >
+                        {isResending ? 'Sending...' : 'Resend verification email'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
               
@@ -275,7 +321,7 @@ export function Login() {
                           value={(formData as SignupFormData).first_name}
                           onChange={handleChange}
                           placeholder="John"
-                          className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                           required={!isLogin}
                         />
                       </div>
@@ -289,7 +335,7 @@ export function Login() {
                           value={(formData as SignupFormData).last_name}
                           onChange={handleChange}
                           placeholder="Doe"
-                          className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                           required={!isLogin}
                         />
                       </div>
@@ -308,7 +354,7 @@ export function Login() {
                       value={formData.email}
                       onChange={handleChange}
                       placeholder="your.email@university.edu"
-                      className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                       required
                     />
                   </div>
@@ -322,7 +368,7 @@ export function Login() {
                         name="role"
                         value={(formData as SignupFormData).role}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none bg-white"
+                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent appearance-none bg-white"
                         required
                       >
                         <option value="STUDENT">Student</option>
@@ -344,22 +390,15 @@ export function Login() {
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
-                      type={showPassword ? "text" : "password"}
+                      type="password"
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
                       placeholder={isLogin ? "Enter your password" : "Create a password"}
-                      className="w-full pl-11 pr-10 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full pl-11 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                       required
                       minLength={isLogin ? undefined : 8}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
                   </div>
                   {!isLogin && (
                     <p className="mt-1 text-xs text-slate-500">
@@ -376,21 +415,14 @@ export function Login() {
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
-                        type={showConfirmPassword ? "text" : "password"}
+                        type="password"
                         name="confirmPassword"
                         value={(formData as SignupFormData).confirmPassword}
                         onChange={handleChange}
                         placeholder="Confirm your password"
-                        className="w-full pl-11 pr-10 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        className="w-full pl-11 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                         required={!isLogin}
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                      </button>
                     </div>
                   </div>
                 )}
@@ -429,7 +461,7 @@ export function Login() {
       </div>
     </div>
   );
-}
+};
 
-// Export the Login component as default
-export default Login;
+// Export the LoginPage component as default
+export default LoginPage;

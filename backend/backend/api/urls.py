@@ -4,12 +4,13 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .views import user_views, thesis_views, schedule_views, notification_views, group_views, document_views, google_docs_views
 from .views.google_oauth_views import GoogleConnect, GoogleDisconnect, GoogleStatus
-from .views.panel_views import PanelMemberAvailabilityViewSet
+from .views.panel_views import PanelMemberAvailabilityViewSet, PanelActionViewSet
 from .views.topic_proposal_views import TopicProposalViewSet
 from .views.approval_sheet_views import ApprovalSheetViewSet
 from .views.evaluation_views import EvaluationViewSet
 from .views.archive_views import ArchiveRecordViewSet
 from .views.drive_views import DriveCredentialViewSet, DriveFolderViewSet
+from .views.auth_views import CustomTokenObtainPairView, RegisterView, PublicRegisterView, ProfileView, VerifyEmailView, ResendVerificationEmailView
 
 # Create a router and register our viewsets
 router = DefaultRouter()
@@ -17,6 +18,7 @@ router.register(r'users', user_views.UserViewSet)
 router.register(r'theses', thesis_views.ThesisViewSet)
 router.register(r'schedules', schedule_views.ScheduleViewSet)
 router.register(r'panel-availability', PanelMemberAvailabilityViewSet)
+router.register(r'panel-actions', PanelActionViewSet, basename='panel-action')
 router.register(r'notifications', notification_views.NotificationViewSet)
 
 # Group and group member endpoints
@@ -66,11 +68,20 @@ def api_root(request):
 
 urlpatterns = [
     path('', api_root),
-    path('', include(router.urls)),
+    # Authentication endpoints
+    path('auth/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/register/', RegisterView.as_view(), name='register'),
+    path('auth/public-register/', PublicRegisterView.as_view(), name='public_register'),
+    path('auth/register-public/', PublicRegisterView.as_view(), name='public_register_alias'),  # Added for frontend compatibility
+    path('auth/profile/', ProfileView.as_view(), name='profile'),
+    path('auth/me/', ProfileView.as_view(), name='user_profile'),  # Added for frontend compatibility
+    path('auth/verify-email/<uuid:user_id>/<str:token>/', VerifyEmailView.as_view(), name='verify_email'),  # Fixed to use uuid instead of int
+    path('auth/resend-verification/', ResendVerificationEmailView.as_view(), name='resend_verification'),
     # Google OAuth endpoints
     path('auth/google/connect/', GoogleConnect.as_view(), name='google_connect'),
     path('auth/google/disconnect/', GoogleDisconnect.as_view(), name='google_disconnect'),
     path('auth/google/status/', GoogleStatus.as_view(), name='google_status'),
+    path('', include(router.urls)),
     # Google Docs endpoints
     path('google-docs/oauth-url/', google_docs_views.google_oauth_url, name='google_oauth_url'),
     path('google-docs/oauth-callback/', google_docs_views.google_oauth_callback, name='google_oauth_callback'),

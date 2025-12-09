@@ -5,6 +5,16 @@ WORKDIR /app
 # Install additional dependencies for SWC
 RUN apk add --no-cache libc6-compat python3 make g++
 
+# Declare build arguments
+ARG VITE_GOOGLE_CLIENT_ID
+ARG VITE_GOOGLE_CLIENT_SECRET
+ARG VITE_API_BASE_URL
+
+# Set environment variables for build
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_SECRET=$VITE_GOOGLE_CLIENT_SECRET
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 # Copy package files first for better caching
 COPY package*.json ./
 COPY tsconfig.json ./

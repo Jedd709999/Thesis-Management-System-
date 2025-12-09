@@ -15,6 +15,7 @@ import { GoogleDocsEmbed as DocumentEditorPage } from '../pages/google-docs/Goog
 import { ScheduleManagement as SchedulePage } from '../pages/schedule-management/ScheduleManagementPage';
 import { NotificationCenter as NotificationCenterPage } from '../pages/notification-center/NotificationCenterPage';
 import { Settings as SettingsPage } from '../pages/settings/SettingsPage';
+import { ArchivePage } from '../pages/archive/ArchivePage';
 
 // Wrapper component to extract the group ID from URL params and pass it to GroupDetailPage
 const GroupDetailWrapper = () => {
@@ -37,6 +38,9 @@ const AppRoutes = () => {
   // Convert user role to lowercase for consistent usage throughout the app
   const userRole = user?.role?.toLowerCase() as 'student' | 'adviser' | 'panel' | 'admin' | undefined;
   const navigate = useNavigate();
+
+  console.log('AppRoutes: user object:', user);
+  console.log('AppRoutes: converted userRole:', userRole);
 
   return (
     <Routes>
@@ -93,6 +97,16 @@ const AppRoutes = () => {
                   }
                 />
 
+                {/* Archive */}
+                <Route
+                  path="/archive"
+                  element={
+                    <RoleRoute allowedRoles={['ADMIN', 'ADVISER', 'STUDENT', 'PANEL']}>
+                      <ArchivePage />
+                    </RoleRoute>
+                  }
+                />
+                
                 {/* Documents */}
                 <Route
                   path="/documents"

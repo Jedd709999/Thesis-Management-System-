@@ -6,7 +6,7 @@ const API_BASE = envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
 
 // Create axios instance
 const api = axios.create({ 
-  baseURL: API_BASE + '/',
+  baseURL: API_BASE,
   timeout: 60000, // Increased from 10 seconds to 60 seconds for document uploads
 })
 
@@ -98,7 +98,7 @@ api.interceptors.response.use(
       }
 
       // Get new access token
-      const response = await axios.post(`${API_BASE}auth/refresh/`, {
+      const response = await axios.post(`${API_BASE}/auth/refresh/`, {
         refresh: refreshToken
       });
 

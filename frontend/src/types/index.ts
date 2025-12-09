@@ -11,19 +11,24 @@ export type ThesisStatus =
   | 'TOPIC_APPROVED'
   | 'TOPIC_REJECTED'
   | 'CONCEPT_SUBMITTED'
+  | 'READY_FOR_CONCEPT_DEFENSE'
   | 'CONCEPT_SCHEDULED'
   | 'CONCEPT_DEFENDED'
   | 'CONCEPT_APPROVED'
   | 'PROPOSAL_SUBMITTED'
+  | 'READY_FOR_PROPOSAL_DEFENSE'
   | 'PROPOSAL_SCHEDULED'
   | 'PROPOSAL_DEFENDED'
   | 'PROPOSAL_APPROVED'
   | 'RESEARCH_IN_PROGRESS'
   | 'FINAL_SUBMITTED'
+  | 'READY_FOR_FINAL_DEFENSE'
   | 'FINAL_SCHEDULED'
   | 'FINAL_DEFENDED'
   | 'FINAL_APPROVED'
-  | 'REVISIONS_REQUIRED' 
+  | 'CONCEPT_REVISIONS_REQUIRED'
+  | 'PROPOSAL_REVISIONS_REQUIRED'
+  | 'FINAL_REVISIONS_REQUIRED'
   | 'REJECTED'
   | 'ARCHIVED'
 
@@ -176,15 +181,6 @@ export interface PanelAvailability {
   notes?: string
 }
 
-export interface AutoScheduleRun {
-  id: string
-  created_by: User
-  created_at: string
-  parameters: Record<string, any>
-  results: ScheduleCandidate[]
-  status: 'pending' | 'completed' | 'failed'
-}
-
 export interface ScheduleCandidate {
   thesis_id: string
   proposed_datetime: string
@@ -232,13 +228,18 @@ export interface Notification {
 }
 
 export interface ArchiveRecord {
-  id: string
-  thesis: string | Thesis
-  archived_by: User
-  archived_at: string
-  reason: string
-  documents: Document[]
-  metadata: Record<string, any>
+  id: string;
+  content_type: 'thesis' | 'document' | 'evaluation' | 'group' | 'user' | 'other';
+  original_id: string;
+  data: Record<string, any>;
+  archived_by: User;
+  archived_by_detail?: User;
+  reason: string;
+  retention_period_years: number;
+  archived_at: string;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DriveCredential {
@@ -366,4 +367,14 @@ export interface FilterState {
   role?: UserRole
   date_from?: string
   date_to?: string
+}
+
+export interface PanelAction {
+  id: string;
+  schedule: string;
+  panel_member: User;
+  action: 'approved' | 'needs_revision' | 'rejected';
+  action_display: string;
+  comments: string;
+  created_at: string;
 }

@@ -8,4 +8,5 @@ from .topic_proposal_serializers import *
 from .approval_sheet_serializers import *
 from .evaluation_serializers import *
 from .archive_serializers import *
+from .panel_action_serializers import *
 from .drive_serializers import *

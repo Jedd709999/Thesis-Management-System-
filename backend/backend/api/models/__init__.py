@@ -5,3 +5,4 @@ from .document_models import Document
 from .schedule_models import OralDefenseSchedule
 from .notification_models import Notification
 from .auto_schedule_models import AutoScheduleRun
+from .panel_action_models import PanelAction

@@ -4,9 +4,11 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.utils import timezone
 from ..models.drive_models import DriveCredential
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
 import logging
 from datetime import datetime, timedelta
 
@@ -46,8 +48,16 @@ class GoogleConnect(APIView):
                     raise Exception('Could not retrieve user email from Google')
                 
                 # Calculate token expiration
-                from django.utils import timezone
                 expires_at = timezone.now() + timedelta(seconds=int(expires_in)) if expires_in else None
+                
+                # Test if credentials are valid for Google Drive API
+                try:
+                    drive_service = build('drive', 'v3', credentials=credentials)
+                    # Try a simple Drive API call to verify access
+                    drive_service.files().list(pageSize=1, fields='files(id)').execute()
+                except Exception as drive_error:
+                    logger.warning(f'Google Drive API access test failed: {str(drive_error)}')
+                    # Continue anyway as the user might just need to grant additional permissions
                 
                 # Save or update the credentials
                 with transaction.atomic():
@@ -73,20 +83,28 @@ class GoogleConnect(APIView):
                 return Response({
                     'connected': True,
                     'email': user_info.get('email'),
-                    'message': 'Google account connected successfully'
+                    'message': 'Google account connected successfully. You can now use Google Drive integration.'
                 })
                 
             except Exception as e:
                 logger.error(f'Error connecting Google account: {str(e)}')
+                error_msg = str(e)
+                if 'Invalid Credentials' in error_msg:
+                    error_msg = 'Invalid Google credentials. Please try reconnecting your Google account.'
+                elif 'insufficient_scope' in error_msg:
+                    error_msg = 'Insufficient permissions. Please grant all required Google Drive permissions.'
+                elif 'invalid_grant' in error_msg:
+                    error_msg = 'Authentication failed. Please try reconnecting your Google account.'
+                
                 return Response(
-                    {'error': f'Failed to connect Google account: {str(e)}'},
+                    {'error': f'Failed to connect Google account: {error_msg}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
         except Exception as e:
             logger.error(f'Unexpected error in GoogleConnect: {str(e)}')
             return Response(
-                {'error': 'An unexpected error occurred'},
+                {'error': 'An unexpected error occurred while connecting your Google account. Please try again later.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

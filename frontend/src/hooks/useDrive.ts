@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { getGoogleOAuthUrl, handleOAuthCallback } from '../api/driveService'
+import { googleDocsApi } from '../api/googleDocsService'
 import { getErrorMessage } from '../utils/errorHandling'
 
 export function useDrive() {
@@ -13,7 +13,8 @@ export function useDrive() {
       setLoading(true)
       setError(null)
       
-      const { authorization_url } = await getGoogleOAuthUrl()
+      const response = await googleDocsApi.getOAuthUrl()
+      const { authorization_url, state } = response.data
       
       // Open OAuth popup
       const width = 600
@@ -30,9 +31,9 @@ export function useDrive() {
       // Listen for OAuth callback
       const handleMessage = async (event: MessageEvent) => {
         if (event.data.type === 'oauth-callback') {
-          const { code, state } = event.data
+          const { code } = event.data
           try {
-            await handleOAuthCallback(code, state)
+            await googleDocsApi.handleOAuthCallback({ code, state })
             setIsAuthorized(true)
             popup?.close()
           } catch (err) {

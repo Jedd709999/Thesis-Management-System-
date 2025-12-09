@@ -11,9 +11,15 @@ export async function fetchNotifications(params?: {
 }): Promise<Notification[]> {
   console.log('NotificationService: Fetching notifications with params:', params);
   console.log('NotificationService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get('/notifications/', { params })
-  console.log('NotificationService: Notifications response received', res);
-  return res.data
+  try {
+    const res = await api.get('/notifications/', { params })
+    console.log('NotificationService: Notifications response received', res);
+    // Ensure we always return an array
+    return Array.isArray(res.data) ? res.data : []
+  } catch (error) {
+    console.error('Error fetching notifications:', error)
+    return [] // Return empty array on error
+  }
 }
 
 /**
@@ -22,9 +28,15 @@ export async function fetchNotifications(params?: {
 export async function fetchUnreadCount(): Promise<number> {
   console.log('NotificationService: Fetching unread count');
   console.log('NotificationService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get('/notifications/unread-count/')
-  console.log('NotificationService: Unread count response received', res);
-  return res.data.unread_count
+  try {
+    const res = await api.get('/notifications/unread-count/')
+    console.log('NotificationService: Unread count response received', res);
+    // Ensure we always return a number
+    return typeof res.data.unread_count === 'number' ? res.data.unread_count : 0
+  } catch (error) {
+    console.error('Error fetching unread count:', error)
+    return 0 // Return 0 on error
+  }
 }
 
 /**
@@ -64,14 +76,20 @@ export async function deleteNotification(id: string): Promise<void> {
 export async function pollNotifications(): Promise<Notification[]> {
   console.log('NotificationService: Polling for new notifications');
   console.log('NotificationService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.get('/notifications/', {
-    params: {
-      is_read: false,
-      limit: 10
-    }
-  })
-  console.log('NotificationService: Poll notifications response received', res);
-  return res.data
+  try {
+    const res = await api.get('/notifications/', {
+      params: {
+        is_read: false,
+        limit: 10
+      }
+    })
+    console.log('NotificationService: Poll notifications response received', res);
+    // Ensure we always return an array
+    return Array.isArray(res.data) ? res.data : []
+  } catch (error) {
+    console.error('Error polling notifications:', error)
+    return [] // Return empty array on error
+  }
 }
 
 // Legacy exports

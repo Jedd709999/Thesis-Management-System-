@@ -138,7 +138,7 @@ class AuditLog(models.Model):
             log_entry.request_path = request.path
         else:
             # Try to get request info from middleware
-            from api.middleware.audit_middleware import get_current_ip, get_current_user_agent, get_current_path
+            from backend.api.middleware.audit_middleware import get_current_ip, get_current_user_agent, get_current_path
             log_entry.ip_address = get_current_ip()
             log_entry.user_agent = get_current_user_agent() or ''
             log_entry.request_path = get_current_path() or ''

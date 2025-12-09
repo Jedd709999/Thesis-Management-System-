@@ -1,4 +1,4 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
@@ -11,7 +11,6 @@ from api.models.user_models import User
 from api.serializers.schedule_serializers import ScheduleSerializer, ScheduleAvailabilitySerializer
 from api.permissions.role_permissions import IsAdviser, IsAdviserOrPanelForSchedule, CanCreateSchedule
 from api.utils.scheduling_utils import (
-    auto_schedule_oral_defense, 
     check_panel_member_availability, 
     find_free_time_slots,
     detect_scheduling_conflicts
@@ -39,7 +38,34 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         with transaction.atomic():
-            serializer.save(organizer=self.request.user)
+            # Get the thesis from the serializer data
+            thesis = serializer.validated_data.get('thesis')
+            
+            # List of valid statuses for scheduling a defense
+            valid_statuses = [
+                'READY_FOR_CONCEPT_DEFENSE',
+                'READY_FOR_PROPOSAL_DEFENSE',
+                'READY_FOR_FINAL_DEFENSE'
+            ]
+            
+            # Check if thesis status is valid for scheduling
+            if thesis.status not in valid_statuses:
+                raise serializers.ValidationError(
+                    f"Cannot schedule defense. Thesis status must be one of: {', '.join(valid_statuses)}. "
+                    f"Current status: {thesis.get_status_display()}."
+                )
+                
+            # Save the schedule if validation passes
+            schedule = serializer.save(organizer=self.request.user)
+            
+            # Update thesis status based on its current status
+            if thesis.status == 'READY_FOR_CONCEPT_DEFENSE':
+                thesis.status = 'CONCEPT_SCHEDULED'
+            elif thesis.status == 'READY_FOR_PROPOSAL_DEFENSE':
+                thesis.status = 'PROPOSAL_SCHEDULED'
+            elif thesis.status == 'READY_FOR_FINAL_DEFENSE':
+                thesis.status = 'FINAL_SCHEDULED'
+            thesis.save(update_fields=['status', 'updated_at'])
 
     def perform_update(self, serializer):
         with transaction.atomic():
@@ -120,72 +146,6 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             })
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=False, methods=['post'], url_path='auto-schedule')
-    def auto_schedule(self, request):
-        """
-        Automatically schedule an oral defense for a thesis.
-        """
-        try:
-            thesis_id = request.data.get('thesis_id')
-            panel_member_ids = request.data.get('panel_members', [])
-            preferred_date = request.data.get('preferred_date')
-            duration_minutes = request.data.get('duration_minutes', 60)
-            
-            if not thesis_id:
-                return Response(
-                    {'error': 'thesis_id is required'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Get thesis
-            thesis = get_object_or_404(Thesis, id=thesis_id)
-            
-            # Get panel members
-            panel_members = User.objects.filter(id__in=panel_member_ids, role='PANEL')
-            if len(panel_members) != len(panel_member_ids):
-                return Response(
-                    {'error': 'Some panel members not found or not valid panel members'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Convert preferred_date string to date object if provided
-            if preferred_date:
-                from datetime import datetime
-                try:
-                    preferred_date = datetime.strptime(preferred_date, '%Y-%m-%d').date()
-                except ValueError:
-                    return Response(
-                        {'error': 'Invalid preferred_date format. Use YYYY-MM-DD'}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            
-            # Run auto-scheduling
-            result = auto_schedule_oral_defense(
-                thesis, 
-                panel_members, 
-                preferred_date, 
-                duration_minutes
-            )
-            
-            if result['success']:
-                serializer = self.get_serializer(result['schedule'])
-                return Response({
-                    'message': result['message'],
-                    'schedule': serializer.data,
-                    'run_id': str(result['run'].id)
-                }, status=status.HTTP_201_CREATED)
-            else:
-                return Response({
-                    'error': result['message'],
-                    'conflicts': result['conflicts']
-                }, status=status.HTTP_400_BAD_REQUEST)
-                
-        except Exception as e:
-            return Response(
-                {'error': f'Auto-scheduling failed: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
     
     @action(detail=False, methods=['post'], url_path='check-panel-availability')
     def check_panel_availability(self, request):

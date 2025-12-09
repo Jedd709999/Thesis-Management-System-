@@ -3,38 +3,86 @@ import { Thesis, ThesisFormData } from '../types'
 
 /**
  * Fetch all theses
+ * @param status Optional status to filter theses by (e.g., 'READY_FOR_CONCEPT_DEFENSE')
  */
-export async function fetchTheses(): Promise<Thesis[]> {
-  const res = await api.get('/theses/')
-  return res.data
+export async function fetchTheses(status?: string): Promise<Thesis[]> {
+  try {
+    // Fix: Pass status as a comma-separated string in the params
+    const params: { status?: string } = {};
+    if (status) {
+      params.status = status;
+    }
+    
+    console.log('fetchTheses: Making API call with params:', params);
+    const res = await api.get('/theses/', { params });
+    console.log('fetchTheses response:', res);
+    console.log('fetchTheses response data:', res.data);
+    console.log('fetchTheses response data type:', typeof res.data);
+    
+    // Handle paginated response
+    if (res.data && typeof res.data === 'object' && 'results' in res.data) {
+      console.log('Returning paginated results:', res.data.results);
+      // Ensure we return an array even if results is not an array
+      return Array.isArray(res.data.results) ? res.data.results : [];
+    }
+    
+    // Fallback for non-paginated responses
+    console.log('Returning direct data:', res.data);
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error) {
+    console.error('Error fetching theses:', error);
+    // Log more details about the error
+    if (error.response) {
+      console.error('Error response:', error.response.status, error.response.data);
+    }
+    return []; // Return empty array on error
+  }
 }
 
 /**
  * Fetch current user's theses (for advisers, panels - theses from their assigned groups)
  */
 export async function fetchCurrentUserTheses(): Promise<Thesis[]> {
-  console.log('ThesisService: Fetching current user theses');
-  const res = await api.get('/theses/get_current_user_theses/')
-  console.log('ThesisService: Current user theses response:', res.data);
-  return res.data
+  try {
+    console.log('ThesisService: Fetching current user theses');
+    const res = await api.get('/theses/get_current_user_theses/')
+    console.log('ThesisService: Current user theses response:', res.data);
+    // Ensure we always return an array
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error) {
+    console.error('Error fetching current user theses:', error);
+    return []; // Return empty array on error
+  }
 }
 
 /**
  * Fetch other theses (for advisers, panels - theses from other groups)
  */
 export async function fetchOtherTheses(): Promise<Thesis[]> {
-  console.log('ThesisService: Fetching other theses');
-  const res = await api.get('/theses/get_other_theses/')
-  console.log('ThesisService: Other theses response:', res.data);
-  return res.data
+  try {
+    console.log('ThesisService: Fetching other theses');
+    const res = await api.get('/theses/get_other_theses/')
+    console.log('ThesisService: Other theses response:', res.data);
+    // Ensure we always return an array
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error) {
+    console.error('Error fetching other theses:', error);
+    return []; // Return empty array on error
+  }
 }
 
 /**
  * Fetch theses for the current user
  */
 export async function fetchUserTheses(): Promise<Thesis[]> {
-  const res = await api.get('theses/user_theses/')
-  return res.data
+  try {
+    const res = await api.get('theses/user_theses/')
+    // Ensure we always return an array
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error) {
+    console.error('Error fetching user theses:', error);
+    return []; // Return empty array on error
+  }
 }
 
 /**
@@ -90,6 +138,26 @@ export async function adviserReview(
   })
   return res.data
 }
+
+/**
+ * Archive a thesis (admin only)
+ */
+export async function archiveThesis(id: string): Promise<any> {
+  const res = await api.post(`theses/${id}/archive/`)
+  return res.data
+}
+
+import { PanelAction } from '../types';
+
+export const fetchPanelActions = async (thesisId: string): Promise<PanelAction[]> => {
+  try {
+    const response = await api.get(`/panel-actions/?thesis=${thesisId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching panel actions:', error);
+    throw error;
+  }
+};
 
 // Legacy exports
 export const listThesis = fetchTheses

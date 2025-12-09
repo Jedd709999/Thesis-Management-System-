@@ -24,8 +24,21 @@
             }
         }
         
-        // Close the popup
-        window.close();
+        // Also send message to parent for iframe scenarios
+        try {
+            window.parent.postMessage({
+                type: 'oauth-callback',
+                code: code,
+                error: error
+            }, '*');
+        } catch (e) {
+            console.error('Failed to post message to parent:', e);
+        }
+        
+        // Close the popup if it's a popup
+        if (window.opener) {
+            window.close();
+        }
     </script>
 </body>
 </html>

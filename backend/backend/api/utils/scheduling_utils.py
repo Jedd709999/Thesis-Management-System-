@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from django.db import transaction
 from django.utils import timezone
 from api.models.schedule_models import OralDefenseSchedule, PanelMemberAvailability
-from api.models.auto_schedule_models import AutoScheduleRun
 from api.models.user_models import User
 from api.models.thesis_models import Thesis
 from api.utils.notification_utils import create_notification
@@ -110,121 +109,6 @@ def find_free_time_slots(panel_members, date, duration_minutes=60, start_hour=9,
         current_time = next_time
     
     return available_slots
-
-def auto_schedule_oral_defense(thesis, panel_members, preferred_date=None, duration_minutes=60):
-    """
-    Automatically schedule an oral defense for a thesis.
-    
-    Args:
-        thesis: Thesis object
-        panel_members: List of User objects (panel members)
-        preferred_date: datetime.date object (optional)
-        duration_minutes: int, duration of the defense in minutes
-        
-    Returns:
-        dict: {
-            'success': bool,
-            'schedule': OralDefenseSchedule object or None,
-            'run': AutoScheduleRun object,
-            'message': str,
-            'conflicts': list
-        }
-    """
-    # Create auto schedule run record
-    auto_run = AutoScheduleRun.objects.create(
-        thesis=thesis,
-        status='in_progress',
-        details={
-            'thesis_id': str(thesis.id),
-            'panel_member_count': len(panel_members),
-            'preferred_date': preferred_date.isoformat() if preferred_date else None,
-            'duration_minutes': duration_minutes
-        }
-    )
-    
-    try:
-        # If preferred date is provided, try to schedule on that date first
-        dates_to_check = []
-        if preferred_date:
-            dates_to_check.append(preferred_date)
-        
-        # Add next 7 days if no preferred date or if preferred date fails
-        base_date = preferred_date or timezone.now().date()
-        for i in range(7):
-            check_date = base_date + timedelta(days=i)
-            if check_date not in dates_to_check:
-                dates_to_check.append(check_date)
-        
-        # Try to find a suitable time slot
-        for check_date in dates_to_check:
-            free_slots = find_free_time_slots(panel_members, check_date, duration_minutes)
-            
-            if free_slots:
-                # Found a free slot, use the first one
-                slot = free_slots[0]
-                start_datetime = timezone.make_aware(datetime.fromisoformat(slot['start']))
-                end_datetime = timezone.make_aware(datetime.fromisoformat(slot['end']))
-                
-                # Create the oral defense schedule
-                with transaction.atomic():
-                    schedule = OralDefenseSchedule.objects.create(
-                        thesis=thesis,
-                        title=f"Defense for {thesis.title}",
-                        start=start_datetime,
-                        end=end_datetime,
-                        location="TBD",
-                        status='scheduled',
-                        organizer=None  # Could be set to admin or adviser
-                    )
-                    
-                    # Add panel members to the schedule
-                    schedule.panel_members.set(panel_members)
-                    schedule.save()
-                    
-                    # Generate notification events
-                    generate_schedule_notifications(schedule)
-                    
-                    # Update auto schedule run
-                    auto_run.status = 'completed'
-                    auto_run.details['scheduled_date'] = check_date.isoformat()
-                    auto_run.details['scheduled_time'] = f"{slot['start_time']}-{slot['end_time']}"
-                    auto_run.details['schedule_id'] = str(schedule.id)
-                    auto_run.save()
-                    
-                    return {
-                        'success': True,
-                        'schedule': schedule,
-                        'run': auto_run,
-                        'message': f'Successfully scheduled defense on {check_date} at {slot["start_time"]}',
-                        'conflicts': []
-                    }
-        
-        # If we get here, no suitable time slots were found
-        auto_run.status = 'failed'
-        auto_run.details['failure_reason'] = 'No available time slots found for panel members'
-        auto_run.save()
-        
-        return {
-            'success': False,
-            'schedule': None,
-            'run': auto_run,
-            'message': 'Failed to schedule defense: No available time slots found',
-            'conflicts': []
-        }
-        
-    except Exception as e:
-        # Handle any errors during scheduling
-        auto_run.status = 'failed'
-        auto_run.details['failure_reason'] = str(e)
-        auto_run.save()
-        
-        return {
-            'success': False,
-            'schedule': None,
-            'run': auto_run,
-            'message': f'Failed to schedule defense: {str(e)}',
-            'conflicts': []
-        }
 
 def detect_scheduling_conflicts(schedule):
     """

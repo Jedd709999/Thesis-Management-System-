@@ -107,6 +107,8 @@ class GoogleOAuthService {
                 reject(new Error('Authentication popup was closed. Please try again and complete the authentication process.'));
               } else if (error.error === 'access_denied') {
                 reject(new Error('Access denied. Please grant the necessary permissions to connect your Google account.'));
+              } else if (error.error === 'redirect_uri_mismatch') {
+                reject(new Error('Redirect URI mismatch. Please contact the system administrator to configure the correct redirect URI in the Google Cloud Console.'));
               } else {
                 reject(new Error(error.message || 'Failed to authenticate with Google.'));
               }

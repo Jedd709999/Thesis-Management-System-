@@ -20,6 +20,12 @@ class DocumentViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentSerializer
     permission_classes = [permissions.IsAuthenticated, IsDocumentOwnerOrGroupMember, CanViewDraftDocuments]
     
+    def list(self, request, *args, **kwargs):
+        """Override list method to disable pagination for documents"""
+        # Disable pagination for this endpoint
+        self.pagination_class = None
+        return super().list(request, *args, **kwargs)
+    
     def get_queryset(self):
         """Filter queryset based on user role and document status.
         
@@ -33,20 +39,53 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             user = self.request.user
             
+            print(f"DEBUG: DocumentViewSet.get_queryset - User: {user.email} (ID: {user.id}), Role: {user.role}")
+            print(f"DEBUG: DocumentViewSet.get_queryset - Total documents before filtering: {queryset.count()}")
+            
             # For non-admin, non-student users (advisers, panel members)
             if user.role in ['ADVISER', 'PANEL']:
                 # Show submitted, approved, revision, or rejected documents
                 queryset = queryset.filter(status__in=['submitted', 'approved', 'revision', 'rejected'])
+                print(f"DEBUG: DocumentViewSet.get_queryset - Filtered for adviser/panel - Count: {queryset.count()}")
             # For students
             elif user.role == 'STUDENT':
-                # Students can see all documents except those in draft status from other users
-                queryset = queryset.exclude(
-                    ~Q(uploaded_by=user),
-                    status='draft'
-                )
+                # Students can see all documents they uploaded themselves
+                # And documents from their group that are not in draft status
+                queryset_before = queryset.count()
+                # Get documents uploaded by the user
+                user_documents = queryset.filter(uploaded_by=user)
+                print(f"DEBUG: DocumentViewSet.get_queryset - Student uploaded documents: {user_documents.count()}")
+                
+                # Get documents from user's groups that are not draft
+                from django.db.models import Q
+                group_documents = queryset.filter(
+                    thesis__group__members=user
+                ).exclude(status='draft')
+                print(f"DEBUG: DocumentViewSet.get_queryset - Group documents (non-draft): {group_documents.count()}")
+                
+                # Combine both querysets
+                queryset = user_documents | group_documents
+                queryset = queryset.distinct()
+                
+                print(f"DEBUG: DocumentViewSet.get_queryset - Filtered for student:")
+                print(f"  - Before filtering: {queryset_before}")
+                print(f"  - After filtering: {queryset.count()}")
+                print(f"  - Uploaded by current user: {user_documents.count()}")
+                print(f"  - Non-draft group documents: {group_documents.count()}")
+                
+                # Print all documents for debugging
+                for doc in queryset:
+                    print(f"  - Document: {doc.title} (ID: {doc.id})")
+                    print(f"    - Status: {doc.status}")
+                    print(f"    - Uploaded by: {doc.uploaded_by.email} (ID: {doc.uploaded_by.id})")
+                    print(f"    - Current user is uploader: {doc.uploaded_by == user}")
+                    print(f"    - Thesis group: {doc.thesis.group.name if doc.thesis and doc.thesis.group else 'None'}")
+                    if doc.thesis and doc.thesis.group:
+                        print(f"    - User is group member: {user in doc.thesis.group.members.all()}")
+            
+            print(f"DEBUG: DocumentViewSet.get_queryset - Final count: {queryset.count()}")
         
         return queryset
-
     def create(self, request, *args, **kwargs):
         """Handle both regular file uploads and Google Drive uploads"""
         # Log the incoming request for debugging

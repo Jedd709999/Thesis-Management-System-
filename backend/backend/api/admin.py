@@ -16,17 +16,32 @@ from .models.schedule_models import OralDefenseSchedule, ApprovalSheet, Evaluati
 from .models.notification_models import Notification
 
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'first_name', 'last_name', 'role', 'is_staff', 'is_superuser')
-    list_filter = ('role', 'is_staff', 'is_superuser')
+    list_display = ('email', 'first_name', 'last_name', 'role', 'is_staff', 'is_active', 'is_email_verified')
+    list_filter = ('role', 'is_staff', 'is_superuser', 'is_active', 'is_email_verified')
     ordering = ('email',)
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal', {'fields': ('first_name', 'last_name')}),
-        ('Permissions', {'fields': ('role', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Personal Info', {'fields': ('first_name', 'last_name', 'role')}),
+        ('Status', {
+            'fields': ('is_active', 'is_email_verified', 'email_verification_sent_at'),
+            'classes': ('collapse',)
+        }),
+        ('Permissions', {
+            'fields': ('is_staff', 'is_superuser', 'groups', 'user_permissions'),
+            'classes': ('collapse',)
+        }),
+        ('Important dates', {
+            'fields': ('last_login', 'date_joined'),
+            'classes': ('collapse',)
+        }),
     )
     add_fieldsets = (
-        (None, {'classes': ('wide',), 'fields': ('email', 'password1', 'password2', 'role')}),
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'password1', 'password2', 'role', 'is_active', 'is_staff')
+        }),
     )
+    readonly_fields = ('email_verification_sent_at', 'last_login', 'date_joined')
 
 class GroupMemberInline(admin.TabularInline):
     model = GroupMember

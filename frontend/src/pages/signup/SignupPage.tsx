@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { User, Mail, Lock, ArrowRight, Eye, EyeOff, UserPlus } from 'lucide-react';
+import { User, Mail, Lock, ArrowRight, Eye, EyeOff, UserPlus, CheckCircle } from 'lucide-react';
 import { UserRole } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -21,6 +21,7 @@ export function Signup() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false); // Add success state
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -40,10 +41,11 @@ export function Signup() {
 
     setLoading(true);
     setError(null);
+    setSuccess(false);
 
     try {
       // Call the registration API
-      await apiRegister({
+      const response = await apiRegister({
         first_name: formData.first_name,
         last_name: formData.last_name,
         email: formData.email,
@@ -51,10 +53,24 @@ export function Signup() {
         role: formData.role
       });
       
-      // On successful registration, redirect to login with success message
-      navigate('/login', { state: { registrationSuccess: true } });
+      // Show success message
+      setSuccess(true);
+      
+      // Wait a moment to show the success message before redirecting
+      setTimeout(() => {
+        // On successful registration, redirect to login with success message
+        // If email verification is needed, pass that information as well
+        navigate('/login', { 
+          state: { 
+            registrationSuccess: true,
+            emailVerificationNeeded: response.email_verification_needed,
+            email: formData.email
+          } 
+        });
+      }, 2000);
     } catch (err: any) {
       console.error('Registration error:', err);
+      setSuccess(false);
       setError(err.response?.data?.detail || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
@@ -117,8 +133,15 @@ export function Signup() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+              <div className="p-3 bg-red-50 border border-red-100 text-red-700 rounded-lg text-sm">
                 {error}
+              </div>
+            )}
+            
+            {success && (
+              <div className="p-3 bg-green-50 border border-green-100 text-green-700 rounded-lg text-sm flex items-start">
+                <CheckCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+                <span>Registration successful! Please check your email to verify your account.</span>
               </div>
             )}
 
@@ -135,6 +158,7 @@ export function Signup() {
                     placeholder="John"
                     className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     required
+                    disabled={success} // Disable inputs when showing success
                   />
                 </div>
               </div>
@@ -148,8 +172,9 @@ export function Signup() {
                     value={formData.last_name}
                     onChange={handleChange}
                     placeholder="Doe"
-                    className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                     required
+                    disabled={success} // Disable inputs when showing success
                   />
                 </div>
               </div>
@@ -165,8 +190,9 @@ export function Signup() {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="your.email@university.edu"
-                  className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                   required
+                  disabled={success} // Disable inputs when showing success
                 />
               </div>
             </div>
@@ -178,8 +204,9 @@ export function Signup() {
                   name="role"
                   value={formData.role}
                   onChange={handleChange}
-                  className="w-full pl-4 pr-10 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none bg-white"
+                  className="w-full pl-4 pr-10 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent appearance-none bg-white"
                   required
+                  disabled={success} // Disable inputs when showing success
                 >
                   <option value="STUDENT">Student</option>
                   <option value="ADVISER">Adviser</option>
@@ -198,22 +225,16 @@ export function Signup() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Create a password"
-                  className="w-full pl-11 pr-10 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-11 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                   required
                   minLength={8}
+                  disabled={success} // Disable inputs when showing success
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
               </div>
               <p className="text-xs text-slate-500 mt-1">Must be at least 8 characters</p>
             </div>
@@ -223,34 +244,33 @@ export function Signup() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
-                  type={showConfirmPassword ? "text" : "password"}
+                  type="password"
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   placeholder="Confirm your password"
-                  className="w-full pl-11 pr-10 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full pl-11 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                   required
+                  disabled={success} // Disable inputs when showing success
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
               </div>
             </div>
 
             <div className="pt-2">
               <Button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-green-700 hover:bg-green-800 text-white py-6 rounded-lg flex items-center justify-center gap-2"
+                disabled={loading || success} // Disable button when loading or showing success
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-6 rounded-lg flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Creating Account...
+                  </>
+                ) : success ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Redirecting...
                   </>
                 ) : (
                   <>

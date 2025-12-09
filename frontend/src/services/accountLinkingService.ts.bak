@@ -1,0 +1,148 @@
+import api from '../api/api';
+import { googleOAuthService } from './googleOAuthService';
+import { googleDocsApi } from '../api/googleDocsService';
+
+export interface GoogleConnectionStatus {
+  connected: boolean;
+  email?: string;
+  message?: string;
+}
+
+export const accountLinkingService = {
+  /**
+   * Connect Google account to the current user
+   * @returns Promise with connection status and user info
+   */
+  async connectGoogleAccount(): Promise<GoogleConnectionStatus> {
+    try {
+      // First, get the Google OAuth URL from the backend
+      const response = await googleDocsApi.getOAuthUrl();
+      const { authorization_url, state } = response.data;
+      
+      // Open the OAuth URL in a popup
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      
+      const popup = window.open(
+        authorization_url,
+        'Google Authorization',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+      
+      if (!popup) {
+        throw new Error('Failed to open Google OAuth popup. Please check your popup blocker settings.');
+      }
+      
+      // Wait for the popup to close and get the result
+      return new Promise((resolve, reject) => {
+        // Use message passing instead of direct popup access
+        const messageHandler = (event: MessageEvent) => {
+          // Check if the message is from our OAuth redirect
+          if (event.origin !== window.location.origin) return;
+          
+          if (event.data.type === 'oauth-callback') {
+            window.removeEventListener('message', messageHandler);
+            popup.close();
+            
+            if (event.data.error) {
+              reject(new Error(`Google OAuth error: ${event.data.error}`));
+            } else if (event.data.code) {
+              // Exchange the code for tokens using the backend
+              googleDocsApi.handleOAuthCallback({
+                code: event.data.code,
+                state: state
+              }).then(() => {
+                // Now connect the Google account with the backend
+                // For now, we'll just return a success message
+                // In a real implementation, you might want to get user info from the backend
+                resolve({
+                  connected: true,
+                  message: 'Google account connected successfully'
+                });
+              }).catch((error) => {
+                reject(new Error(`Failed to handle OAuth callback: ${error.message}`));
+              });
+            } else {
+              reject(new Error('Failed to get authorization code from Google OAuth response.'));
+            }
+          }
+        };
+        
+        window.addEventListener('message', messageHandler);
+        
+        // Also check if popup is closed periodically, but handle errors gracefully
+        const interval = setInterval(() => {
+          try {
+            // Try to check if popup is closed, but don't throw error if we can't
+            if (popup.closed) {
+              clearInterval(interval);
+              window.removeEventListener('message', messageHandler);
+              reject(new Error('Google sign-in popup was closed. Please try again and complete the authentication process.'));
+              return;
+            }
+          } catch (e) {
+            // Ignore Cross-Origin-Opener-Policy errors
+            // In this case, we rely on the timeout or message passing
+          }
+        }, 1000);
+        
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          clearInterval(interval);
+          window.removeEventListener('message', messageHandler);
+          try {
+            if (!popup.closed) {
+              popup.close();
+            }
+          } catch (e) {
+            // Ignore Cross-Origin-Opener-Policy errors
+          }
+          reject(new Error('Google OAuth timeout. Please try again.'));
+        }, 300000);
+      });
+    } catch (error: any) {
+      console.error('Error connecting Google account:', error);
+      
+      // Provide more specific error messages
+      if (error.message && error.message.includes('Invalid Google Client ID')) {
+        throw new Error('Google OAuth is not properly configured. Please contact the system administrator.');
+      } else if (error.response?.status === 400) {
+        throw new Error(error.response?.data?.error || 'Invalid Google credentials. Please try again.');
+      } else if (error.response?.status === 500) {
+        throw new Error('Server error while connecting Google account. Please try again later.');
+      } else {
+        throw new Error(error.response?.data?.error || 'Failed to connect Google account');
+      }
+    }
+  },
+
+  /**
+   * Disconnect Google account from the current user
+   * @returns Promise with disconnection status
+   */
+  async disconnectGoogleAccount(): Promise<GoogleConnectionStatus> {
+    try {
+      const response = await api.post<GoogleConnectionStatus>('auth/google/disconnect/');
+      return response.data;
+    } catch (error: any) {
+      console.error('Error disconnecting Google account:', error);
+      throw new Error(error.response?.data?.error || 'Failed to disconnect Google account');
+    }
+  },
+
+  /**
+   * Check if the current user has a Google account connected
+   * @returns Promise with connection status
+   */
+  async isGoogleConnected(): Promise<boolean> {
+    try {
+      const response = await api.get<{ connected: boolean }>('auth/google/status/');
+      return response.data.connected;
+    } catch (error) {
+      console.error('Error checking Google account status:', error);
+      return false;
+    }
+  }
+};

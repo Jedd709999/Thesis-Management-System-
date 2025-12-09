@@ -14,6 +14,8 @@ WORKDIR /app
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# Updated to include both /app and /app/backend
+ENV PYTHONPATH=/app:/app/backend
 
 # Install Python dependencies
 COPY ./requirements.txt .
@@ -27,4 +29,4 @@ RUN chmod +x /app/entrypoint.sh
 
 # Run the application
 ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "backend.asgi:application"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "asgi:application"]

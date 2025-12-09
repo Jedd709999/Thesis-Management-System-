@@ -2,6 +2,7 @@ import React, { createContext, useEffect, useState, useCallback, useRef } from '
 import { fetchProfile, isAuthenticated, clearTokens, getAccessToken, willTokenExpireSoon } from '../api/authService'
 import api from '../api/api'
 import { User, UserRole } from '../types'
+import { driveCredentialsService } from '../services/driveCredentialsService'
 
 type UserOrNull = User | null
 
@@ -13,6 +14,7 @@ interface AuthContextType {
   refreshToken: () => Promise<void>
   isTokenValid: () => boolean
   checkAuthStatus: () => Promise<void>
+  checkDriveCredentials: () => Promise<void>
 }
 
 console.log('AuthContext: Defining AuthContext');
@@ -23,7 +25,8 @@ export const AuthContext = createContext<AuthContextType>({
   logout: () => {},
   refreshToken: async () => {},
   isTokenValid: () => false,
-  checkAuthStatus: async () => {}
+  checkAuthStatus: async () => {},
+  checkDriveCredentials: async () => {}
 })
 console.log('AuthContext: AuthContext defined');
 
@@ -131,6 +134,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     console.log('AuthContext: Token will expire soon:', willTokenExpireSoon(token, 2));
     return !willTokenExpireSoon(token, 2)
   }, [])
+  
+  // Check for Google Drive credentials
+  const checkDriveCredentials = useCallback(async () => {
+    try {
+      console.log('AuthContext: Checking Google Drive credentials');
+      const credentials = await driveCredentialsService.getMyCredentials();
+      console.log('AuthContext: Drive credentials response:', credentials);
+      if (credentials) {
+        console.log('AuthContext: User has Google Drive credentials');
+        localStorage.setItem('drive_connected', 'true');
+      } else {
+        console.log('AuthContext: User does not have Google Drive credentials');
+        localStorage.setItem('drive_connected', 'false');
+      }
+    } catch (error) {
+      console.log('AuthContext: Error checking Google Drive credentials:', error);
+      // If there's an error, assume no credentials
+      localStorage.setItem('drive_connected', 'false');
+    }
+  }, [])
 
   // Initialize authentication state - runs once on mount
   useEffect(() => {
@@ -173,6 +196,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 } else {
                   console.log('AuthContext: User profile unchanged, not setting');
                 }
+                
+                // Check for Google Drive credentials
+                console.log('AuthContext: Checking Google Drive credentials after login');
+                checkDriveCredentials();
+                console.log('AuthContext: Google Drive connection status - connected:', localStorage.getItem('drive_connected'), 'reconnected:', localStorage.getItem('drive_reconnected'));
                 
                 // Set up proactive token refresh
                 refreshInterval = setInterval(() => {
@@ -297,7 +325,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       logout, 
       refreshToken, 
       isTokenValid,
-      checkAuthStatus
+      checkAuthStatus,
+      checkDriveCredentials
     }}>
       {children}
     </AuthContext.Provider>

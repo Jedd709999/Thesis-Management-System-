@@ -150,10 +150,44 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
   const [searchQuery, setSearchQuery] = useState('');
   const [isMemberSelectionOpen, setIsMemberSelectionOpen] = useState(false);
   const [isAdviserSelectionOpen, setIsAdviserSelectionOpen] = useState(false);
+  // States for adviser search functionality
+  const [adviserSearchQuery, setAdviserSearchQuery] = useState('');
+  const [filteredAdvisers, setFilteredAdvisers] = useState<User[]>([]);
+  // States for member search functionality
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  
+  // Effect to filter users based on search query
+  useEffect(() => {
+    if (memberSearchQuery.trim() === '') {
+      setFilteredUsers(availableUsers);
+    } else {
+      const query = memberSearchQuery.toLowerCase();
+      const filtered = availableUsers.filter(user => 
+        user.first_name.toLowerCase().includes(query) || 
+        user.last_name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query)
+      );
+      setFilteredUsers(filtered);
+    }
+  }, [memberSearchQuery, availableUsers]);
+  
+  // Effect to filter advisers based on search query
+  useEffect(() => {    if (adviserSearchQuery.trim() === '') {
+      setFilteredAdvisers(availableAdvisers);
+    } else {
+      const query = adviserSearchQuery.toLowerCase();
+      const filtered = availableAdvisers.filter(adviser => 
+        adviser.first_name.toLowerCase().includes(query) || 
+        adviser.last_name.toLowerCase().includes(query) ||
+        adviser.email.toLowerCase().includes(query)
+      );
+      setFilteredAdvisers(filtered);
+    }
+  }, [adviserSearchQuery, availableAdvisers]);
 
   // Filter helper - enhanced with multiple filter criteria
-  const filterGroups = (list: Group[]) => {
-    return list.filter((g) => {
+  const filterGroups = (list: Group[]) => {    return list.filter((g) => {
       // Text search filter
       const matchesSearch = searchTerm.trim() === '' || 
         (searchType === 'general' && (
@@ -537,6 +571,9 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
       setSelectedAdviser(null);
     }
     
+    // Reset adviser search when opening dialog
+    setAdviserSearchQuery('');
+    
     // Load advisers if not already loaded
     if (availableAdvisers.length === 0) {
       try {
@@ -544,15 +581,18 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
         const users = response.data.results || response.data;
         const advisers = users.filter((user: User) => user.role === 'ADVISER');
         setAvailableAdvisers(advisers);
+        setFilteredAdvisers(advisers);
       } catch (error) {
         console.error('Error loading advisers:', error);
       }
+    } else {
+      // Reset filtered advisers when reopening dialog
+      setFilteredAdvisers(availableAdvisers);
     }
     
     // Open the assign adviser dialog
     setIsAssignAdviserDialogOpen(true);
   };
-
   const handleCreateGroup = async () => {
     // Validate form
     const errors: Record<string, string> = {};
@@ -951,18 +991,19 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
           <p className="text-slate-600">Manage your research groups and collaborations</p>
         </div>
         <div className="flex flex-col items-end">
-          {isUserInGroup && (
-            <p className="text-yellow-600 text-sm mb-2 flex items-center">
-              <AlertCircle className="w-4 h-4 mr-1" />
-              You are already in a group. Students can only be in one group.
-            </p>
-          )}
           {userRole === 'student' && (
+            isUserInGroup ? (
+              <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 w-full max-w-md">
+                <p className="text-amber-700 text-sm flex items-start">
+                  <AlertCircle className="w-4 h-4 inline mr-2 mt-0.5 flex-shrink-0" />
+                  <span>You are already in a group. Students can only be in one group.</span>
+                </p>
+              </div>
+            ) : (
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
-                  className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2 rounded-md px-4 py-2 disabled:opacity-50"
-                  disabled={isUserInGroup}
+                  className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2 rounded-md px-4 py-2"
                 >
                   <Plus className="w-4 h-4" />
                   Propose Group
@@ -1058,32 +1099,54 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                           
                           {/* Collapsible member selection content */}
                           {isMemberSelectionOpen && (
-                            <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
-                              {availableUsers
-                                .filter(user => !selectedMembers.includes(user.id)) // Hide already selected members
-                                .map((user) => (
-                                  <div 
-                                    key={user.id} 
-                                    className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedMembers([...selectedMembers, user.id]);
-                                        }
-                                      }}
-                                      className="cursor-pointer"
-                                    />
-                                    <div>
-                                      <div className="font-medium">{user.first_name} {user.last_name}</div>
-                                      <div className="text-sm text-slate-500">{user.email}</div>
-                                    </div>
+                            <div className="border rounded-md">
+                              {/* Search input for members */}
+                              <div className="p-3 border-b">
+                                <div className="relative">
+                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                  <input
+                                    type="text"
+                                    placeholder="Search members by name or email..."
+                                    value={memberSearchQuery}
+                                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                </div>
+                              </div>
+                              
+                              {/* Member list with search results */}
+                              <div className="max-h-40 overflow-y-auto">
+                                {filteredUsers
+                                  .filter(user => !selectedMembers.includes(user.id)) // Hide already selected members
+                                  .length > 0 ? (
+                                  filteredUsers
+                                    .filter(user => !selectedMembers.includes(user.id)) // Hide already selected members
+                                    .map((user) => (
+                                      <div 
+                                        key={user.id} 
+                                        className="flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setSelectedMembers([...selectedMembers, user.id]);
+                                            }
+                                          }}
+                                          className="cursor-pointer"
+                                        />
+                                        <div>
+                                          <div className="font-medium">{user.first_name} {user.last_name}</div>
+                                          <div className="text-sm text-slate-500">{user.email}</div>
+                                        </div>
+                                      </div>
+                                    ))
+                                ) : (
+                                  <div className="p-2 text-slate-500 text-center">
+                                    {memberSearchQuery ? 'No members found matching your search' : 'No additional users available'}
                                   </div>
-                                ))}
-                              {availableUsers.filter(user => !selectedMembers.includes(user.id)).length === 0 && (
-                                <div className="p-2 text-slate-500">No additional users available</div>
-                              )}
+                                )}
+                              </div>
                             </div>
                           )}
                           
@@ -1164,31 +1227,50 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                           
                           {/* Collapsible adviser selection content */}
                           {isAdviserSelectionOpen && (
-                            <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
-                              {availableAdvisers
-                                .map((adviser) => (
-                                  <div 
-                                    key={adviser.id} 
-                                    className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
-                                      preferredAdviser === adviser.id ? 'bg-blue-50 border border-blue-200' : ''
-                                    }`}
-                                    onClick={() => setPreferredAdviser(adviser.id === preferredAdviser ? null : adviser.id)}
-                                  >
-                                    <input
-                                      type="radio"
-                                      checked={preferredAdviser === adviser.id}
-                                      onChange={() => {}}
-                                      className="cursor-pointer"
-                                    />
-                                    <div>
-                                      <div className="font-medium">{adviser.first_name} {adviser.last_name}</div>
-                                      <div className="text-sm text-slate-500">{adviser.email}</div>
+                            <div className="border rounded-md">
+                              {/* Search input for advisers */}
+                              <div className="p-3 border-b">
+                                <div className="relative">
+                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                  <input
+                                    type="text"
+                                    placeholder="Search advisers by name or email..."
+                                    value={adviserSearchQuery}
+                                    onChange={(e) => setAdviserSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                  />
+                                </div>
+                              </div>
+                              
+                              {/* Adviser list with search results */}
+                              <div className="max-h-40 overflow-y-auto">
+                                {filteredAdvisers.length > 0 ? (
+                                  filteredAdvisers.map((adviser) => (
+                                    <div 
+                                      key={adviser.id} 
+                                      className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
+                                        preferredAdviser === adviser.id ? 'bg-blue-50 border border-blue-200' : ''
+                                      }`}
+                                      onClick={() => setPreferredAdviser(adviser.id === preferredAdviser ? null : adviser.id)}
+                                    >
+                                      <input
+                                        type="radio"
+                                        checked={preferredAdviser === adviser.id}
+                                        onChange={() => {}}
+                                        className="cursor-pointer"
+                                      />
+                                      <div>
+                                        <div className="font-medium">{adviser.first_name} {adviser.last_name}</div>
+                                        <div className="text-sm text-slate-500">{adviser.email}</div>
+                                      </div>
                                     </div>
+                                  ))
+                                ) : (
+                                  <div className="p-2 text-slate-500 text-center">
+                                    {adviserSearchQuery ? 'No advisers found matching your search' : 'No advisers available'}
                                   </div>
-                                ))}
-                              {availableAdvisers.length === 0 && (
-                                <div className="p-2 text-slate-500">No advisers available</div>
-                              )}
+                                )}
+                              </div>
                             </div>
                           )}
                           
@@ -1230,7 +1312,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          )}
+          ))}
           {/* Edit Group Dialog */}
           <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
             setIsEditDialogOpen(open);
@@ -1440,31 +1522,50 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                         
                         {/* Collapsible adviser selection content */}
                         {isAdviserSelectionOpen && (
-                          <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
-                            {availableAdvisers
-                              .map((adviser) => (
-                                <div 
-                                  key={adviser.id} 
-                                  className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
-                                    preferredAdviser === adviser.id ? 'bg-blue-50 border border-blue-200' : ''
-                                  }`}
-                                  onClick={() => setPreferredAdviser(adviser.id === preferredAdviser ? null : adviser.id)}
-                                >
-                                  <input
-                                    type="radio"
-                                    checked={preferredAdviser === adviser.id}
-                                    onChange={() => {}}
-                                    className="cursor-pointer"
-                                  />
-                                  <div>
-                                    <div className="font-medium">{adviser.first_name} {adviser.last_name}</div>
-                                    <div className="text-sm text-slate-500">{adviser.email}</div>
+                          <div className="border rounded-md">
+                            {/* Search input for advisers */}
+                            <div className="p-3 border-b">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search advisers by name or email..."
+                                  value={adviserSearchQuery}
+                                  onChange={(e) => setAdviserSearchQuery(e.target.value)}
+                                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* Adviser list with search results */}
+                            <div className="max-h-40 overflow-y-auto">
+                              {filteredAdvisers.length > 0 ? (
+                                filteredAdvisers.map((adviser) => (
+                                  <div 
+                                    key={adviser.id} 
+                                    className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
+                                      preferredAdviser === adviser.id ? 'bg-blue-50 border border-blue-200' : ''
+                                    }`}
+                                    onClick={() => setPreferredAdviser(adviser.id === preferredAdviser ? null : adviser.id)}
+                                  >
+                                    <input
+                                      type="radio"
+                                      checked={preferredAdviser === adviser.id}
+                                      onChange={() => {}}
+                                      className="cursor-pointer"
+                                    />
+                                    <div>
+                                      <div className="font-medium">{adviser.first_name} {adviser.last_name}</div>
+                                      <div className="text-sm text-slate-500">{adviser.email}</div>
+                                    </div>
                                   </div>
+                                ))
+                              ) : (
+                                <div className="p-2 text-slate-500 text-center">
+                                  {adviserSearchQuery ? 'No advisers found matching your search' : 'No advisers available'}
                                 </div>
-                              ))}
-                            {availableAdvisers.length === 0 && (
-                              <div className="p-2 text-slate-500">No advisers available</div>
-                            )}
+                              )}
+                            </div>
                           </div>
                         )}
                         
@@ -1515,6 +1616,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
         if (!open) {
           setSelectedAdviser(null);
           setEditingGroup(null);
+          setAdviserSearchQuery('');
         }
       }}>
         <DialogContent className="max-w-2xl max-h-[80vh]">
@@ -1575,34 +1677,52 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                     
                     {/* Collapsible adviser selection content */}
                     {isAdviserSelectionOpen && (
-                      <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
-                        {availableAdvisers
-                          .map((adviser) => (
-                            <div 
-                              key={adviser.id} 
-                              className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
-                                selectedAdviser === adviser.id ? 'bg-blue-50 border border-blue-200' : ''
-                              }`}
-                              onClick={() => setSelectedAdviser(adviser.id === selectedAdviser ? null : adviser.id)}
-                            >
-                              <input
-                                type="radio"
-                                checked={selectedAdviser === adviser.id}
-                                onChange={() => {}}
-                                className="cursor-pointer"
-                              />
-                              <div>
-                                <div className="font-medium">{adviser.first_name} {adviser.last_name}</div>
-                                <div className="text-sm text-slate-500">{adviser.email}</div>
+                      <div className="border rounded-md">
+                        {/* Search input for advisers */}
+                        <div className="p-3 border-b">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                              type="text"
+                              placeholder="Search advisers by name or email..."
+                              value={adviserSearchQuery}
+                              onChange={(e) => setAdviserSearchQuery(e.target.value)}
+                              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            />
+                          </div>
+                        </div>
+                        
+                        {/* Adviser list with search results */}
+                        <div className="max-h-40 overflow-y-auto">
+                          {filteredAdvisers.length > 0 ? (
+                            filteredAdvisers.map((adviser) => (
+                              <div 
+                                key={adviser.id} 
+                                className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
+                                  selectedAdviser === adviser.id ? 'bg-blue-50 border border-blue-200' : ''
+                                }`}
+                                onClick={() => setSelectedAdviser(adviser.id === selectedAdviser ? null : adviser.id)}
+                              >
+                                <input
+                                  type="radio"
+                                  checked={selectedAdviser === adviser.id}
+                                  onChange={() => {}}
+                                  className="cursor-pointer"
+                                />
+                                <div>
+                                  <div className="font-medium">{adviser.first_name} {adviser.last_name}</div>
+                                  <div className="text-sm text-slate-500">{adviser.email}</div>
+                                </div>
                               </div>
+                            ))
+                          ) : (
+                            <div className="p-2 text-slate-500 text-center">
+                              {adviserSearchQuery ? 'No advisers found matching your search' : 'No advisers available'}
                             </div>
-                          ))}
-                        {availableAdvisers.length === 0 && (
-                          <div className="p-2 text-slate-500">No advisers available</div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     )}
-
                     {/* Always visible selected adviser display */}
                     {selectedAdviser && (
                       <div className="mt-2">

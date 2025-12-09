@@ -192,7 +192,7 @@ def sync_google_doc_metadata(document, user=None):
 
 def update_document_status(document, new_status, actor=None):
     """
-    Update the status of a document and update thesis status when document is submitted or rejected.
+    Update the status of a document and update thesis status when document status changes.
     
     Args:
         document: Document instance
@@ -214,42 +214,59 @@ def update_document_status(document, new_status, actor=None):
     document.status = new_status
     document.save(update_fields=['status', 'updated_at'])
     
-    # If document is being submitted, update thesis status based on document type
+    # If document is being approved by adviser, update thesis status based on document type
     if document.thesis:
         thesis = document.thesis
         document_type = document.document_type
         
-        # Map document types to thesis status updates
-        status_updates = {
+        # Map document types to thesis status updates - ONLY when approved by adviser
+        adviser_status_updates = {
             'concept_paper': {
-                'from': ['TOPIC_APPROVED'],
-                'to': 'CONCEPT_SUBMITTED',
-                'reject_to': 'TOPIC_APPROVED'  # Status to revert to when rejected
+                'from': ['CONCEPT_SUBMITTED'],
+                'to': 'READY_FOR_CONCEPT_DEFENSE',
+                'reject_to': 'CONCEPT_SUBMITTED'  # Status to revert to when rejected
             },
             'research_proposal': {
-                'from': ['CONCEPT_APPROVED'],
-                'to': 'PROPOSAL_SUBMITTED',
-                'reject_to': 'CONCEPT_APPROVED'
+                'from': ['PROPOSAL_SUBMITTED'],
+                'to': 'READY_FOR_PROPOSAL_DEFENSE',
+                'reject_to': 'PROPOSAL_SUBMITTED'
             },
             'final_manuscript': {
-                'from': ['PROPOSAL_APPROVED', 'RESEARCH_IN_PROGRESS'],
-                'to': 'FINAL_SUBMITTED',
-                'reject_to': 'RESEARCH_IN_PROGRESS'
+                'from': ['FINAL_SUBMITTED'],
+                'to': 'READY_FOR_FINAL_DEFENSE',
+                'reject_to': 'FINAL_SUBMITTED'
             }
         }
         
-        if new_status == 'rejected' and document_type in status_updates:
+        # Map document types to thesis status updates - when document becomes submitted
+        submission_status_updates = {
+            'concept_paper': 'CONCEPT_SUBMITTED',
+            'research_proposal': 'PROPOSAL_SUBMITTED',
+            'final_manuscript': 'FINAL_SUBMITTED'
+        }
+        
+        if new_status == 'rejected' and document_type in adviser_status_updates:
             # Revert thesis status when document is rejected
-            revert_status = status_updates[document_type].get('reject_to')
-            if revert_status and thesis.status == status_updates[document_type]['to']:
+            revert_status = adviser_status_updates[document_type].get('reject_to')
+            if revert_status and thesis.status == adviser_status_updates[document_type]['to']:
                 thesis.status = revert_status
                 thesis.save(update_fields=['status', 'updated_at'])
                 print(f"Reverted thesis {thesis.id} status to {revert_status} "
                       f"after rejecting {document_type} document")
         
-        elif new_status == 'submitted' and document_type in status_updates:
+        # Update thesis status when document becomes submitted
+        elif new_status == 'submitted' and document_type in submission_status_updates:
             # Update thesis status when document is submitted
-            update_info = status_updates[document_type]
+            new_thesis_status = submission_status_updates[document_type]
+            thesis.status = new_thesis_status
+            thesis.save(update_fields=['status', 'updated_at'])
+            print(f"Updated thesis {thesis.id} status to {new_thesis_status} "
+                  f"after {document_type} document submission")
+        
+        # Only change thesis status when document is approved (not when submitted by student)
+        elif new_status == 'approved' and document_type in adviser_status_updates:
+            # Update thesis status when document is approved by adviser
+            update_info = adviser_status_updates[document_type]
             
             # Only update if current status is in the 'from' list or if 'from' is empty
             if not update_info['from'] or thesis.status in update_info['from']:
@@ -258,6 +275,6 @@ def update_document_status(document, new_status, actor=None):
                 
                 # Log the status update
                 print(f"Updated thesis {thesis.id} status to {update_info['to']} "
-                      f"after submitting {document_type} document")
+                      f"after adviser approved {document_type} document")
     
     return document

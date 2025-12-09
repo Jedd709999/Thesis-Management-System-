@@ -5,17 +5,50 @@ import { Document } from '../types'
  * Fetch all documents
  */
 export async function fetchDocuments(thesisId?: string): Promise<Document[]> {
-  const params = thesisId ? { thesis: thesisId } : {}
-  const res = await api.get('/documents/', { params })
-  return res.data
-}
-
-/**
+  try {
+    console.log('fetchDocuments called with thesisId:', thesisId);
+    const params = thesisId ? { thesis: thesisId } : {}
+    console.log('Making API request to /documents/ with params:', params);
+    const res = await api.get('/documents/', { params })
+    console.log('API response for fetchDocuments:', res);
+    console.log('API response data structure:', typeof res.data, res.data);
+    // Handle paginated responses
+    let result: Document[] = [];
+    if (Array.isArray(res.data)) {
+      // Direct array response
+      result = res.data;
+    } else if (res.data && typeof res.data === 'object' && 'results' in res.data) {
+      // Paginated response
+      result = Array.isArray(res.data.results) ? res.data.results : [];
+    } else {
+      console.log('Unexpected response structure, trying to parse as direct array:', res.data);
+      // Try to handle unexpected response structures
+      if (res.data && typeof res.data === 'object') {
+        if ('results' in res.data) {
+          result = Array.isArray(res.data.results) ? res.data.results : [];
+        } else {
+          // If it's an object but not paginated, try to convert to array
+          result = [res.data];
+        }
+      }
+    }
+    console.log('fetchDocuments returning:', result);
+    return result
+  } catch (error) {
+    console.error('Error fetching documents:', error)
+    return [] // Return empty array on error
+  }
+}/**
  * Fetch a single document by ID
  */
 export async function fetchDocument(id: string): Promise<Document> {
-  const res = await api.get(`documents/${id}/`)
-  return res.data
+  try {
+    const res = await api.get(`documents/${id}/`)
+    return res.data
+  } catch (error) {
+    console.error('Error fetching document:', error)
+    throw error
+  }
 }
 
 /**
@@ -73,8 +106,14 @@ export async function downloadDocument(id: string): Promise<Blob> {
  * Get document versions
  */
 export async function getDocumentVersions(id: string): Promise<Document[]> {
-  const res = await api.get(`documents/${id}/versions/`)
-  return res.data
+  try {
+    const res = await api.get(`documents/${id}/versions/`)
+    // Ensure we always return an array
+    return Array.isArray(res.data) ? res.data : []
+  } catch (error) {
+    console.error('Error fetching document versions:', error)
+    return [] // Return empty array on error
+  }
 }
 
 /**
@@ -133,7 +172,7 @@ export async function updateDocumentStatus(
 export async function checkUserHasThesis() {
   try {
     const groupsRes = await api.get('/groups/get_current_user_groups/')
-    const groups = groupsRes.data || []
+    const groups = Array.isArray(groupsRes.data) ? groupsRes.data : []
     
     const groupTheses = groups.filter((g: any) => g.thesis)
     return {

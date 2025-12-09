@@ -4,23 +4,31 @@ from django.utils import timezone
 from .group_models import Group, TopicProposal
 from .user_models import User
 
+class ThesisQuerySet(models.QuerySet):
+    pass
+
+class ThesisManager(models.Manager):
+    def get_queryset(self):
+        """Default queryset"""
+        return ThesisQuerySet(self.model, using=self._db)
+
 class Thesis(models.Model):
     STATUS_CHOICES = (
         # Topic phase
-        ('TOPIC_SUBMITTED', 'Topic Submitted'),  # Topic proposal submitted for review
-        ('TOPIC_APPROVED', 'Topic Approved'),   # Topic approved (can proceed to full proposal)
-        ('TOPIC_REJECTED', 'Topic Rejected'),   # Topic rejected
+        ('TOPIC_SUBMITTED', 'Topic Submitted'),   # Initial state after submission
+        ('TOPIC_APPROVED', 'Topic Approved'),    # Topic approved by adviser
+        ('TOPIC_REJECTED', 'Topic Rejected'),    # Topic rejected by adviser
         
         # Concept phase
-        ('CONCEPT_SUBMITTED', 'Concept Submitted'),  # Concept paper uploaded/submitted for concept defense
-        ('CONCEPT_SCHEDULED', 'Concept Scheduled'),   # Concept defense scheduled
-        ('CONCEPT_DEFENDED', 'Concept Defended'),   # Concept defense completed (results pending)
-        ('CONCEPT_APPROVED', 'Concept Approved'),   # Concept passed (can proceed to full proposal)
+        ('CONCEPT_SUBMITTED', 'Concept Submitted'), # Concept paper uploaded
+        ('READY_FOR_CONCEPT_DEFENSE', 'Ready for Concept Defense'),  # Concept paper approved, ready for defense
+        ('CONCEPT_SCHEDULED', 'Concept Scheduled'), # Concept defense scheduled
+        ('CONCEPT_APPROVED', 'Concept Approved'),  # Concept accepted (move to proposal phase)
         
         # Proposal phase
-        ('PROPOSAL_SUBMITTED', 'Proposal Submitted'), # Full research proposal uploaded/submitted
+        ('PROPOSAL_SUBMITTED', 'Proposal Submitted'), # Research proposal uploaded
+        ('READY_FOR_PROPOSAL_DEFENSE', 'Ready for Proposal Defense'),  # Research proposal approved, ready for defense
         ('PROPOSAL_SCHEDULED', 'Proposal Scheduled'), # Proposal defense scheduled
-        ('PROPOSAL_DEFENDED', 'Proposal Defended'),  # Proposal defense held
         ('PROPOSAL_APPROVED', 'Proposal Approved'),  # Proposal accepted (research may proceed; ethics clearance etc.)
         
         # Research phase
@@ -28,12 +36,16 @@ class Thesis(models.Model):
         
         # Final phase
         ('FINAL_SUBMITTED', 'Final Submitted'),    # Final manuscript & required bound copies uploaded/submitted
+        ('READY_FOR_FINAL_DEFENSE', 'Ready for Final Defense'),  # Final manuscript approved, ready for defense
         ('FINAL_SCHEDULED', 'Final Scheduled'),    # Final (oral) defense scheduled
-        ('FINAL_DEFENDED', 'Final Defended'),     # Final defense held
         ('FINAL_APPROVED', 'Final Approved'),     # Thesis passed / approved
         
+        # Specific revision statuses (stage-specific)
+        ('CONCEPT_REVISIONS_REQUIRED', 'Concept Revisions Required'),  # Panel/adviser requested revisions for concept
+        ('PROPOSAL_REVISIONS_REQUIRED', 'Proposal Revisions Required'),  # Panel/adviser requested revisions for proposal
+        ('FINAL_REVISIONS_REQUIRED', 'Final Revisions Required'),  # Panel/adviser requested revisions for final manuscript
+        
         # Other statuses
-        ('REVISIONS_REQUIRED', 'Revisions Required'), # Panel/adviser requested major revisions after any defense
         ('REJECTED', 'Rejected'),           # Proposal/thesis rejected (rare)
         ('ARCHIVED', 'Archived'),           # Thesis closed & archived
     )
@@ -70,7 +82,8 @@ class Thesis(models.Model):
     )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(null=True, blank=True)
+    # Use custom manager
+    objects = ThesisManager()
 
     class Meta:
         verbose_name_plural = 'Theses'
@@ -80,12 +93,9 @@ class Thesis(models.Model):
         return f"{self.title} ({self.get_status_display()})"
         
     def delete(self, *args, **kwargs):
-        self.deleted_at = timezone.now()
-        self.save()
-        
-    def hard_delete(self, *args, **kwargs):
+        """Permanently delete the thesis"""
         super().delete(*args, **kwargs)
-
+    
     def submit(self):
         """Submit the thesis for review."""
         # Handle transitions based on current status
@@ -99,9 +109,24 @@ class Thesis(models.Model):
             self.status = status_transitions[self.status]
             self.save()
             return True
-        elif self.status in ['TOPIC_REJECTED', 'REVISIONS_REQUIRED']:
-            # Resubmit after revisions or rejection
+        elif self.status == 'TOPIC_REJECTED':
+            # Resubmit after rejection
             self.status = 'TOPIC_SUBMITTED'
+            self.save()
+            return True
+        elif self.status == 'CONCEPT_REVISIONS_REQUIRED':
+            # Resubmit after concept revisions
+            self.status = 'CONCEPT_SUBMITTED'
+            self.save()
+            return True
+        elif self.status == 'PROPOSAL_REVISIONS_REQUIRED':
+            # Resubmit after proposal revisions
+            self.status = 'PROPOSAL_SUBMITTED'
+            self.save()
+            return True
+        elif self.status == 'FINAL_REVISIONS_REQUIRED':
+            # Resubmit after final revisions
+            self.status = 'FINAL_SUBMITTED'
             self.save()
             return True
         else:
