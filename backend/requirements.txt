@@ -16,4 +16,9 @@ google-auth-oauthlib==1.2.1
 pymysql==1.1.0
 gunicorn==23.0.0
 daphne==4.0.0
+<<<<<<< HEAD
 django-allauth==0.62.1
+=======
+openpyxl==3.1.5
+reportlab==4.2.5
+>>>>>>> 13a4e22ac92d7824c227a4dff1ae74d9d5e9cb09

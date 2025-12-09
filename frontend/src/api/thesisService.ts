@@ -163,3 +163,42 @@ export const fetchPanelActions = async (thesisId: string): Promise<PanelAction[]
 export const listThesis = fetchTheses
 export const getAllTheses = fetchTheses
 export const getThesis = fetchThesis
+
+/**
+ * Search for thesis topics by keyword to prevent duplication
+ */
+export async function searchTopics(query: string): Promise<{
+  query: string;
+  exists: boolean;
+  results: Array<{
+    id: string;
+    title: string;
+    abstract: string;
+    keywords: string;
+    status: string;
+    status_display: string;
+    // Group information
+    group_name: string | null;
+    group_leader: string | null;
+    group_leader_email: string | null;
+    // People involved
+    proposer_name: string | null;
+    proposer_email: string | null;
+    adviser_name: string | null;
+    adviser_email: string | null;
+    panel_members: string[];
+    group_members: string[];
+    // Dates
+    created_at: string;
+    updated_at: string;
+    created_date_display: string;
+    created_time_display: string;
+    // Location
+    location: string;
+  }>;
+  message: string;
+  total_results: number;
+}> {
+  const res = await api.get('/theses/search_topics/', { params: { q: query } });
+  return res.data;
+}

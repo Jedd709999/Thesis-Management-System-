@@ -10,6 +10,7 @@ from api.models.thesis_models import Thesis
 from api.models.user_models import User
 from api.serializers.schedule_serializers import ScheduleSerializer, ScheduleAvailabilitySerializer
 from api.permissions.role_permissions import IsAdviser, IsAdviserOrPanelForSchedule, CanCreateSchedule
+from api.services.notification_service import NotificationService
 from api.utils.scheduling_utils import (
     check_panel_member_availability, 
     find_free_time_slots,
@@ -69,7 +70,21 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         with transaction.atomic():
-            serializer.save()
+            # Store original values for notification
+            original_schedule = self.get_object()
+            original_date = original_schedule.scheduled_date
+            original_status = original_schedule.status
+
+            schedule = serializer.save()
+
+            # Check if date changed and send update notification
+            if original_date != schedule.scheduled_date:
+                NotificationService.notify_schedule_updated(schedule, schedule.thesis, original_date)
+
+            # Check if schedule was cancelled
+            if original_status != 'cancelled' and schedule.status == 'cancelled':
+                reason = getattr(schedule, 'cancellation_reason', '')
+                NotificationService.notify_schedule_cancelled(schedule, schedule.thesis, reason)
 
     @action(detail=False, methods=['post'], url_path='check-availability')
     def check_availability(self, request):

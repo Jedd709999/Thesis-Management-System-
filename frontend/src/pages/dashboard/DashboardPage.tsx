@@ -3,7 +3,11 @@ import { CheckCircle, Clock, Users, TrendingUp, Calendar, Upload, Leaf, Droplets
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+<<<<<<< HEAD
 import { fetchCurrentUserGroups, fetchGroups } from '../../api/groupService';
+=======
+import { fetchCurrentUserGroups, getGroupStatistics } from '../../api/groupService';
+>>>>>>> 13a4e22ac92d7824c227a4dff1ae74d9d5e9cb09
 import { fetchUnreadNotifications, fetchRecentActivities, markNotificationAsRead, Activity, ActivityNotification } from '../../api/activityService';
 import { fetchCurrentUserTheses, fetchTheses } from '../../api/thesisService'; // Import fetchTheses
 import { Group, Thesis } from '../../types';
@@ -20,26 +24,35 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [theses, setTheses] = useState<Thesis[]>([]);
   const [notifications, setNotifications] = useState<ActivityNotification[]>([]);
+  const [groupStats, setGroupStats] = useState<{
+    total_registered_groups: number;
+    active_groups: number;
+    pending_groups: number;
+    rejected_groups: number;
+  } | null>(null);
   const [loading, setLoading] = useState({
     groups: true,
     theses: true,
-    notifications: true
+    notifications: true,
+    stats: false
   });
   const [error, setError] = useState<{
     groups: string | null;
     theses: string | null;
     notifications: string | null;
+    stats: string | null;
   }>({
     groups: null,
     theses: null,
-    notifications: null
+    notifications: null,
+    stats: null
   });
 
   const loadGroups = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, groups: true }));
       setError(prev => ({ ...prev, groups: null }));
-      
+
       console.log('Dashboard: Loading user groups...');
       let userGroups: Group[] = [];
       
@@ -51,12 +64,12 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
       }
       
       console.log('Dashboard: Loaded groups:', userGroups);
-      
+
       // Deduplicate groups by ID to prevent duplicates
-      const uniqueGroups = userGroups.filter((group, index, self) => 
+      const uniqueGroups = userGroups.filter((group, index, self) =>
         index === self.findIndex(g => g.id === group.id)
       );
-      
+
       console.log('Dashboard: Unique groups after deduplication:', uniqueGroups);
       setGroups(uniqueGroups);
     } catch (err) {
@@ -71,14 +84,18 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     try {
       setLoading(prev => ({ ...prev, theses: true }));
       setError(prev => ({ ...prev, theses: null }));
-      
+
       console.log('Dashboard: Loading user theses...');
       let userTheses: Thesis[] = [];
+<<<<<<< HEAD
       
       // For admins, fetch all theses
       if (userRole === 'admin') {
         userTheses = await fetchTheses();
       }
+=======
+
+>>>>>>> 13a4e22ac92d7824c227a4dff1ae74d9d5e9cb09
       // For students, fetch all theses and filter by access
       else if (userRole === 'student') {
         const allTheses = await fetchCurrentUserTheses();
@@ -86,22 +103,22 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
         userTheses = allTheses.filter(thesis => {
           // Student has access if they are the proposer or a member of the group
           const isProposer = thesis.proposer && String(thesis.proposer.id) === String(user?.id);
-          
+
           // Check if student is a member of the group
           let isMember = false;
           if (typeof thesis.group === 'object' && thesis.group !== null && 'members' in thesis.group) {
-            isMember = thesis.group.members.some((member: any) => 
+            isMember = thesis.group.members.some((member: any) =>
               String(member.id) === String(user?.id)
             );
           }
-          
+
           return isProposer || isMember;
         });
       } else {
         // For other roles, fetch their assigned theses
         userTheses = await fetchCurrentUserTheses();
       }
-      
+
       console.log('Dashboard: Loaded theses:', userTheses);
       setTheses(userTheses);
     } catch (err) {
@@ -116,7 +133,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     try {
       setLoading(prev => ({ ...prev, notifications: true }));
       setError(prev => ({ ...prev, notifications: null }));
-      
+
       console.log('Dashboard: Loading notifications...');
       const unreadNotifications = await fetchUnreadNotifications();
       console.log('Dashboard: Loaded notifications:', unreadNotifications);
@@ -129,11 +146,30 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     }
   }, []);
 
+  const loadGroupStats = useCallback(async () => {
+    if (userRole !== 'admin') return;
+
+    try {
+      setLoading(prev => ({ ...prev, stats: true }));
+      setError(prev => ({ ...prev, stats: null }));
+
+      console.log('Dashboard: Loading group statistics...');
+      const stats = await getGroupStatistics();
+      console.log('Dashboard: Loaded group statistics:', stats);
+      setGroupStats(stats);
+    } catch (err) {
+      console.error('Dashboard: Error loading group statistics:', err);
+      setError(prev => ({ ...prev, stats: 'Failed to load group statistics' }));
+    } finally {
+      setLoading(prev => ({ ...prev, stats: false }));
+    }
+  }, [userRole]);
+
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await markNotificationAsRead(notificationId);
-      setNotifications(prev => 
-        prev.map(n => 
+      setNotifications(prev =>
+        prev.map(n =>
           n.id === notificationId ? { ...n, read: true } : n
         )
       );
@@ -149,7 +185,8 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
         await Promise.all([
           loadGroups(),
           loadTheses(),
-          loadNotifications()
+          loadNotifications(),
+          loadGroupStats()
         ]);
       } catch (err) {
         console.error('Dashboard: Error loading data:', err);
@@ -157,8 +194,8 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
     };
 
     loadAllData();
-  }, [loadGroups, loadTheses, loadNotifications]);
-  
+  }, [loadGroups, loadTheses, loadNotifications, loadGroupStats]);
+
   // Function to retry loading data
   const handleRetry = async (type: 'groups' | 'theses' | 'notifications') => {
     try {
@@ -180,54 +217,54 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
 
   const getStatCards = () => {
     // Deduplicate groups by ID to prevent counting duplicates
-    const uniqueGroups = groups.filter((group, index, self) => 
+    const uniqueGroups = groups.filter((group, index, self) =>
       index === self.findIndex(g => g.id === group.id)
     );
-    
+
     // Calculate real stats based on deduplicated data
     const activeGroups = uniqueGroups.filter(g => g.status === 'APPROVED').length;
     const pendingGroups = uniqueGroups.filter(g => g.status === 'PENDING').length;
     const groupMembers = uniqueGroups.reduce((sum, g) => sum + (g.members?.length || 0), 0);
-    
+
     switch (userRole) {
       case 'student':
         // For students, show their single group and thesis
         const studentGroup = uniqueGroups.length > 0 ? uniqueGroups[0] : null;
         const studentThesis = theses.length > 0 ? theses[0] : null;
-        
+
         return [
-          { 
-            label: 'My Group', 
-            value: studentGroup ? studentGroup.name : 'None', 
-            icon: Users, 
+          {
+            label: 'My Group',
+            value: studentGroup ? studentGroup.name : 'None',
+            icon: Users,
             color: 'text-green-600 bg-green-100'
           },
-          { 
-            label: 'Group Status', 
-            value: studentGroup ? studentGroup.status : 'N/A', 
-            icon: CheckCircle, 
-            color: studentGroup?.status === 'APPROVED' ? 'text-blue-600 bg-blue-100' : 
-                   studentGroup?.status === 'PENDING' ? 'text-amber-600 bg-amber-100' : 
+          {
+            label: 'Group Status',
+            value: studentGroup ? studentGroup.status : 'N/A',
+            icon: CheckCircle,
+            color: studentGroup?.status === 'APPROVED' ? 'text-blue-600 bg-blue-100' :
+                   studentGroup?.status === 'PENDING' ? 'text-amber-600 bg-amber-100' :
                    'text-gray-600 bg-gray-100',
-            detail: studentGroup ? (studentGroup.status === 'APPROVED' ? 'Approved' : 
-                                   studentGroup.status === 'PENDING' ? 'Pending Approval' : 
+            detail: studentGroup ? (studentGroup.status === 'APPROVED' ? 'Approved' :
+                                   studentGroup.status === 'PENDING' ? 'Pending Approval' :
                                    'Not Available') : ''
           },
-          { 
-            label: 'My Thesis', 
-            value: studentThesis ? studentThesis.title : 'None', 
-            icon: BookOpen, 
+          {
+            label: 'My Thesis',
+            value: studentThesis ? studentThesis.title : 'None',
+            icon: BookOpen,
             color: 'text-purple-600 bg-purple-100'
           },
-          { 
-            label: 'Thesis Status', 
-            value: studentThesis ? studentThesis.status : 'N/A', 
-            icon: TrendingUp, 
-            color: studentThesis ? 
-                   (studentThesis.status.includes('APPROVED') ? 'text-green-600 bg-green-100' : 
-                    studentThesis.status.includes('SUBMITTED') ? 'text-blue-600 bg-blue-100' : 
-                    studentThesis.status.includes('REJECTED') ? 'text-red-600 bg-red-100' : 
-                    'text-amber-600 bg-amber-100') : 
+          {
+            label: 'Thesis Status',
+            value: studentThesis ? studentThesis.status : 'N/A',
+            icon: TrendingUp,
+            color: studentThesis ?
+                   (studentThesis.status.includes('APPROVED') ? 'text-green-600 bg-green-100' :
+                    studentThesis.status.includes('SUBMITTED') ? 'text-blue-600 bg-blue-100' :
+                    studentThesis.status.includes('REJECTED') ? 'text-red-600 bg-red-100' :
+                    'text-amber-600 bg-amber-100') :
                    'text-gray-600 bg-gray-100',
             detail: studentThesis ? studentThesis.status.replace(/_/g, ' ') : ''
           },
@@ -247,12 +284,22 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
           { label: 'Assigned Theses', value: theses.length.toString(), icon: BookOpen, color: 'text-purple-600 bg-purple-100' },
         ];
       default: // admin
-        return [
-          { label: 'Total Groups', value: uniqueGroups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
-          { label: 'Active Groups', value: activeGroups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
-          { label: 'Pending Groups', value: pendingGroups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
-          { label: 'Total Theses', value: theses.length.toString(), icon: BookOpen, color: 'text-purple-600 bg-purple-100' },
-        ];
+        if (groupStats) {
+          return [
+            { label: 'Registered Groups', value: groupStats.total_registered_groups.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
+            { label: 'Active Groups', value: groupStats.active_groups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
+            { label: 'Pending Groups', value: groupStats.pending_groups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
+            { label: 'Rejected Groups', value: groupStats.rejected_groups.toString(), icon: BookOpen, color: 'text-red-600 bg-red-100' },
+          ];
+        } else {
+          // Fallback to current user groups if stats not loaded yet
+          return [
+            { label: 'Total Groups', value: uniqueGroups.length.toString(), icon: Users, color: 'text-green-600 bg-green-100' },
+            { label: 'Active Groups', value: activeGroups.toString(), icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
+            { label: 'Pending Groups', value: pendingGroups.toString(), icon: Clock, color: 'text-amber-600 bg-amber-100' },
+            { label: 'Total Theses', value: theses.length.toString(), icon: BookOpen, color: 'text-purple-600 bg-purple-100' },
+          ];
+        }
     }
   };
 
@@ -270,29 +317,29 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
   };
 
   const quickActions = [
-    { 
-      label: userRole === 'student' ? 'My Group' : 'View Groups', 
-      icon: Users, 
-      action: 'groups', 
-      color: 'bg-green-700 hover:bg-green-800' 
+    {
+      label: userRole === 'student' ? 'My Group' : 'View Groups',
+      icon: Users,
+      action: 'groups',
+      color: 'bg-green-700 hover:bg-green-800'
     },
-    { 
-      label: userRole === 'student' ? 'My Thesis' : 'View Theses', 
-      icon: BookOpen, 
-      action: 'thesis', 
-      color: 'bg-purple-700 hover:bg-purple-800' 
+    {
+      label: userRole === 'student' ? 'My Thesis' : 'View Theses',
+      icon: BookOpen,
+      action: 'thesis',
+      color: 'bg-purple-700 hover:bg-purple-800'
     },
-    { 
-      label: 'Upload Document', 
-      icon: Upload, 
-      action: 'documents', 
-      color: 'bg-blue-700 hover:bg-blue-800' 
+    {
+      label: 'Upload Document',
+      icon: Upload,
+      action: 'documents',
+      color: 'bg-blue-700 hover:bg-blue-800'
     },
-    { 
-      label: 'View Calendar', 
-      icon: Calendar, 
-      action: 'schedule', 
-      color: 'bg-amber-700 hover:bg-amber-800' 
+    {
+      label: 'View Calendar',
+      icon: Calendar,
+      action: 'schedule',
+      color: 'bg-amber-700 hover:bg-amber-800'
     },
     // Add pending proposals action for admins
     ...(userRole === 'admin' ? [{
@@ -304,8 +351,8 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
   ];
 
   const statCards = getStatCards();
-  const isLoading = loading.groups || loading.theses || loading.notifications;
-  const hasError = error.groups || error.theses || error.notifications;
+  const isLoading = loading.groups || loading.theses || loading.notifications || (userRole === 'admin' && loading.stats);
+  const hasError = error.groups || error.theses || error.notifications || (userRole === 'admin' && error.stats);
 
   // Show loading state only when initially loading
   if (isLoading && groups.length === 0 && theses.length === 0 && notifications.length === 0) {
@@ -424,9 +471,9 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
                 ) : error.notifications ? (
                   <div className="text-red-500">
                     <p>Failed to load notifications</p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="mt-2"
                       onClick={() => handleRetry('notifications')}
                     >
@@ -468,6 +515,7 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
           })}
         </div>
       </Card>
+
     </div>
   );
 }

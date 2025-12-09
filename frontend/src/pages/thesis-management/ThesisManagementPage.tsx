@@ -46,7 +46,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   const [keywords, setKeywords] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [otherTheses, setOtherTheses] = useState<Thesis[]>([]);
-  
+
   // Adviser approval/rejection state
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -55,6 +55,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showGoogleConnectDialog, setShowGoogleConnectDialog] = useState(false);
   const [isCheckingGoogle, setIsCheckingGoogle] = useState(false);
+
   
   // Panel action state
   const [isPanelActionDialogOpen, setIsPanelActionDialogOpen] = useState(false);
@@ -70,16 +71,19 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   // Archive state
   const [isArchiving, setIsArchiving] = useState(false);
   
+
+
+
   // Debug log
   console.log('ThesisManagement component mounted with:', { userRole, currentUser: currentUser?.id, currentUserRole: currentUser?.role });
-  
+
   // Additional debug logs
-  console.log('User role check:', { 
-    userRole, 
+  console.log('User role check:', {
+    userRole,
     isPanel: userRole?.toLowerCase() === 'panel',
     isAdviser: userRole?.toLowerCase() === 'adviser'
   });
-  
+
   // Check if user role is correctly set
   if (currentUser) {
     console.log('Current user role from context:', currentUser.role);
@@ -97,7 +101,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         setLoading(true);
         let fetchedTheses: Thesis[] = [];
         let fetchedOtherTheses: Thesis[] = [];
-        
+
         // For advisers and panels, fetch both their assigned theses and other theses
         if (userRole?.toLowerCase() === 'adviser' || userRole?.toLowerCase() === 'panel') {
           console.log('Fetching theses for adviser/panel user');
@@ -120,7 +124,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
           fetchedTheses = await fetchTheses();
           console.log('Fetched theses:', fetchedTheses);
         }
-        
+
         setTheses(fetchedTheses);
         setOtherTheses(fetchedOtherTheses);
         setError(null);
@@ -258,17 +262,20 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     
     thesesArray.forEach(thesis => {
       groups.all.push(thesis);
-      
+
       // For students, categorize by access rights
       if (userRole?.toLowerCase() === 'student') {
         // Check if user has access to view this thesis (same logic as canViewThesis)
         let hasAccess = false;
-        
+
         // Check if user is the proposer of the thesis
         const isProposer = thesis.proposer && (
           (typeof thesis.proposer === 'object' && String(thesis.proposer.id) === String(currentUser?.id)) ||
           (typeof thesis.proposer === 'number' && String(thesis.proposer) === String(currentUser?.id)) ||
           (typeof thesis.proposer === 'string' && String(thesis.proposer) === String(currentUser?.id))
+
+
+        // Check if the group is a Group object
         );
         
         console.log('Thesis proposer check:', {
@@ -280,47 +287,55 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         });
         
         // Check if the group is a Group object
+
+
+
+        // Check if the group is a Group object
         if (typeof thesis.group === 'object' && thesis.group !== null) {
           // Check if user is a member or leader of the group
           let isMemberOrLeader = false;
           if ('members' in thesis.group && Array.isArray(thesis.group.members)) {
-            isMemberOrLeader = thesis.group.members.some(member => 
+            isMemberOrLeader = thesis.group.members.some(member =>
               member && typeof member === 'object' && 'id' in member && String(member.id) === String(currentUser?.id)
             );
           }
-          
+
           // Check if user is the leader of the group
           if (!isMemberOrLeader && 'leader' in thesis.group && thesis.group.leader) {
             isMemberOrLeader = String(thesis.group.leader.id) === String(currentUser?.id);
           }
-          
+
           // Check if user is the adviser of the group
           let isAdviser = false;
           if ('adviser' in thesis.group && thesis.group.adviser) {
             isAdviser = String(thesis.group.adviser.id) === String(currentUser?.id);
           }
-          
+
           // Check if user is a panel member of the group
           let isPanel = false;
           if ('panels' in thesis.group && Array.isArray(thesis.group.panels)) {
+            console.log('Checking panels:', thesis.group.panels);
+            console.log('Current user ID:', currentUser?.id);
             isPanel = thesis.group.panels.some(panel => {
-              return panel && typeof panel === 'object' && 'id' in panel && String(panel.id) === String(currentUser?.id);
+              const result = panel && typeof panel === 'object' && 'id' in panel && String(panel.id) === String(currentUser?.id);
+              console.log('Panel check result:', { panel, userId: currentUser?.id, result });
+              return result;
             });
           }
-          
+
           // User has access if they are proposer, member/leader, adviser, or panel member
           hasAccess = isProposer || isMemberOrLeader || isAdviser || isPanel;
         } else {
           // If we can't determine group access, only allow proposer access
           hasAccess = isProposer;
         }
-        
+
         if (hasAccess) {
           groups.my.push(thesis);
         } else {
           groups.others.push(thesis);
         }
-      } 
+      }
       // For advisers and panels, all fetched theses are their assigned theses
       else if (userRole?.toLowerCase() === 'adviser' || userRole?.toLowerCase() === 'panel') {
         groups.my.push(thesis);
@@ -343,12 +358,16 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
 
   // Filter theses based on search and filters
   const getFilteredTheses = (thesisList: Thesis[]) => {
+
     // Ensure thesisList is an array before filtering
     const thesesArray = Array.isArray(thesisList) ? thesisList : [];
     
     return thesesArray.filter((thesis) => {
-      const matchesSearch = searchQuery === '' || 
+      const matchesSearch = searchQuery === '' ||
+
                            thesis.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           thesis.abstract.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           thesis.keywords.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            (thesis.group && typeof thesis.group !== 'string' && thesis.group.name.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesStatus = statusFilter === 'all' || thesis.status === statusFilter;
       return matchesSearch && matchesStatus;
@@ -361,9 +380,9 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   // Render thesis table for a specific group
   const renderThesisTable = (thesisList: Thesis[], tabType: string) => {
     const filteredList = getFilteredTheses(thesisList);
-    
+
     console.log('Rendering thesis table with user role:', userRole, 'tab:', tabType, 'theses count:', filteredList.length);
-    
+
     return (
       <Card className="border-0 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -416,8 +435,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                         return canView && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => onViewDetail(thesis.id)}
                                 className="text-green-700 hover:text-green-800 hover:bg-green-50 p-2"
@@ -434,8 +453,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                       {(userRole?.toLowerCase() === 'student' || userRole?.toLowerCase() === 'admin') && isThesisOwner(thesis) && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleEditThesis(thesis)}
                               className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2"
@@ -451,8 +470,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                       {(userRole?.toLowerCase() === 'admin' || (userRole?.toLowerCase() === 'student' && isThesisOwner(thesis))) && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteThesis(thesis.id)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
@@ -511,8 +530,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                         <>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => handleApproveClick(thesis)}
                                 className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2"
@@ -526,8 +545,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => handleRejectClick(thesis)}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
@@ -714,7 +733,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     if (!abstract.trim()) {
       errors.abstract = 'Abstract is required';
     }
-    
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
@@ -741,9 +760,9 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         keywords,
         group_id: approvedGroupId
       };
-      
+
       await createThesis(thesisData);
-      
+
       // Refresh theses based on user role
       let fetchedTheses: Thesis[] = [];
       let fetchedOtherTheses: Thesis[] = [];
@@ -759,14 +778,14 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       }
       setTheses(fetchedTheses);
       setOtherTheses(fetchedOtherTheses);
-      
+
       // Reset form and close dialog
       setTitle('');
       setAbstract('');
       setKeywords('');
       setFormErrors({});
       setIsCreateDialogOpen(false);
-      
+
       // Show success message
       alert('Thesis proposal created successfully!');
     } catch (error) {
@@ -821,7 +840,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   const isAdviserForThesis = (thesis: Thesis): boolean => {
     // First check if current user is an adviser and we have a user
     if (userRole?.toLowerCase() !== 'adviser' || !currentUser) return false;
-    
+
     console.log('Checking if user is adviser for thesis:', {
       thesisId: thesis.id,
       userRole,
@@ -829,7 +848,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       thesisGroup: thesis.group,
       groupType: typeof thesis.group
     });
-    
+
     // Check if the group is a Group object and has an adviser
     if (typeof thesis.group === 'object' && thesis.group !== null && 'adviser' in thesis.group) {
       // The adviser object might be nested within the group object
@@ -840,7 +859,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         return result;
       }
     }
-    
+
     console.log('Group is not a valid object or has no adviser');
     return false;
   };
@@ -849,23 +868,24 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   const canViewThesis = (thesis: Thesis): boolean => {
     // Admins always have access to all theses
     if (userRole?.toLowerCase() === 'admin') return true;
-    
+
     // If we don't have a current user, deny access
     if (!currentUser) return false;
-    
-    console.log('canViewThesis check:', { 
-      userRole, 
-      currentUser: currentUser.id, 
-      thesisId: thesis.id, 
-      thesisGroup: thesis.group 
+
+    console.log('canViewThesis check:', {
+      userRole,
+      currentUser: currentUser.id,
+      thesisId: thesis.id,
+      thesisGroup: thesis.group
     });
-    
+
     // Check if user is the proposer of the thesis
     const isProposer = thesis.proposer && (
       (typeof thesis.proposer === 'object' && String(thesis.proposer.id) === String(currentUser.id)) ||
       (typeof thesis.proposer === 'number' && String(thesis.proposer) === String(currentUser.id)) ||
       (typeof thesis.proposer === 'string' && String(thesis.proposer) === String(currentUser.id))
     );
+
     
     console.log('canViewThesis - isProposer check:', {
       thesisId: thesis.id,
@@ -875,29 +895,32 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       isProposer
     });
     
+
+
+
     // Check if the group is a Group object
     if (typeof thesis.group === 'object' && thesis.group !== null) {
       console.log('Checking group access for thesis:', thesis.id);
-      
+
       // Check if user is a member or leader of the group
       let isMemberOrLeader = false;
       if ('members' in thesis.group && Array.isArray(thesis.group.members)) {
-        isMemberOrLeader = thesis.group.members.some(member => 
+        isMemberOrLeader = thesis.group.members.some(member =>
           member && typeof member === 'object' && 'id' in member && String(member.id) === String(currentUser.id)
         );
       }
-      
+
       // Check if user is the leader of the group
       if (!isMemberOrLeader && 'leader' in thesis.group && thesis.group.leader) {
         isMemberOrLeader = String(thesis.group.leader.id) === String(currentUser.id);
       }
-      
+
       // Check if user is the adviser of the group
       let isAdviser = false;
       if ('adviser' in thesis.group && thesis.group.adviser) {
         isAdviser = String(thesis.group.adviser.id) === String(currentUser.id);
       }
-      
+
       // Check if user is a panel member of the group
       let isPanel = false;
       if ('panels' in thesis.group && Array.isArray(thesis.group.panels)) {
@@ -909,13 +932,13 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
           return result;
         });
       }
-      
+
       console.log('Access check results:', { isProposer, isMemberOrLeader, isAdviser, isPanel });
-      
+
       // Return true if user is proposer, member/leader, adviser, or panel member
       return isProposer || isMemberOrLeader || isAdviser || isPanel;
     }
-    
+
     // If we can't determine group access, only allow proposer access
     return isProposer;
   };
@@ -935,11 +958,11 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   // Function to submit approval
   const handleApproveSubmit = async () => {
     if (!selectedThesis) return;
-    
+
     try {
       setIsSubmitting(true);
       let action: 'approve_topic' | 'approve_thesis' | 'approve_proposal' | 'approve_final' = 'approve_topic';
-      
+
       // Determine the appropriate action based on current status
       if (selectedThesis.status === 'TOPIC_SUBMITTED') {
         action = 'approve_topic';
@@ -950,19 +973,19 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       } else if (selectedThesis.status === 'FINAL_DEFENDED') {
         action = 'approve_final'; // Final approval
       }
-      
+
       const updatedThesis = await adviserReview(selectedThesis.id, action as any, feedback);
-      
+
       // Update the thesis in state
       const updateThesisInState = (thesisList: Thesis[]) => {
-        return thesisList.map(thesis => 
+        return thesisList.map(thesis =>
           thesis.id === updatedThesis.id ? updatedThesis : thesis
         );
       };
-      
+
       setTheses(prev => updateThesisInState(prev));
       setOtherTheses(prev => updateThesisInState(prev));
-      
+
       setIsApproveDialogOpen(false);
       setFeedback('');
       setSelectedThesis(null);
@@ -978,21 +1001,21 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   // Function to submit rejection
   const handleRejectSubmit = async () => {
     if (!selectedThesis) return;
-    
+
     try {
       setIsSubmitting(true);
       const updatedThesis = await adviserReview(selectedThesis.id, 'reject', feedback);
-      
+
       // Update the thesis in state
       const updateThesisInState = (thesisList: Thesis[]) => {
-        return thesisList.map(thesis => 
+        return thesisList.map(thesis =>
           thesis.id === updatedThesis.id ? updatedThesis : thesis
         );
       };
-      
+
       setTheses(prev => updateThesisInState(prev));
       setOtherTheses(prev => updateThesisInState(prev));
-      
+
       setIsRejectDialogOpen(false);
       setFeedback('');
       setSelectedThesis(null);
@@ -1036,9 +1059,10 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   const isThesisOwner = (thesis: Thesis) => {
     // Check if the current user is the proposer of the thesis
     // The proposer can be either a full User object or just the user ID
-    const proposerId = typeof thesis.proposer === 'object' && thesis.proposer !== null 
-      ? thesis.proposer.id 
+    const proposerId = typeof thesis.proposer === 'object' && thesis.proposer !== null
+      ? thesis.proposer.id
       : thesis.proposer;
+
       
     const result = String(proposerId) === String(currentUser?.id);
     
@@ -1231,18 +1255,19 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     setPanelActionType(null);
     setSelectedThesisForPanelAction(null);
     setPanelComments('');
+
   };
-  
+
   // Check if the current student already has a thesis
   const hasExistingThesis = useMemo(() => {
     if (userRole?.toLowerCase() !== 'student' || !currentUser) return false;
-    
+
     // Check if any thesis in the 'my' group belongs to the current user
     // A student has a thesis if they are the proposer
     const result = groupedTheses.my.some(thesis => {
       // Check if the current user is the proposer of the thesis
-      const proposerId = typeof thesis.proposer === 'object' && thesis.proposer !== null 
-        ? thesis.proposer.id 
+      const proposerId = typeof thesis.proposer === 'object' && thesis.proposer !== null
+        ? thesis.proposer.id
         : thesis.proposer;
       return String(proposerId) === String(currentUser?.id);
     });
@@ -1291,8 +1316,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   }
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="p-8 space-y-6">
-      <TooltipProvider delayDuration={300}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -1310,6 +1335,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                     ? "Students can only have one thesis." 
                     : "You need to be part of an approved group before you can create a thesis proposal."}</span>
                 </p>
+
               </div>
             ) : (
               <Tooltip>
@@ -1329,6 +1355,30 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
               </Tooltip>
             )}
             
+
+            {hasExistingThesis && userRole === 'student' && (
+              <p className="text-yellow-600 text-sm mb-2 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1" />
+                You already have a thesis proposal. Students can only have one thesis.
+              </p>
+            )}
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2 rounded-md px-4 py-2 disabled:opacity-50 whitespace-nowrap"
+                  disabled={userRole === 'student' && (!hasApprovedGroup || hasExistingThesis)}
+                  onClick={() => setIsCreateDialogOpen(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Thesis Proposal
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Create a new thesis proposal</p>
+              </TooltipContent>
+            </Tooltip>
+
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogContent className="max-w-2xl max-h-[80vh]">
                 <DialogHeader>
@@ -1337,8 +1387,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                     Submit a new research thesis proposal for your group. This proposal will need to be approved by your adviser.
                   </DialogDescription>
                 </DialogHeader>
-                <div style={{ 
-                  maxHeight: '60vh', 
+                <div style={{
+                  maxHeight: '60vh',
                   overflowY: 'scroll',
                   paddingRight: '0.5rem'
                 }}>
@@ -1359,7 +1409,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-4 items-start gap-4">
                       <Label htmlFor="abstract" className="text-right pt-2">
                         Abstract *
@@ -1377,7 +1427,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-4 items-start gap-4">
                       <Label htmlFor="keywords" className="text-right pt-2">
                         Keywords
@@ -1484,10 +1534,10 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       {/* Summary Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          'DRAFT', 
-          'TOPIC_SUBMITTED', 
-          'TOPIC_APPROVED', 
-          'PROPOSAL_SUBMITTED', 
+          'DRAFT',
+          'TOPIC_SUBMITTED',
+          'TOPIC_APPROVED',
+          'PROPOSAL_SUBMITTED',
           'FINAL_APPROVED'
         ].map((status) => {
           // Ensure theses is an array before filtering
@@ -1532,8 +1582,9 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
               <Button variant="outline" onClick={() => setIsApproveDialogOpen(false)}>
                 Cancel
               </Button>
+
               <Button 
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="bg-green-700 hover:bg-green-800 text-white"
                 onClick={handleApproveSubmit}
                 disabled={isSubmitting}
               >
@@ -1574,7 +1625,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
               <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 variant="destructive"
                 onClick={handleRejectSubmit}
                 disabled={isSubmitting}
@@ -1600,15 +1651,15 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
               </DialogDescription>
             </DialogHeader>
             <div className="w-full flex flex-col sm:flex-row justify-between gap-3 pt-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowGoogleConnectDialog(false)}
                 size="sm"
                 className="w-full sm:w-auto flex-1"
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 variant="default"
                 onClick={async () => {
                   try {
@@ -1718,7 +1769,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
           </div>
         </DialogContent>
       </Dialog>
-    </TooltipProvider>
     </div>
+    </TooltipProvider>
   );
 }

@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
 from api.models.user_models import User
-from api.serializers.user_serializers import UserSerializer
+from api.serializers.user_serializers import UserSerializer, ProfileUpdateSerializer, ChangePasswordSerializer
 from rest_framework.permissions import IsAuthenticated
 from api.permissions.role_permissions import CanViewUsers, IsAdmin
 
@@ -30,7 +30,7 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         Get current user information.
         """
-        serializer = self.get_serializer(request.user)
+        serializer = self.get_serializer(request.user, context={'request': request})
         return Response(serializer.data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAdmin])
@@ -63,6 +63,31 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except User.DoesNotExist:
             return Response(
-                {'detail': 'User not found'}, 
+                {'detail': 'User not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+    @action(detail=False, methods=['patch'], permission_classes=[IsAuthenticated])
+    def update_profile(self, request):
+        """
+        Update current user's profile.
+        """
+        user = request.user
+        serializer = ProfileUpdateSerializer(user, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def change_password(self, request):
+        """
+        Change current user's password.
+        """
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = request.user
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response({'detail': 'Password changed successfully'})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

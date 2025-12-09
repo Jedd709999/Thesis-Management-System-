@@ -6,9 +6,10 @@ import { useNotifications } from '../../hooks/useNotifications'
 
 interface AppShellProps {
   children: React.ReactNode
+  onNavigate?: (page: string) => void
 }
 
-export const AppShell: React.FC<AppShellProps> = ({ children }) => {
+export const AppShell: React.FC<AppShellProps> = ({ children, onNavigate }) => {
   // For larger screens, sidebar should be open by default
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024)
   const { user, logout } = useAuth()
@@ -52,9 +53,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar */}
-        <Topbar 
-          unreadCount={unreadCount} 
+        <Topbar
+          unreadCount={unreadCount}
           onMenuToggle={toggleSidebar}
+          onNavigate={onNavigate}
         />
 
         {/* Page content */}

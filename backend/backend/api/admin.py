@@ -160,12 +160,6 @@ class GroupAdmin(admin.ModelAdmin):
             return HttpResponseRedirect('.')
         return super().response_change(request, obj)
 
-class ThesisAdmin(admin.ModelAdmin):
-    list_display = ('title', 'group', 'status', 'created_at', 'updated_at')
-    list_filter = ('status', 'created_at', 'updated_at')
-    search_fields = ('title', 'group__name')
-    date_hierarchy = 'created_at'
-
 class DocumentAdmin(admin.ModelAdmin):
     list_display = ('thesis', 'uploaded_by', 'document_type', 'created_at')
     list_filter = ('document_type', 'created_at')
@@ -294,7 +288,6 @@ class PanelMemberAvailabilityAdmin(admin.ModelAdmin):
 admin.site.register(User, UserAdmin)
 admin.site.register(Group, GroupAdmin)
 admin.site.register(GroupMember, GroupMemberAdmin)
-admin.site.register(Thesis, ThesisAdmin)
 admin.site.register(Document, DocumentAdmin)
 admin.site.register(OralDefenseSchedule, DefenseScheduleAdmin)
 admin.site.register(ApprovalSheet, ApprovalSheetAdmin)

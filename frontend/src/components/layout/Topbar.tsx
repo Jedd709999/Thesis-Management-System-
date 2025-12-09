@@ -2,22 +2,40 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, Bell, Menu, User } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { searchTopics } from '../../api/thesisService'
+import { ThesisSearchModal } from '../ThesisSearchModal'
 
 interface TopbarProps {
   unreadCount?: number
   onMenuToggle?: () => void
+  onNavigate?: (page: string) => void
 }
 
-export const Topbar: React.FC<TopbarProps> = ({ unreadCount = 0, onMenuToggle }) => {
+export const Topbar: React.FC<TopbarProps> = ({ unreadCount = 0, onMenuToggle, onNavigate }) => {
   const { user, displayName } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
-  
-  const handleSearch = (e: React.FormEvent) => {
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
+  const [searchResults, setSearchResults] = useState<any>(null)
+  const [isSearching, setIsSearching] = useState(false)
+
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Search functionality would be implemented here
-    console.log('Searching for:', searchQuery)
+    if (!searchQuery.trim()) return
+
+    setIsSearching(true)
+    try {
+      const results = await searchTopics(searchQuery.trim())
+      setSearchResults(results)
+      setIsSearchModalOpen(true)
+    } catch (error: any) {
+      console.error('Search failed:', error)
+      // Handle general errors
+      alert('Search failed. Please try again.')
+    } finally {
+      setIsSearching(false)
+    }
   }
-  
+
   const getRoleBadgeColor = () => {
     switch (user?.role) {
       case 'ADMIN': return 'bg-purple-100 text-purple-800'
@@ -37,7 +55,7 @@ export const Topbar: React.FC<TopbarProps> = ({ unreadCount = 0, onMenuToggle })
         >
           <Menu className="w-5 h-5 text-slate-600" />
         </button>
-        
+
         <div className="hidden sm:block">
           <h1 className="text-xl font-semibold text-slate-800">ENVISys</h1>
         </div>
@@ -50,8 +68,14 @@ export const Topbar: React.FC<TopbarProps> = ({ unreadCount = 0, onMenuToggle })
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+<<<<<<< HEAD
             placeholder="Search theses, documents, groups..."
             className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+=======
+            placeholder="Search thesis topics..."
+            disabled={isSearching}
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+>>>>>>> 13a4e22ac92d7824c227a4dff1ae74d9d5e9cb09
           />
         </div>
       </form>
@@ -86,6 +110,18 @@ export const Topbar: React.FC<TopbarProps> = ({ unreadCount = 0, onMenuToggle })
           )}
         </div>
       </div>
+
+      {/* Search Results Modal */}
+      {searchResults && (
+        <ThesisSearchModal
+          isOpen={isSearchModalOpen}
+          onClose={() => setIsSearchModalOpen(false)}
+          query={searchResults.query}
+          exists={searchResults.exists}
+          results={searchResults.results}
+          message={searchResults.message}
+        />
+      )}
     </header>
   )
 }

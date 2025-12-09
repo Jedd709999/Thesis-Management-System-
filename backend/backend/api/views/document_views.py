@@ -858,23 +858,235 @@ class DocumentViewSet(viewsets.ModelViewSet):
         """Delete file from Google Drive and database"""
         try:
             document = self.get_object()
-            
+
             if document.provider == 'drive' and document.google_drive_file_id:
                 # Delete from Google Drive
                 from api.services.google_drive_service import GoogleDriveService
                 drive_service = GoogleDriveService(user=request.user)
                 drive_service.delete_file(document.google_drive_file_id)
-            
+
             # Delete from database
             document.delete()
-            
+
             return Response(
-                {'message': 'Document deleted successfully'}, 
+                {'message': 'Document deleted successfully'},
                 status=status.HTTP_200_OK
             )
-            
+
         except Exception as e:
             return Response(
-                {'error': f'Failed to delete document: {str(e)}'}, 
+                {'error': f'Failed to delete document: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def search_documents(self, request):
+        """Search documents by title, thesis title, or uploaded by user"""
+        query = request.query_params.get('q', '').strip()
+
+        if not query:
+            return Response({
+                'query': query,
+                'results': [],
+                'message': 'Please provide a search query',
+                'total_results': 0
+            })
+
+        # Search in document title, thesis title, and uploader name
+        documents = Document.objects.filter(
+            Q(title__icontains=query) |
+            Q(thesis__title__icontains=query) |
+            Q(uploaded_by__first_name__icontains=query) |
+            Q(uploaded_by__last_name__icontains=query) |
+            Q(uploaded_by__email__icontains=query)
+        ).select_related('thesis', 'uploaded_by')
+
+        # Apply user permissions
+        user = request.user
+        if user.role in ['ADVISER', 'PANEL']:
+            # Advisers and panel members can only see submitted/approved documents
+            documents = documents.filter(status__in=['submitted', 'approved', 'revision', 'rejected'])
+        elif user.role == 'STUDENT':
+            # Students can see documents they have access to
+            documents = documents.exclude(
+                ~Q(uploaded_by=user),
+                status='draft'
+            )
+
+        results = []
+        for doc in documents:
+            results.append({
+                'id': str(doc.id),
+                'title': doc.title,
+                'document_type': doc.document_type,
+                'status': doc.status,
+                'provider': doc.provider,
+                'file_size': doc.file_size,
+                'mime_type': doc.mime_type,
+                'created_at': doc.created_at.isoformat(),
+                'thesis_title': doc.thesis.title if doc.thesis else None,
+                'thesis_id': str(doc.thesis.id) if doc.thesis else None,
+                'uploaded_by': {
+                    'id': str(doc.uploaded_by.id),
+                    'name': f"{doc.uploaded_by.first_name} {doc.uploaded_by.last_name}",
+                    'email': doc.uploaded_by.email
+                },
+                'viewer_url': doc.viewer_url,
+                'doc_embed_url': doc.doc_embed_url
+            })
+
+        return Response({
+            'query': query,
+            'results': results,
+            'message': f"Found {len(results)} document(s) matching '{query}'",
+            'total_results': len(results)
+        })
+
+    @action(detail=True, methods=['get'], url_path='download')
+    def download(self, request, pk=None):
+        """Download a document file"""
+        try:
+            document = self.get_object()
+
+            # Check if user has permission to download this document
+            if not self._user_can_download(request.user, document):
+                return Response(
+                    {'error': 'You do not have permission to download this document'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            if document.provider == 'drive' and document.google_drive_file_id:
+                # Download from Google Drive
+                return self._download_from_drive(document, request.user)
+            elif document.provider == 'local' and document.file:
+                # Download from local storage
+                return self._download_from_local(document)
+            elif document.provider == 'google' and document.google_doc_id:
+                # For Google Docs, redirect to the document URL
+                return Response(
+                    {'redirect_url': document.viewer_url},
+                    status=status.HTTP_302_FOUND
+                )
+            else:
+                return Response(
+                    {'error': 'Document file not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        except Exception as e:
+            print(f"Download error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'error': f'Failed to download document: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _user_can_download(self, user, document):
+        """Check if user can download the document"""
+        # Admins can download everything
+        if user.role == 'ADMIN':
+            return True
+
+        # Users can download their own documents
+        if document.uploaded_by == user:
+            return True
+
+        # Advisers and panel members can download submitted/approved documents
+        if user.role in ['ADVISER', 'PANEL']:
+            return document.status in ['submitted', 'approved', 'revision', 'rejected']
+
+        # Students can download documents they have access to
+        if user.role == 'STUDENT':
+            # Students can download their own documents or documents from their groups
+            if document.uploaded_by == user:
+                return True
+
+            # Check if student is in the same group as the document's thesis
+            if document.thesis:
+                from api.models.group_models import GroupMember
+                return GroupMember.objects.filter(
+                    group__thesis=document.thesis,
+                    user=user
+                ).exists()
+
+        return False
+
+    def _download_from_drive(self, document, user):
+        """Download file from Google Drive"""
+        try:
+            from api.services.google_drive_service import GoogleDriveService
+            drive_service = GoogleDriveService(user=user)
+
+            # Download the file content
+            success, file_content = drive_service.download_file(document.google_drive_file_id)
+
+            if not success:
+                return Response(
+                    {'error': f'Failed to download from Google Drive: {file_content}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            # Create response with file content
+            from django.http import HttpResponse
+            response = HttpResponse(file_content, content_type=document.mime_type or 'application/octet-stream')
+
+            # Set content disposition for download
+            filename = document.title or f"document_{document.id}"
+            if document.mime_type == 'application/pdf':
+                filename += '.pdf'
+            elif document.mime_type in ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']:
+                filename += '.docx' if 'vnd.openxmlformats' in document.mime_type else '.doc'
+
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response['Content-Length'] = len(file_content)
+
+            return response
+
+        except Exception as e:
+            print(f"Google Drive download error: {str(e)}")
+            return Response(
+                {'error': f'Failed to download from Google Drive: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _download_from_local(self, document):
+        """Download file from local storage"""
+        try:
+            if not document.file or not document.file.path:
+                return Response(
+                    {'error': 'Local file not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Open and read the file
+            with open(document.file.path, 'rb') as f:
+                file_content = f.read()
+
+            # Create response with file content
+            from django.http import HttpResponse
+            response = HttpResponse(file_content, content_type=document.mime_type or 'application/octet-stream')
+
+            # Set content disposition for download
+            filename = document.title or f"document_{document.id}"
+            if document.mime_type == 'application/pdf':
+                filename += '.pdf'
+            elif document.mime_type in ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']:
+                filename += '.docx' if 'vnd.openxmlformats' in document.mime_type else '.doc'
+
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response['Content-Length'] = len(file_content)
+
+            return response
+
+        except FileNotFoundError:
+            return Response(
+                {'error': 'File not found on server'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            print(f"Local file download error: {str(e)}")
+            return Response(
+                {'error': f'Failed to download local file: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

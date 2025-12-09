@@ -33,6 +33,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=64, blank=True)
     last_name = models.CharField(max_length=64, blank=True)
+    bio = models.TextField(blank=True, null=True)
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='STUDENT')
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

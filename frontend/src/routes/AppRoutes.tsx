@@ -15,7 +15,11 @@ import { GoogleDocsEmbed as DocumentEditorPage } from '../pages/google-docs/Goog
 import { ScheduleManagement as SchedulePage } from '../pages/schedule-management/ScheduleManagementPage';
 import { NotificationCenter as NotificationCenterPage } from '../pages/notification-center/NotificationCenterPage';
 import { Settings as SettingsPage } from '../pages/settings/SettingsPage';
+<<<<<<< HEAD
 import { ArchivePage } from '../pages/archive/ArchivePage';
+=======
+import ArchivePage from '../pages/archive/ArchivePage';
+>>>>>>> 13a4e22ac92d7824c227a4dff1ae74d9d5e9cb09
 
 // Wrapper component to extract the group ID from URL params and pass it to GroupDetailPage
 const GroupDetailWrapper = () => {
@@ -52,7 +56,7 @@ const AppRoutes = () => {
         path="/*"
         element={
           <ProtectedRoute>
-            <AppShell>
+            <AppShell onNavigate={(page) => navigate(`/${page}`)}>
               <Routes>
                 {/* Dashboard - all roles */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -155,6 +159,15 @@ const AppRoutes = () => {
                   }
                 />
 
+                {/* Archive */}
+                <Route
+                  path="/archive"
+                  element={
+                    <RoleRoute allowedRoles={['ADMIN', 'ADVISER']}>
+                      <ArchivePage />
+                    </RoleRoute>
+                  }
+                />
                 {/* Catch all */}
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
