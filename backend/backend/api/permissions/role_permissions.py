@@ -261,13 +261,24 @@ class IsDocumentOwnerOrGroupMember(permissions.BasePermission):
 class CanCreateSchedule(permissions.BasePermission):
     """
     Permission class for schedule creation.
-    Only admins can create schedules directly.
-    Advisers, students, and panel members cannot create schedules.
+    Admins can create schedules directly.
+    Advisers can propose schedules that require admin approval (pending status).
+    Students and panel members cannot create schedules.
     """
     def has_permission(self, request, view):
-        # For create action, only admins can create schedules
+        # For create action, allow admins and advisers to create schedules
         if view.action == 'create':
-            return request.user and request.user.role == 'ADMIN'
+            user = request.user
+            if not user or not user.is_authenticated:
+                return False
+            # Admins can create schedules directly
+            if user.role == 'ADMIN':
+                return True
+            # Advisers can propose schedules (will be set to pending status)
+            if user.role == 'ADVISER':
+                return True
+            # Students and panel members cannot create schedules
+            return False
         # For other actions, all authenticated users can access
         return request.user and request.user.is_authenticated
     

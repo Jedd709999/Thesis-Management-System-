@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from django.db import transaction
+from django.db import transaction, models
 from django.http import HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -120,16 +120,26 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         if thesis.group and thesis.group.panels:
             panel_members = [f"{panel.first_name} {panel.last_name}" for panel in thesis.group.panels.all()]
 
-        # Create archive record
+        # Get adviser name
+        adviser_name = None
+        if thesis.adviser:
+            adviser_name = f"{thesis.adviser.first_name} {thesis.adviser.last_name}"
+
+        # Get keywords as list
+        keywords_list = thesis.get_keywords_list()
+
+        # Create archive record with all required information
         archive_data = {
             'title': thesis.title,
             'abstract': thesis.abstract,
+            'keywords': keywords_list,
             'status': thesis.status,
             'adviser': str(thesis.adviser.id) if thesis.adviser else None,
-            'adviser_name': f"{thesis.adviser.first_name} {thesis.adviser.last_name}" if thesis.adviser else None,
+            'adviser_name': adviser_name,
             'group': str(thesis.group.id),
             'group_name': thesis.group.name if thesis.group else 'Unknown Group',
             'panels': panel_members,
+            'drive_folder_url': thesis.get_drive_folder_url(),
             'finished_at': timezone.now().isoformat(),
             'created_at': thesis.created_at.isoformat(),
             'updated_at': thesis.updated_at.isoformat(),
@@ -143,6 +153,23 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
             reason=reason,
             retention_period_years=retention_period
         )
+        
+        # Update Google Drive folder permissions to read-only if folder exists
+        if thesis.drive_folder_id:
+            try:
+                from api.services.google_drive_service import GoogleDriveService
+                # Initialize Google Drive service with the thesis proposer's credentials if available
+                drive_service = GoogleDriveService(user=thesis.proposer if thesis.proposer else None)
+                if drive_service.service:
+                    success = drive_service.update_folder_permissions_to_readonly(thesis.drive_folder_id)
+                    if success:
+                        print(f"Successfully updated Google Drive folder {thesis.drive_folder_id} to read-only")
+                    else:
+                        print(f"Failed to update Google Drive folder {thesis.drive_folder_id} to read-only")
+                else:
+                    print(f"Google Drive service not available for folder {thesis.drive_folder_id}")
+            except Exception as e:
+                print(f"Error updating Google Drive folder permissions: {e}")
         
         serializer = self.get_serializer(archive_record)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -263,19 +290,31 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         if year is None:
             year = request.GET.get('year')
         if not year:
-            return HttpResponse('Year parameter is required', status=400, content_type='text/plain')
+            return Response(
+                {'detail': 'Year parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             year_int = int(year)
         except ValueError:
-            return HttpResponse('Invalid year format', status=400, content_type='text/plain')
+            return Response(
+                {'detail': 'Invalid year format'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Check permissions - only admins and advisers can download reports
         if not hasattr(request, 'user') or not request.user.is_authenticated:
-            return HttpResponse('Authentication required', status=401, content_type='text/plain')
+            return Response(
+                {'detail': 'Authentication required'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
         if request.user.role not in ['ADMIN', 'ADVISER']:
-            return HttpResponse('You do not have permission to download reports', status=403, content_type='text/plain')
+            return Response(
+                {'detail': 'You do not have permission to download reports'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         # Get archived theses for the specified year
         start_date = timezone.make_aware(timezone.datetime(year_int, 1, 1))
@@ -291,7 +330,9 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
             content_type='thesis',
             archived_at__gte=start_date,
             archived_at__lt=end_date
-        ).filter(data__status='FINAL_APPROVED')  # Only include finalized approved theses
+        ).filter(
+            models.Q(data__status='FINAL_APPROVED') | models.Q(data__status='ARCHIVED')
+        )  # Include both finalized approved theses and archived theses
 
         print(f"DEBUG: Base queryset count: {queryset.count()}")
 
@@ -389,19 +430,31 @@ Panel: {panel_names}
         if year is None:
             year = request.GET.get('year')
         if not year:
-            return HttpResponse('Year parameter is required', status=400, content_type='text/plain')
+            return Response(
+                {'detail': 'Year parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             year_int = int(year)
         except ValueError:
-            return HttpResponse('Invalid year format', status=400, content_type='text/plain')
+            return Response(
+                {'detail': 'Invalid year format'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Check permissions - only admins and advisers can download reports
+        # Check permissions - only admins can download Excel reports
         if not hasattr(request, 'user') or not request.user.is_authenticated:
-            return HttpResponse('Authentication required', status=401, content_type='text/plain')
+            return Response(
+                {'detail': 'Authentication required'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
-        if request.user.role not in ['ADMIN', 'ADVISER']:
-            return HttpResponse('You do not have permission to download reports', status=403, content_type='text/plain')
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only admin users can download Excel reports'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         # Get archived theses for the specified year
         start_date = timezone.make_aware(timezone.datetime(year_int, 1, 1))
@@ -412,18 +465,9 @@ Panel: {panel_names}
             content_type='thesis',
             archived_at__gte=start_date,
             archived_at__lt=end_date
-        ).filter(data__status='FINAL_APPROVED')  # Only include finalized approved theses
-
-        # Apply adviser filtering if needed
-        if request.user.role == 'ADVISER':
-            # Advisers can only see theses they advised or sample theses with no adviser
-            queryset = queryset.filter(
-                data__adviser__isnull=True
-            ) | queryset.filter(
-                data__adviser=str(request.user.id)
-            )
-
-        # Create Excel workbook
+        ).filter(
+            models.Q(data__status='FINAL_APPROVED') | models.Q(data__status='ARCHIVED')
+        )  # Include both finalized approved theses and archived theses        # Create Excel workbook
         wb = openpyxl.Workbook()
         ws = wb.active
         if ws is None:
@@ -436,8 +480,8 @@ Panel: {panel_names}
         header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
         center_alignment = Alignment(horizontal="center", vertical="center")
 
-        # Headers
-        headers = ['Group Name', 'Group Members', 'Topic', 'Abstract', 'Date & Time Finished', 'Panel Members']
+        # Headers - Updated to match requirements
+        headers = ['Thesis Title', 'Abstract', 'Keywords', 'Group Name', 'Adviser Name', 'Panel Member Names']
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_num, value=header)
             cell.font = header_font
@@ -450,32 +494,32 @@ Panel: {panel_names}
             for archive in queryset:
                 data = archive.data or {}
 
-                # Extract group name
-                group_name = str(data.get('group_name', 'Unknown Group'))
-
-                # Extract group members
-                group_members = data.get('group_members', [])
-                group_members_str = ', '.join(str(m) for m in group_members) if group_members else 'No members listed'
-
-                # Extract topic (title)
-                topic = str(data.get('title', 'Unknown Topic'))
+                # Extract thesis title
+                title = str(data.get('title', 'Unknown Title'))
 
                 # Extract abstract
                 abstract = str(data.get('abstract', 'No abstract available'))
 
-                # Extract finished date (use archived_at as finished date)
-                finished_at = archive.archived_at.strftime('%Y-%m-%d %H:%M:%S') if archive.archived_at else 'Unknown'
+                # Extract keywords
+                keywords_list = data.get('keywords', [])
+                keywords = ', '.join(str(k) for k in keywords_list) if keywords_list else 'No keywords'
 
-                # Extract panel members (this would need to be stored in archive data)
+                # Extract group name
+                group_name = str(data.get('group_name', 'Unknown Group'))
+
+                # Extract adviser name
+                adviser_name = str(data.get('adviser_name', 'No adviser assigned'))
+
+                # Extract panel members
                 panels = data.get('panels', [])
                 panel_names = ', '.join(str(p) for p in panels) if panels else 'No panel assigned'
 
                 # Write data to Excel
-                ws.cell(row=row_num, column=1, value=group_name)
-                ws.cell(row=row_num, column=2, value=group_members_str)
-                ws.cell(row=row_num, column=3, value=topic)
-                ws.cell(row=row_num, column=4, value=abstract)
-                ws.cell(row=row_num, column=5, value=finished_at)
+                ws.cell(row=row_num, column=1, value=title)
+                ws.cell(row=row_num, column=2, value=abstract)
+                ws.cell(row=row_num, column=3, value=keywords)
+                ws.cell(row=row_num, column=4, value=group_name)
+                ws.cell(row=row_num, column=5, value=adviser_name)
                 ws.cell(row=row_num, column=6, value=panel_names)
 
                 row_num += 1
@@ -519,19 +563,31 @@ Panel: {panel_names}
         if year is None:
             year = request.GET.get('year')
         if not year:
-            return HttpResponse('Year parameter is required', status=400, content_type='text/plain')
+            return Response(
+                {'detail': 'Year parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             year_int = int(year)
         except ValueError:
-            return HttpResponse('Invalid year format', status=400, content_type='text/plain')
+            return Response(
+                {'detail': 'Invalid year format'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Check permissions - only admins and advisers can download reports
         if not hasattr(request, 'user') or not request.user.is_authenticated:
-            return HttpResponse('Authentication required', status=401, content_type='text/plain')
+            return Response(
+                {'detail': 'Authentication required'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
         if request.user.role not in ['ADMIN', 'ADVISER']:
-            return HttpResponse('You do not have permission to download reports', status=403, content_type='text/plain')
+            return Response(
+                {'detail': 'You do not have permission to download reports'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         # Get archived theses for the specified year
         start_date = timezone.make_aware(timezone.datetime(year_int, 1, 1))
@@ -547,10 +603,11 @@ Panel: {panel_names}
             content_type='thesis',
             archived_at__gte=start_date,
             archived_at__lt=end_date
-        ).filter(data__status='FINAL_APPROVED')  # Only include finalized approved theses
+        ).filter(
+            models.Q(data__status='FINAL_APPROVED') | models.Q(data__status='ARCHIVED')
+        )  # Include both finalized approved theses and archived theses
 
         print(f"DEBUG: Base queryset count: {queryset.count()}")
-
         # Apply adviser filtering if needed
         if request.user.role == 'ADVISER':
             # Advisers can only see theses they advised
@@ -667,6 +724,13 @@ Panel: {panel_names}
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Check permissions - only admins can download Excel reports
+        if format_type == 'excel' and request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only admin users can download Excel reports'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         # Call the appropriate method directly with the year parameter
         if format_type == 'pdf':
             return self.download_pdf_report(request, year)

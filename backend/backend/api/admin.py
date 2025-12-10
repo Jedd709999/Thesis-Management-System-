@@ -14,6 +14,8 @@ from .models.thesis_models import Thesis
 from .models.document_models import Document
 from .models.schedule_models import OralDefenseSchedule, ApprovalSheet, Evaluation, PanelMemberAvailability
 from .models.notification_models import Notification
+from .models.archive_record_models import ArchiveRecord
+
 
 class UserAdmin(BaseUserAdmin):
     list_display = ('email', 'first_name', 'last_name', 'role', 'is_staff', 'is_active', 'is_email_verified')
@@ -260,6 +262,38 @@ class EvaluationAdmin(admin.ModelAdmin):
     )
 
 
+class ThesisAdmin(admin.ModelAdmin):
+    list_display = ('title', 'group', 'adviser', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('title', 'group__name', 'adviser__email', 'proposer__email')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('title', 'abstract', 'keywords', 'status')
+        }),
+        ('Relationships', {
+            'fields': ('group', 'proposer', 'adviser', 'origin_proposal')
+        }),
+        ('Feedback', {
+            'fields': ('adviser_feedback',)
+        }),
+        ('Google Drive', {
+            'fields': ('drive_folder_id', 'archived_document'),
+            'classes': ('collapse',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    ordering = ('-created_at',)
+    list_per_page = 25
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('group', 'adviser', 'proposer')
+
+
 class PanelMemberAvailabilityAdmin(admin.ModelAdmin):
     list_display = ('user', 'get_day_of_week_display', 'start_time', 'end_time', 'is_recurring')
     list_filter = ('day_of_week', 'is_recurring', 'created_at')
@@ -284,13 +318,35 @@ class PanelMemberAvailabilityAdmin(admin.ModelAdmin):
     )
 
 
+class ArchiveRecordAdmin(admin.ModelAdmin):
+    list_display = ('content_type', 'original_id', 'archived_by', 'archived_at', 'expires_at')
+    list_filter = ('content_type', 'archived_at', 'expires_at')
+    search_fields = ('content_type', 'original_id', 'archived_by__email')
+    date_hierarchy = 'archived_at'
+    readonly_fields = ('created_at', 'updated_at', 'expires_at')
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('content_type', 'original_id', 'data', 'reason')
+        }),
+        ('Archival Details', {
+            'fields': ('archived_by', 'retention_period_years', 'archived_at', 'expires_at')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    ordering = ('-archived_at',)
+
 # Register models
 admin.site.register(User, UserAdmin)
 admin.site.register(Group, GroupAdmin)
 admin.site.register(GroupMember, GroupMemberAdmin)
+admin.site.register(Thesis, ThesisAdmin)
 admin.site.register(Document, DocumentAdmin)
 admin.site.register(OralDefenseSchedule, DefenseScheduleAdmin)
 admin.site.register(ApprovalSheet, ApprovalSheetAdmin)
 admin.site.register(Evaluation, EvaluationAdmin)
 admin.site.register(PanelMemberAvailability, PanelMemberAvailabilityAdmin)
 admin.site.register(Notification, NotificationAdmin)
+admin.site.register(ArchiveRecord, ArchiveRecordAdmin)

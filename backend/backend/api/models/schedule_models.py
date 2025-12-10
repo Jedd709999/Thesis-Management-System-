@@ -17,6 +17,7 @@ class SoftDeleteManager(models.Manager):
 class OralDefenseSchedule(models.Model):
     """Represents a scheduled oral defense for a thesis."""
     STATUS_CHOICES = [
+        ('pending', 'Pending Approval'),
         ('scheduled', 'Scheduled'),
         ('in_progress', 'In Progress'),
         ('completed', 'Completed'),

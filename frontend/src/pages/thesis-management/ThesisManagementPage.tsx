@@ -588,14 +588,13 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button 
-                                  variant="ghost" 
+                                  variant="default" 
                                   size="sm"
                                   onClick={() => handlePanelAction(thesis, 'approve')}
-                                  className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2"
+                                  className="bg-green-600 hover:bg-green-700 text-white p-2"
                                 >
                                   <Check className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
+                                </Button>                              </TooltipTrigger>
                               <TooltipContent>
                                 <p>Approve Thesis</p>
                               </TooltipContent>
@@ -603,10 +602,10 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button 
-                                  variant="ghost" 
+                                  variant="default" 
                                   size="sm"
                                   onClick={() => handlePanelAction(thesis, 'request_revision')}
-                                  className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 p-2"
+                                  className="bg-yellow-600 hover:bg-yellow-700 text-white p-2"
                                 >
                                   <Edit className="w-4 h-4" />
                                 </Button>
@@ -618,10 +617,10 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button 
-                                  variant="ghost" 
+                                  variant="default" 
                                   size="sm"
                                   onClick={() => handlePanelAction(thesis, 'reject')}
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
+                                  className="bg-red-600 hover:bg-red-700 text-white p-2"
                                 >
                                   <X className="w-4 h-4" />
                                 </Button>
@@ -748,7 +747,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
 
     // Check if we have an approved group
     if (!approvedGroupId) {
-      alert('You must have an approved group to create a thesis proposal.');
+      alert('You must have an approved group to create a topic proposal.');
       return;
     }
 
@@ -787,10 +786,10 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       setIsCreateDialogOpen(false);
 
       // Show success message
-      alert('Thesis proposal created successfully!');
+      alert('Topic proposal created successfully!');
     } catch (error) {
       console.error('Error creating thesis:', error);
-      alert('Failed to create thesis proposal. Please try again.');
+      alert('Failed to create topic proposal. Please try again.');
     }
   };
 
@@ -1346,45 +1345,21 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                     onClick={() => setIsCreateDialogOpen(true)}
                   >
                     <Plus className="w-4 h-4" />
-                    Create Thesis Proposal
+                    Create Topic Proposal
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Create a new thesis proposal</p>
+                  <p>Create a new topic proposal</p>
                 </TooltipContent>
               </Tooltip>
             )}
-            
-
-            {hasExistingThesis && userRole === 'student' && (
-              <p className="text-yellow-600 text-sm mb-2 flex items-center">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                You already have a thesis proposal. Students can only have one thesis.
-              </p>
-            )}
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2 rounded-md px-4 py-2 disabled:opacity-50 whitespace-nowrap"
-                  disabled={userRole === 'student' && (!hasApprovedGroup || hasExistingThesis)}
-                  onClick={() => setIsCreateDialogOpen(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Create Thesis Proposal
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Create a new thesis proposal</p>
-              </TooltipContent>
-            </Tooltip>
 
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogContent className="max-w-2xl max-h-[80vh]">
                 <DialogHeader>
-                  <DialogTitle>Create New Thesis Proposal</DialogTitle>
+                  <DialogTitle>Create New Topic Proposal</DialogTitle>
                   <DialogDescription>
-                    Submit a new research thesis proposal for your group. This proposal will need to be approved by your adviser.
+                    Submit a new research topic proposal for your group. This proposal will need to be approved by your adviser.
                   </DialogDescription>
                 </DialogHeader>
                 <div style={{
@@ -1451,7 +1426,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                     Cancel
                   </Button>
                   <Button onClick={handleCreateThesis} disabled={isCheckingGoogle}>
-                    {isCheckingGoogle ? 'Checking Google Connection...' : 'Create Thesis Proposal'}
+                    {isCheckingGoogle ? 'Checking Google Connection...' : 'Create Topic Proposal'}
                   </Button>
                 </DialogFooter>
               </DialogContent>

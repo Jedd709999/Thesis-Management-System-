@@ -5101,3 +5101,1850 @@ Unauthorized: /api/
 Unauthorized: /api/
 Unauthorized: /api/
 Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/notifications/
+Unauthorized: /api/auth/me/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+file_cache is only supported with oauth2client<4.0.0
+file_cache is only supported with oauth2client<4.0.0
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/notifications/mine/
+Unauthorized: /api/theses/get_current_user_theses/
+Unauthorized: /api/groups/get_current_user_groups/
+Not Found: /api/auth/refresh/
+Not Found: /api/auth/refresh/
+Not Found: /api/auth/refresh/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/notifications/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/auth/me/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/auth/login/
+Unauthorized: /api/
+Not Found: /api/groups/0338d551-2531-447e-b7a1-894954781488/
+Unauthorized: /api/
+Bad Request: /api/groups/0338d551-2531-447e-b7a1-894954781488/approve/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Group adviser changed for group 0338d551-2531-447e-b7a1-894954781488. Updating theses.
+Failed to send adviser assignment notifications: Notification() got unexpected keyword arguments: 'user', 'body', 'link'
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/auth/login/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+file_cache is only supported with oauth2client<4.0.0
+file_cache is only supported with oauth2client<4.0.0
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Failed to send topic approval notifications: Notification() got unexpected keyword arguments: 'user', 'body', 'link'
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Forbidden: /api/schedules/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Forbidden: /api/schedules/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/auth/me/
+Unauthorized: /api/notifications/
+Not Found: /api/auth/refresh/
+Not Found: /api/auth/refresh/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/auth/login/
+Internal Server Error: /api/schedules/8b2b55f2-22fd-4a31-85c7-3a52f7660533/
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 68, in update
+    self.perform_update(serializer)
+  File "/app/backend/api/views/schedule_views.py", line 79, in perform_update
+    original_date = original_schedule.scheduled_date
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'OralDefenseSchedule' object has no attribute 'scheduled_date'
+Unauthorized: /api/
+Internal Server Error: /api/schedules/8b2b55f2-22fd-4a31-85c7-3a52f7660533/
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 68, in update
+    self.perform_update(serializer)
+  File "/app/backend/api/views/schedule_views.py", line 79, in perform_update
+    original_date = original_schedule.scheduled_date
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'OralDefenseSchedule' object has no attribute 'scheduled_date'
+Internal Server Error: /api/schedules/8b2b55f2-22fd-4a31-85c7-3a52f7660533/
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 68, in update
+    self.perform_update(serializer)
+  File "/app/backend/api/views/schedule_views.py", line 79, in perform_update
+    original_date = original_schedule.scheduled_date
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'OralDefenseSchedule' object has no attribute 'scheduled_date'
+Internal Server Error: /api/schedules/8b2b55f2-22fd-4a31-85c7-3a52f7660533/
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 68, in update
+    self.perform_update(serializer)
+  File "/app/backend/api/views/schedule_views.py", line 79, in perform_update
+    original_date = original_schedule.scheduled_date
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'OralDefenseSchedule' object has no attribute 'scheduled_date'
+Internal Server Error: /api/schedules/8b2b55f2-22fd-4a31-85c7-3a52f7660533/
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 68, in update
+    self.perform_update(serializer)
+  File "/app/backend/api/views/schedule_views.py", line 79, in perform_update
+    original_date = original_schedule.scheduled_date
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'OralDefenseSchedule' object has no attribute 'scheduled_date'
+Internal Server Error: /api/schedules/8b2b55f2-22fd-4a31-85c7-3a52f7660533/
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 68, in update
+    self.perform_update(serializer)
+  File "/app/backend/api/views/schedule_views.py", line 79, in perform_update
+    original_date = original_schedule.scheduled_date
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'OralDefenseSchedule' object has no attribute 'scheduled_date'
+Internal Server Error: /api/schedules/8b2b55f2-22fd-4a31-85c7-3a52f7660533/
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 68, in update
+    self.perform_update(serializer)
+  File "/app/backend/api/views/schedule_views.py", line 79, in perform_update
+    original_date = original_schedule.scheduled_date
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'OralDefenseSchedule' object has no attribute 'scheduled_date'
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/auth/me/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/auth/login/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Internal Server Error: /api/schedules/8b2b55f2-22fd-4a31-85c7-3a52f7660533/
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 68, in update
+    self.perform_update(serializer)
+  File "/app/backend/api/views/schedule_views.py", line 79, in perform_update
+    original_date = original_schedule.scheduled_date
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'OralDefenseSchedule' object has no attribute 'scheduled_date'
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Internal Server Error: /api/schedules/8b2b55f2-22fd-4a31-85c7-3a52f7660533/
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/base.py", line 253, in _get_response_async
+    response = await wrapped_callback(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 82, in partial_update
+    return self.update(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/mixins.py", line 68, in update
+    self.perform_update(serializer)
+  File "/app/backend/api/views/schedule_views.py", line 79, in perform_update
+    original_date = original_schedule.scheduled_date
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'OralDefenseSchedule' object has no attribute 'scheduled_date'
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Internal Server Error: /api/documents/d460c944-0bb0-4567-b37c-c8e5b6b83302/download/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/auth/me/
+Unauthorized: /api/notifications/
+Invalid HTTP_HOST header: '192.168.18.141:8000'. You may need to add '192.168.18.141' to ALLOWED_HOSTS.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/utils/deprecation.py", line 146, in __acall__
+    response = await sync_to_async(
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/middleware/common.py", line 48, in process_request
+    host = request.get_host()
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/http/request.py", line 151, in get_host
+    raise DisallowedHost(msg)
+django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: '192.168.18.141:8000'. You may need to add '192.168.18.141' to ALLOWED_HOSTS.
+Bad Request: /
+Not Found: /api/auth/refresh/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/
+Exception inside application: Cannot import BACKEND 'channels_redis.core.RedisChannelLayer' specified for default
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/channels/layers.py", line 71, in _make_backend
+    backend_class = import_string(backend_module)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/utils/module_loading.py", line 30, in import_string
+    return cached_import(module_path, class_name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/utils/module_loading.py", line 15, in cached_import
+    module = import_module(module_path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1126, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1140, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'channels_redis'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/channels/routing.py", line 48, in __call__
+    return await application(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/channels/security/websocket.py", line 41, in __call__
+    return await denier(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/channels/consumer.py", line 44, in __call__
+    self.channel_layer = get_channel_layer(self.channel_layer_alias)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/channels/layers.py", line 411, in get_channel_layer
+    return channel_layers[alias]
+           ~~~~~~~~~~~~~~^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/channels/layers.py", line 83, in __getitem__
+    self.backends[key] = self.make_backend(key)
+                         ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/channels/layers.py", line 45, in make_backend
+    return self._make_backend(name, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/channels/layers.py", line 73, in _make_backend
+    raise InvalidChannelLayerError(
+channels.exceptions.InvalidChannelLayerError: Cannot import BACKEND 'channels_redis.core.RedisChannelLayer' specified for default
+Invalid HTTP_HOST header: '192.168.18.141'. You may need to add '192.168.18.141' to ALLOWED_HOSTS.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/utils/deprecation.py", line 146, in __acall__
+    response = await sync_to_async(
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/middleware/common.py", line 48, in process_request
+    host = request.get_host()
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/http/request.py", line 151, in get_host
+    raise DisallowedHost(msg)
+django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: '192.168.18.141'. You may need to add '192.168.18.141' to ALLOWED_HOSTS.
+Bad Request: /loginMsg.js
+Invalid HTTP_HOST header: '192.168.18.141'. You may need to add '192.168.18.141' to ALLOWED_HOSTS.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 555, in thread_handler
+    raise exc_info[1]
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 42, in inner
+    response = await get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/utils/deprecation.py", line 146, in __acall__
+    response = await sync_to_async(
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 504, in __call__
+    ret = await asyncio.shield(exec_coro)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/current_thread_executor.py", line 40, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/asgiref/sync.py", line 559, in thread_handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/middleware/common.py", line 48, in process_request
+    host = request.get_host()
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/http/request.py", line 151, in get_host
+    raise DisallowedHost(msg)
+django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: '192.168.18.141'. You may need to add '192.168.18.141' to ALLOWED_HOSTS.
+Bad Request: /cgi/get.cgi
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Not Found: /
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Not Found: /api/drive-credentials/my_credentials/
+Could not create audit log entry: name 'settings' is not defined
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/notifications/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+file_cache is only supported with oauth2client<4.0.0
+file_cache is only supported with oauth2client<4.0.0
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/auth/me/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/notifications/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+file_cache is only supported with oauth2client<4.0.0
+file_cache is only supported with oauth2client<4.0.0
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/auth/me/
+Unauthorized: /api/notifications/
+Not Found: /api/auth/refresh/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/archives/download_report/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Invalid HTTP_HOST header: 'testserver'. You may need to add 'testserver' to ALLOWED_HOSTS.
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/utils/deprecation.py", line 133, in __call__
+    response = self.process_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/middleware/common.py", line 48, in process_request
+    host = request.get_host()
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/http/request.py", line 151, in get_host
+    raise DisallowedHost(msg)
+django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: 'testserver'. You may need to add 'testserver' to ALLOWED_HOSTS.
+Bad Request: /api/archives/download_report/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Bad Request: /api/archives/download_report/
+Unauthorized: /api/
+Bad Request: /api/archives/download_report/
+Bad Request: /api/archives/download_report/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Bad Request: /api/archives/download_report/
+Bad Request: /api/archives/download_report/
+Bad Request: /api/archives/download_report/
+Unauthorized: /api/
+Bad Request: /api/archives/download_report/
+Unauthorized: /api/
+Unauthorized: /api/auth/me/
+Unauthorized: /api/notifications/
+Not Found: /api/auth/refresh/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Bad Request: /api/archives/download_report/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Killed 0 pending application instances
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Bad Request: /api/archives/download_report/
+Unauthorized: /api/
+Bad Request: /api/archives/download_report/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/auth/me/
+Not Found: /api/auth/refresh/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Sending email notification: subject='Verify your email address', to_email='jedd709999@gmail.com'
+Unauthorized: /api/
+Failed to send email: (421, b'Cannot connect to SMTP server 172.253.118.109 (172.253.118.109:587), connect error 10060')
+Forbidden: /api/auth/login/
+Unauthorized: /api/
+Unauthorized: /api/
+Forbidden: /api/auth/login/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Sending email notification: subject='Verify your email address', to_email='jedd709999@gmail.com'
+Unauthorized: /api/
+Failed to send email: (421, b'Cannot connect to SMTP server 172.253.118.108 (172.253.118.108:587), connect error 10060')
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /
+Not Found: /favicon.ico
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /api/groups/faf7a732-ff5e-42ff-a5fc-d019c8e62f48/
+Bad Request: /api/groups/faf7a732-ff5e-42ff-a5fc-d019c8e62f48/approve/
+Unauthorized: /api/
+Bad Request: /api/groups/faf7a732-ff5e-42ff-a5fc-d019c8e62f48/approve/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Group adviser changed for group faf7a732-ff5e-42ff-a5fc-d019c8e62f48. Updating theses.
+Failed to send adviser assignment notifications: Notification() got unexpected keyword arguments: 'user', 'body', 'link'
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Starting server at tcp:port=8000:interface=0.0.0.0
+HTTP/2 support not enabled (install the http2 and tls Twisted extras)
+Configuring endpoint tcp:port=8000:interface=0.0.0.0
+Listening on TCP address 0.0.0.0:8000
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+file_cache is only supported with oauth2client<4.0.0
+file_cache is only supported with oauth2client<4.0.0
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Failed to send topic approval notifications: Notification() got unexpected keyword arguments: 'user', 'body', 'link'
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/auth/login/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Could not create audit log entry: name 'settings' is not defined
+Unauthorized: /api/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Not Found: /api/drive-credentials/my_credentials/
+Unauthorized: /api/
+Unauthorized: /api/
+Unauthorized: /api/

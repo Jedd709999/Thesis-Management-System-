@@ -68,14 +68,8 @@ export const Topbar: React.FC<TopbarProps> = ({ unreadCount = 0, onMenuToggle, o
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-<<<<<<< HEAD
             placeholder="Search theses, documents, groups..."
             className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-=======
-            placeholder="Search thesis topics..."
-            disabled={isSearching}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
->>>>>>> 13a4e22ac92d7824c227a4dff1ae74d9d5e9cb09
           />
         </div>
       </form>

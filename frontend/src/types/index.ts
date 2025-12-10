@@ -40,7 +40,7 @@ export type ProposalStatus =
   | 'rejected' 
   | 'needs_revision'
 
-export type ScheduleStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'rescheduled'
+export type ScheduleStatus = 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'rescheduled'
 
 export type NotificationType = 
   | 'thesis_update' 

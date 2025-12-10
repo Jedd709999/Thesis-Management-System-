@@ -1634,12 +1634,49 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
           }}>
             <div className="grid gap-4 py-4">
               {editingGroup && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">Group</Label>
-                  <div className="col-span-3">
-                    <div className="font-medium">{editingGroup.name}</div>
+                <>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">Group</Label>
+                    <div className="col-span-3">
+                      <div className="font-medium">{editingGroup.name}</div>
+                    </div>
                   </div>
-                </div>
+                  
+                  {/* Research Topics Section */}
+                  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label className="text-right pt-2">
+                      Research Topics
+                    </Label>
+                    <div className="col-span-3">
+                      <div className="border rounded-md p-3 bg-slate-50">
+                        {editingGroup.possible_topics ? (
+                          <div className="space-y-2">
+                            <h4 className="font-medium text-slate-700">Possible Research Topics</h4>
+                            <ul className="list-disc list-inside space-y-1">
+                              {editingGroup.possible_topics.split('\n').map((topic, index) => (
+                                <li key={index} className="text-slate-600 text-sm">
+                                  {topic.trim() || `Topic ${index + 1}`}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <p className="text-slate-500 text-sm">No research topics provided</p>
+                        )}
+                        
+                        {/* Preferred Adviser Section */}
+                        {editingGroup.preferred_adviser && (
+                          <div className="mt-3 pt-3 border-t border-slate-200">
+                            <h4 className="font-medium text-slate-700 mb-1">Preferred Adviser</h4>
+                            <p className="text-slate-600 text-sm">
+                              {editingGroup.preferred_adviser.first_name} {editingGroup.preferred_adviser.last_name}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
               
               <div className="grid grid-cols-4 items-start gap-4">

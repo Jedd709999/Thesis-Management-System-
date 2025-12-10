@@ -166,12 +166,16 @@ class NotificationService:
     def notify_schedule_created(schedule, thesis):
         """Notify relevant parties when a schedule is created."""
         try:
+            # Format the date for notifications
+            scheduled_date_str = schedule.start.strftime("%B %d, %Y at %I:%M %p")
+            schedule_type = "Defense"  # Default value since there's no schedule_type field
+            
             # Notify group members
             for member in thesis.group.members.all():
                 create_notification(
                     user=member,
                     title=f'Defense scheduled for your thesis',
-                    body=f'Your {schedule.schedule_type.lower()} defense has been scheduled for {schedule.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}.',
+                    body=f'Your defense has been scheduled for {scheduled_date_str}.',
                     link=f'/schedule/{schedule.id}'
                 )
 
@@ -180,7 +184,7 @@ class NotificationService:
                 create_notification(
                     user=thesis.adviser,
                     title=f'Defense scheduled - {thesis.group.name}',
-                    body=f'{schedule.schedule_type} defense for "{thesis.title}" has been scheduled for {schedule.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}.',
+                    body=f'Defense for "{thesis.title}" has been scheduled for {scheduled_date_str}.',
                     link=f'/schedule/{schedule.id}'
                 )
 
@@ -189,7 +193,7 @@ class NotificationService:
                 create_notification(
                     user=panel,
                     title=f'Defense scheduled - {thesis.group.name}',
-                    body=f'You are scheduled as a panel for the {schedule.schedule_type.lower()} defense of "{thesis.title}" on {schedule.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}.',
+                    body=f'You are scheduled as a panel for the defense of "{thesis.title}" on {scheduled_date_str}.',
                     link=f'/schedule/{schedule.id}'
                 )
 
@@ -201,12 +205,16 @@ class NotificationService:
     def notify_schedule_updated(schedule, thesis, old_date=None):
         """Notify relevant parties when a schedule is updated."""
         try:
+            # Format the date for notifications
+            scheduled_date_str = schedule.start.strftime("%B %d, %Y at %I:%M %p")
+            schedule_type = "Defense"  # Default value since there's no schedule_type field
+            
             # Notify group members
             for member in thesis.group.members.all():
                 create_notification(
                     user=member,
                     title=f'Defense schedule updated',
-                    body=f'Your {schedule.schedule_type.lower()} defense schedule has been updated to {schedule.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}.',
+                    body=f'Your defense schedule has been updated to {scheduled_date_str}.',
                     link=f'/schedule/{schedule.id}'
                 )
 
@@ -215,7 +223,7 @@ class NotificationService:
                 create_notification(
                     user=thesis.adviser,
                     title=f'Defense schedule updated - {thesis.group.name}',
-                    body=f'{schedule.schedule_type} defense schedule for "{thesis.title}" has been updated to {schedule.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}.',
+                    body=f'Defense schedule for "{thesis.title}" has been updated to {scheduled_date_str}.',
                     link=f'/schedule/{schedule.id}'
                 )
 
@@ -224,7 +232,7 @@ class NotificationService:
                 create_notification(
                     user=panel,
                     title=f'Defense schedule updated - {thesis.group.name}',
-                    body=f'Your panel schedule for the {schedule.schedule_type.lower()} defense of "{thesis.title}" has been updated to {schedule.scheduled_date.strftime("%B %d, %Y at %I:%M %p")}.',
+                    body=f'Your panel schedule for the defense of "{thesis.title}" has been updated to {scheduled_date_str}.',
                     link=f'/schedule/{schedule.id}'
                 )
 
@@ -236,12 +244,16 @@ class NotificationService:
     def notify_schedule_cancelled(schedule, thesis, reason=""):
         """Notify relevant parties when a schedule is cancelled."""
         try:
+            # Format the date for notifications
+            scheduled_date_str = schedule.start.strftime("%B %d, %Y at %I:%M %p")
+            schedule_type = "Defense"  # Default value since there's no schedule_type field
+            
             # Notify group members
             for member in thesis.group.members.all():
                 create_notification(
                     user=member,
                     title=f'Defense cancelled',
-                    body=f'Your {schedule.schedule_type.lower()} defense scheduled for {schedule.scheduled_date.strftime("%B %d, %Y at %I:%M %p")} has been cancelled.{f" Reason: {reason}" if reason else ""}',
+                    body=f'Your defense scheduled for {scheduled_date_str} has been cancelled.{f" Reason: {reason}" if reason else ""}',
                     link=f'/thesis/{thesis.id}'
                 )
 
@@ -250,7 +262,7 @@ class NotificationService:
                 create_notification(
                     user=thesis.adviser,
                     title=f'Defense cancelled - {thesis.group.name}',
-                    body=f'{schedule.schedule_type} defense for "{thesis.title}" has been cancelled.{f" Reason: {reason}" if reason else ""}',
+                    body=f'Defense for "{thesis.title}" has been cancelled.{f" Reason: {reason}" if reason else ""}',
                     link=f'/thesis/{thesis.id}'
                 )
 
@@ -259,7 +271,7 @@ class NotificationService:
                 create_notification(
                     user=panel,
                     title=f'Defense cancelled - {thesis.group.name}',
-                    body=f'Your panel assignment for the {schedule.schedule_type.lower()} defense of "{thesis.title}" has been cancelled.{f" Reason: {reason}" if reason else ""}',
+                    body=f'Your panel assignment for the defense of "{thesis.title}" has been cancelled.{f" Reason: {reason}" if reason else ""}',
                     link=f'/thesis/{thesis.id}'
                 )
 

@@ -50,6 +50,7 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
       // Fetch panel actions for this thesis
       try {
         const actions = await fetchPanelActions(thesisId!);
+        console.log('Panel actions fetched:', actions); // Debug log
         setPanelActions(actions);
       } catch (err) {
         console.error('Error fetching panel actions:', err);
@@ -873,7 +874,7 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
                   <div key={member.id} className="flex items-center gap-3">
                     <Avatar>
                       <AvatarFallback className="bg-green-100 text-green-800 text-xs">
-                        {member.first_name?.charAt(0)}{member.last_name?.charAt(0)}
+                        {`${member.first_name?.charAt(0) || ''}${member.last_name?.charAt(0) || ''}`}
                       </AvatarFallback>
                     </Avatar>
                     <div>
@@ -895,7 +896,7 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
               <div className="flex items-center gap-3">
                 <Avatar>
                   <AvatarFallback className="bg-blue-100 text-blue-800">
-                    {groupObj.adviser.first_name?.charAt(0)}{groupObj.adviser.last_name?.charAt(0)}
+                    {`${groupObj.adviser.first_name?.charAt(0) || ''}${groupObj.adviser.last_name?.charAt(0) || ''}`}
                   </AvatarFallback>
                 </Avatar>
                 <div>
@@ -920,7 +921,7 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
                   <div key={panel.id} className="flex items-center gap-3">
                     <Avatar>
                       <AvatarFallback className="bg-purple-100 text-purple-800 text-xs">
-                        {panel.first_name?.charAt(0)}{panel.last_name?.charAt(0)}
+                        {`${panel.first_name?.charAt(0) || ''}${panel.last_name?.charAt(0) || ''}`}
                       </AvatarFallback>
                     </Avatar>
                     <div>

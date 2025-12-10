@@ -1,29 +1,19 @@
-import { User, Lock, Link as LinkIcon, Moon, Shield, Bell, Leaf } from 'lucide-react';
+﻿import { User, Lock, Link as LinkIcon, Moon, Shield, Bell, Leaf } from 'lucide-react';
 import { Card, Button, Badge, Avatar, AvatarFallback, Switch } from '../../components/ui';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { googleOAuthService } from '../../services/googleOAuthService';
 import { accountLinkingService } from '../../services/accountLinkingService';
 import { useAuth } from '../../hooks/useAuth';
-<<<<<<< HEAD
 import { useDriveConnection } from '../../hooks/useDriveConnection';
-=======
-import { updateProfile, changePassword } from '../../api/userService';
-import { fetchProfile } from '../../api/authService';
->>>>>>> 13a4e22ac92d7824c227a4dff1ae74d9d5e9cb09
 
 interface SettingsProps {
   userRole: 'student' | 'adviser' | 'panel' | 'admin';
 }
 
 export function Settings({ userRole }: SettingsProps) {
-<<<<<<< HEAD
   const { user } = useAuth();
   const { isDriveConnected: googleDriveConnected, checkDriveConnection } = useDriveConnection();
-=======
-  const { user, login } = useAuth();
-  const [googleDriveConnected, setGoogleDriveConnected] = useState(false);
->>>>>>> 13a4e22ac92d7824c227a4dff1ae74d9d5e9cb09
   const [checkingConnection, setCheckingConnection] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -544,19 +534,11 @@ export function Settings({ userRole }: SettingsProps) {
                   )}
 
                   <p className="text-xs text-slate-500 mt-1">
-<<<<<<< HEAD
                     {checkingConnection 
                       ? 'Checking connection status...' 
                       : googleDriveConnected 
                         ? `Connected as ${userData.email}. You can now save files directly to your Google Drive. Refresh this page if you experience any issues.`
                         : 'Connect your Google account to save files directly to your Google Drive. Make sure to grant all requested permissions.'}
-=======
-                    {checkingConnection
-                      ? 'Checking connection status...'
-                      : googleDriveConnected
-                        ? `Connected as ${userData.email}. You can now save files directly to your Google Drive.`
-                        : 'Connect your Google account to save files directly to your Google Drive.'}
->>>>>>> 13a4e22ac92d7824c227a4dff1ae74d9d5e9cb09
                   </p>
                 </div>
               </div>

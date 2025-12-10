@@ -103,6 +103,10 @@ class ScheduleSerializer(serializers.ModelSerializer):
         user = request.user
         validated_data['organizer'] = user
         
+        # If an adviser creates a schedule, set it to pending approval
+        if hasattr(user, 'role') and user.role == 'ADVISER':
+            validated_data['status'] = 'pending'
+        
         try:
             return super().create(validated_data)
         except ValidationError as e:
@@ -110,6 +114,24 @@ class ScheduleSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         try:
+            # If an admin approves a pending schedule, change status to scheduled
+            request = self.context['request']
+            user = request.user
+            
+            if (hasattr(user, 'role') and user.role == 'ADMIN' and 
+                instance.status == 'pending' and 
+                validated_data.get('status') in ['scheduled', 'cancelled']):
+                # Admin is approving/rejecting a pending schedule
+                pass
+            elif (hasattr(user, 'role') and user.role == 'ADVISER' and 
+                  instance.status != 'pending' and user != instance.organizer):
+                # Adviser trying to update someone else's non-pending schedule - should go through admin
+                validated_data['status'] = 'pending'
+            elif (hasattr(user, 'role') and user.role == 'ADVISER' and 
+                  user == instance.organizer and instance.status == 'pending'):
+                # Adviser updating their own pending schedule - keep it pending
+                validated_data['status'] = 'pending'
+                
             return super().update(instance, validated_data)
         except ValidationError as e:
             raise serializers.ValidationError(str(e))

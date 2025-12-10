@@ -59,32 +59,49 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             # Save the schedule if validation passes
             schedule = serializer.save(organizer=self.request.user)
             
-            # Update thesis status based on its current status
-            if thesis.status == 'READY_FOR_CONCEPT_DEFENSE':
-                thesis.status = 'CONCEPT_SCHEDULED'
-            elif thesis.status == 'READY_FOR_PROPOSAL_DEFENSE':
-                thesis.status = 'PROPOSAL_SCHEDULED'
-            elif thesis.status == 'READY_FOR_FINAL_DEFENSE':
-                thesis.status = 'FINAL_SCHEDULED'
-            thesis.save(update_fields=['status', 'updated_at'])
+            # Only update thesis status if the schedule status is 'scheduled'
+            # This ensures that pending, in_progress, completed, cancelled, or rescheduled
+            # schedules do not affect the thesis status
+            if schedule.status == 'scheduled':
+                # Update thesis status based on its current status
+                if thesis.status == 'READY_FOR_CONCEPT_DEFENSE':
+                    thesis.status = 'CONCEPT_SCHEDULED'
+                elif thesis.status == 'READY_FOR_PROPOSAL_DEFENSE':
+                    thesis.status = 'PROPOSAL_SCHEDULED'
+                elif thesis.status == 'READY_FOR_FINAL_DEFENSE':
+                    thesis.status = 'FINAL_SCHEDULED'
+                thesis.save(update_fields=['status', 'updated_at'])
 
     def perform_update(self, serializer):
         with transaction.atomic():
             # Store original values for notification
             original_schedule = self.get_object()
-            original_date = original_schedule.scheduled_date
+            original_date = original_schedule.start
             original_status = original_schedule.status
 
             schedule = serializer.save()
 
             # Check if date changed and send update notification
-            if original_date != schedule.scheduled_date:
+            if original_date != schedule.start:
                 NotificationService.notify_schedule_updated(schedule, schedule.thesis, original_date)
 
             # Check if schedule was cancelled
             if original_status != 'cancelled' and schedule.status == 'cancelled':
                 reason = getattr(schedule, 'cancellation_reason', '')
                 NotificationService.notify_schedule_cancelled(schedule, schedule.thesis, reason)
+            
+            # If the schedule status changed to 'scheduled', update the thesis status
+            # This handles the case when a pending schedule is approved by an admin
+            if original_status != 'scheduled' and schedule.status == 'scheduled':
+                thesis = schedule.thesis
+                # Update thesis status based on its current status
+                if thesis.status == 'READY_FOR_CONCEPT_DEFENSE':
+                    thesis.status = 'CONCEPT_SCHEDULED'
+                elif thesis.status == 'READY_FOR_PROPOSAL_DEFENSE':
+                    thesis.status = 'PROPOSAL_SCHEDULED'
+                elif thesis.status == 'READY_FOR_FINAL_DEFENSE':
+                    thesis.status = 'FINAL_SCHEDULED'
+                thesis.save(update_fields=['status', 'updated_at'])
 
     @action(detail=False, methods=['post'], url_path='check-availability')
     def check_availability(self, request):

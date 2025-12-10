@@ -85,6 +85,16 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
             role: (panel.role || 'panel').toLowerCase() as 'student' | 'adviser' | 'panel' | 'admin'
           })) : undefined;
         
+        // Transform thesis if it exists
+        let thesis: Group['thesis'] | undefined;
+        if (fetchedGroup.thesis) {
+          thesis = {
+            id: String(fetchedGroup.thesis.id),
+            title: fetchedGroup.thesis.title || '',
+            status: fetchedGroup.thesis.status || 'DRAFT'
+          };
+        }
+        
         // Create transformed group object
         const transformedGroup: Group = {
           id: String(fetchedGroup.id),
@@ -100,7 +110,8 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
           abstract: fetchedGroup.abstract || undefined,
           keywords: fetchedGroup.keywords || undefined,
           description: fetchedGroup.description || undefined,
-          preferred_adviser: fetchedGroup.preferred_adviser || undefined
+          preferred_adviser: fetchedGroup.preferred_adviser || undefined,
+          thesis: thesis
         };
         
         setGroup(transformedGroup);
@@ -187,8 +198,31 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
     return 'No leader assigned';
   };
 
-  // Calculate progress (mock value since we don't have actual progress data)
-  const progress = 65;
+  // Calculate progress based on thesis status
+  const calculateProgress = () => {
+    if (!group?.thesis) return 0;
+    
+    switch (group.thesis.status) {
+      case 'TOPIC_SUBMITTED':
+        return 20;
+      case 'TOPIC_APPROVED':
+        return 30;
+      case 'CONCEPT_SUBMITTED':
+        return 40;
+      case 'CONCEPT_APPROVED':
+        return 50;
+      case 'PROPOSAL_SUBMITTED':
+        return 60;
+      case 'PROPOSAL_APPROVED':
+        return 70;
+      case 'FINAL_SUBMITTED':
+        return 80;
+      case 'FINAL_APPROVED':
+        return 100;
+      default:
+        return 0;
+    }
+  };
 
   return (
     <div className="p-8 space-y-6">
@@ -213,7 +247,23 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
               {group.status}
             </Badge>
           </div>
-          <p className="text-slate-600">{group.abstract || 'No abstract provided'}</p>
+          <p className="text-slate-600">
+            {group.thesis 
+              ? group.thesis.title 
+              : (group.abstract || 'No abstract provided')}
+          </p>
+          {group.thesis && (
+            <Button 
+              variant="link" 
+              className="p-0 h-auto text-green-700 hover:text-green-800"
+              onClick={() => {
+                // Navigate to thesis detail page
+                window.location.href = `/thesis/${group.thesis?.id}`;
+              }}
+            >
+              View Thesis Details
+            </Button>
+          )}
         </div>
         <Button className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2">
           <MessageSquare className="w-4 h-4" />
@@ -226,11 +276,16 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-green-700 mb-1">Overall Progress</p>
-            <p className="text-4xl text-green-900">{progress}%</p>
+            <p className="text-4xl text-green-900">{calculateProgress()}%</p>
+            {group.thesis && (
+              <p className="text-sm text-green-700 mt-1">
+                Thesis Status: {group.thesis.status.replace(/_/g, ' ')}
+              </p>
+            )}
           </div>
           <div className="w-32 h-32 rounded-full border-8 border-white flex items-center justify-center bg-green-200">
             <div className="text-center">
-              <p className="text-2xl text-green-900">{progress}%</p>
+              <p className="text-2xl text-green-900">{calculateProgress()}%</p>
               <p className="text-xs text-green-700">Complete</p>
             </div>
           </div>
@@ -270,10 +325,6 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
                         {member.email}
                       </p>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-slate-900">0</p>
-                    <p className="text-xs text-slate-600">contributions</p>
                   </div>
                 </div>
               ))}
@@ -401,13 +452,6 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
                   <span className="text-sm text-slate-600">Members</span>
                 </div>
                 <span className="text-slate-900">{group.members.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-purple-600" />
-                  <span className="text-sm text-slate-600">Contributions</span>
-                </div>
-                <span className="text-slate-900">0</span>
               </div>
             </div>
           </Card>

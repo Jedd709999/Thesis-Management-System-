@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, Plus, Clock, MapPin, List, Edit, Trash2, Eye } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, Clock, MapPin, List, Edit, Trash2, Eye, Check, X } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Calendar } from '../../components/ui/calendar';
-import { fetchSchedules, createSchedule, deleteSchedule } from '../../api/scheduleService';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
+import { fetchSchedules, createSchedule, deleteSchedule, updateSchedule } from '../../api/scheduleService';
 import { fetchTheses } from '../../api/thesisService';
 import { Schedule, Thesis, ScheduleFormData } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
@@ -22,6 +23,10 @@ interface ScheduleManagementProps {
   userRole: 'student' | 'adviser' | 'panel' | 'admin';
 }
 
+// Helper function to check if user is an adviser
+const isAdviser = (role: string | undefined) => role === 'adviser';
+
+// Schedule Management Page Component
 export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
   const { user } = useAuth();
   const [schedules, setSchedules] = useState<ScheduleWithThesis[]>([]);
@@ -39,7 +44,7 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
     duration_minutes: 60,
     notes: '',
     panel_ids: [],
-    status: 'scheduled'
+    status: userRole === 'adviser' ? 'pending' : 'scheduled'  // Default to pending for advisers
   });
 
   useEffect(() => {
@@ -169,10 +174,13 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
     console.log('Checking defense type for thesis status:', thesisStatus);
     switch (thesisStatus) {
       case 'CONCEPT_SCHEDULED':
+      case 'READY_FOR_CONCEPT_DEFENSE':
         return 'Concept Defense';
       case 'PROPOSAL_SCHEDULED':
+      case 'READY_FOR_PROPOSAL_DEFENSE':
         return 'Proposal Defense';
       case 'FINAL_SCHEDULED':
+      case 'READY_FOR_FINAL_DEFENSE':
         return 'Final Defense';
       default:
         console.log('Unknown defense type for thesis status:', thesisStatus);
@@ -217,8 +225,13 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
       .map(schedule => new Date(schedule.date_time));
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  // Function to get status color classes
+  const getStatusColor = (status?: string | null) => {
+    if (!status) return 'bg-slate-100 text-slate-800';
+    
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'scheduled':
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'in_progress':
@@ -265,92 +278,24 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
     setFormError('');
     
     // Log form data for debugging
-    console.log('Form data before submission:', formData);
+    console.log('Submitting schedule form:', formData);
     
-    // Log the raw date_time value
-    console.log('Raw date_time value:', formData.date_time);
-    
-    // Try to parse the date for debugging
-    const testDate = new Date(formData.date_time);
-    console.log('Parsed date:', testDate);
-    console.log('Is valid date:', !isNaN(testDate.getTime()));
-
-    // Basic validation
-    if (!formData.thesis_id || !formData.date_time || !formData.location) {
-      setFormError('Please fill in all required fields');
-      return;
-    }
-    
-    // Date validation
-    const selectedDate = new Date(formData.date_time);
-    const now = new Date();
-    if (selectedDate < now) {
-      setFormError('Selected date and time must be in the future');
-      return;
-    }
-
     try {
-      // Prepare schedule data
-      const scheduleData: ScheduleFormData = {
-        thesis_id: formData.thesis_id,
-        date_time: formData.date_time,
-        location: formData.location,
-        duration_minutes: formData.duration_minutes,
-        notes: formData.notes,
-        panel_ids: formData.panel_ids,
-        status: formData.status
-      };
-
-      // Create schedule
-      const newSchedule = await createSchedule(scheduleData);
-
-      // Update local state with the new schedule
-      setSchedules(prev => [
-        ...prev,
-        {
-          ...newSchedule,
-          // Log the schedule data for debugging
-          ...(console.log('New schedule data:', newSchedule), {}),
-          // Ensure date_time is a proper string and formatted for datetime-local input
-          // Handle both date_time (new format) and start (old format) fields
-          date_time: (newSchedule.date_time || (newSchedule as any).start) && 
-            typeof (newSchedule.date_time || (newSchedule as any).start) === 'string' 
-            ? (newSchedule.date_time || (newSchedule as any).start).includes('T') 
-              ? (newSchedule.date_time || (newSchedule as any).start).substring(0, 16)  // ISO format
-              : (newSchedule.date_time || (newSchedule as any).start)  // Already in datetime-local format
-            : '',
-          // Handle duration_minutes field
-          duration_minutes: newSchedule.duration_minutes || 60,
-          thesis: theses.find(t => t.id === newSchedule.thesis) || newSchedule.thesis,
-          thesis_id: newSchedule.thesis as string
-        }
-      ]);
-
-      // Close dialog and reset form
-      setIsDialogOpen(false);
+      // Use the form data directly as it already matches ScheduleFormData
+      await createSchedule(formData);
+      
+      // Reset form and close dialog
       resetForm();
+      setIsDialogOpen(false);
+      
+      // Reload schedules
+      const updatedSchedules = await fetchSchedules();
+      setSchedules(updatedSchedules);
+      
+      console.log('Schedule created successfully');
     } catch (error: any) {
       console.error('Error creating schedule:', error);
-      
-      // Provide more specific error messages
-      if (error.response && error.response.data) {
-        const errorData = error.response.data;
-        if (errorData.time_validation) {
-          setFormError(`Time validation error: ${errorData.time_validation.join(', ')}`);
-        } else if (errorData.start) {
-          setFormError(`Start time error: ${errorData.start.join(', ')}`);
-        } else if (errorData.end) {
-          setFormError(`End time error: ${errorData.end.join(', ')}`);
-        } else if (errorData.detail) {
-          setFormError(errorData.detail);
-        } else {
-          setFormError('Failed to create schedule. Please check your inputs and try again.');
-        }
-      } else if (error.message) {
-        setFormError(`Error: ${error.message}`);
-      } else {
-        setFormError('Failed to create schedule. Please try again.');
-      }
+      setFormError(error.message || 'Failed to create schedule. Please try again.');
     }
   };
 
@@ -361,6 +306,40 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
     } catch (error) {
       console.error('Error deleting schedule:', error);
       setFormError('Failed to delete schedule. Please try again.');
+    }
+  };
+
+  // Handle schedule approval
+  const handleApproveSchedule = async (scheduleId: string) => {
+    try {
+      // Update the schedule status to 'scheduled'
+      await updateSchedule(scheduleId, { status: 'scheduled' });
+      
+      // Reload schedules
+      const updatedSchedules = await fetchSchedules();
+      setSchedules(updatedSchedules);
+      
+      console.log('Schedule approved successfully');
+    } catch (error) {
+      console.error('Error approving schedule:', error);
+      setFormError('Failed to approve schedule. Please try again.');
+    }
+  };
+
+  // Handle schedule rejection
+  const handleRejectSchedule = async (scheduleId: string) => {
+    try {
+      // Update the schedule status to 'cancelled'
+      await updateSchedule(scheduleId, { status: 'cancelled' });
+      
+      // Reload schedules
+      const updatedSchedules = await fetchSchedules();
+      setSchedules(updatedSchedules);
+      
+      console.log('Schedule rejected successfully');
+    } catch (error) {
+      console.error('Error rejecting schedule:', error);
+      setFormError('Failed to reject schedule. Please try again.');
     }
   };
 
@@ -381,29 +360,48 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <TooltipProvider>
+      <div className="p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl text-slate-900 mb-2">Thesis Defense Schedules</h1>
           <p className="text-slate-600">View and manage thesis defense schedules</p>
         </div>
-        {userRole === 'admin' && (
+        {(userRole === 'admin' || isAdviser(userRole)) && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2">
                 <Plus className="w-4 h-4" />
-                Schedule Defense
+                {isAdviser(userRole) ? 'Propose Defense' : 'Schedule Defense'}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Schedule New Defense</DialogTitle>
+                <DialogTitle>
+                  {isAdviser(userRole) ? 'Propose Defense Schedule' : 'Schedule New Defense'}
+                </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {formError && (
                   <div className="bg-red-50 text-red-700 p-3 rounded-md text-sm">
                     {formError}
+                  </div>
+                )}
+                {isAdviser(userRole) && (
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-yellow-700">
+                          <strong>Note:</strong> Your proposed schedule will be submitted for administrator approval before it becomes active.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -513,7 +511,7 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
                     Cancel
                   </Button>
                   <Button type="submit" className="bg-green-700 hover:bg-green-800">
-                    Schedule Defense
+                    {isAdviser(userRole) ? 'Propose Schedule' : 'Schedule Defense'}
                   </Button>
                 </div>
               </form>
@@ -525,155 +523,164 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
       {/* Calendar and List View */}
       <div className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Section - Tables */}
-          <div className="space-y-6">
-            {/* Upcoming Defenses Table */}
-            <div className="w-full">
-              <Card className="border-0 shadow-sm overflow-hidden p-0">
-                <div className="p-6 border-b border-slate-200">
-                  <h2 className="text-xl font-semibold text-slate-800">Upcoming Defenses</h2>
+          {/* Left Section - Combined Defenses Container */}
+          <div className="flex flex-col h-full">
+            <Card className="border-0 shadow-sm overflow-hidden p-0 flex flex-col h-full">
+              {/* Combined Container Header */}
+              <div className="p-6 border-b border-slate-200">
+                <h2 className="text-xl font-semibold text-slate-800">Defense Schedules</h2>
+              </div>
+              
+              {/* Scrollable Content Area */}
+              <div className="flex-grow overflow-hidden flex flex-col">
+                {/* Upcoming Defenses Section */}
+                <div className="flex-shrink-0 p-6 border-b border-slate-200">
+                  <h3 className="text-lg font-medium text-slate-800 mb-4">Upcoming Defenses</h3>
                 </div>
-                {schedules.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-slate-900 mb-2">No Scheduled Defenses</h3>
-                    {userRole === 'adviser' && (
-                      <p className="text-slate-500">Click the button above to schedule a new defense.</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Thesis Title</th>
-                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Defense Type</th>
-                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Date & Time</th>
-                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Location</th>
-                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Duration</th>
-                          <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Status</th>
-                          {userRole === 'admin' && (
-                            <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Actions</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {schedules.map((schedule) => (
-                          <tr key={schedule.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-6 py-4">
-                              <p className="text-sm text-slate-900">{getThesisTitle(schedule.thesis)}</p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <p className="text-sm text-slate-900">{getDefenseType(getThesisStatus(schedule))}</p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <p className="text-sm text-slate-600">{formatDateTime(schedule.date_time)}</p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <p className="text-sm text-slate-600">{schedule.location || '-'}</p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <p className="text-sm text-slate-600">
-                                {schedule.duration_minutes && schedule.duration_minutes > 0 
-                                  ? formatDuration(schedule.duration_minutes) 
-                                  : '-'}
-                              </p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <Badge className={`border ${getStatusColor(schedule.status || 'scheduled')}`}>
-                                {schedule.status?.replace('_', ' ') || 'scheduled'}
-                              </Badge>
-                            </td>
-                            {userRole === 'admin' && (
-                              <td className="px-6 py-4">
-                                <div className="flex space-x-2">
-                                  <Button variant="outline" size="sm" className="p-2 h-8 w-8">
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="outline" size="sm" className="p-2 h-8 w-8">
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="p-2 h-8 w-8 text-red-600 hover:text-red-700"
-                                    onClick={() => handleDeleteSchedule(schedule.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card>
-            </div>
-            
-            {/* Schedules for Selected Date */}
-            {selectedDate && (
-              <div className="w-full">
-                <Card className="border-0 shadow-sm overflow-hidden p-0">
-                  <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-xl font-semibold text-slate-800">
-                      Defenses on {format(selectedDate, 'MMMM d, yyyy')}
-                    </h2>
-                  </div>
-                  {getSchedulesForDate(selectedDate).length === 0 ? (
-                    <div className="py-8 text-center">
-                      <CalendarIcon className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500">No defenses scheduled for this date</p>
+                <div className="flex-grow overflow-y-auto">
+                  {schedules.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-slate-900 mb-2">No Scheduled Defenses</h3>
+                      {isAdviser(userRole) && (
+                        <p className="text-slate-500">Click the button above to schedule a new defense.</p>
+                      )}
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="bg-slate-50 border-b border-slate-200">
+                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Thesis</th>
-                            <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Defense Type</th>
-                            <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Time</th>
-                            <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Location</th>
+                            <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Thesis Title</th>
+                            <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Defense Type</th>
+                            <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Date & Time</th>
+                            <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Location</th>
+                            <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Duration</th>
+                            <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Status</th>
                             {userRole === 'admin' && (
-                              <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Actions</th>
+                              <th className="px-6 py-4 text-left text-xs uppercase tracking-wider text-slate-600">Actions</th>
                             )}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                          {getSchedulesForDate(selectedDate).map((schedule) => (
+                          {schedules.map((schedule) => (
                             <tr key={schedule.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-6 py-3">
-                                <p className="text-sm text-slate-900 font-medium">{getThesisTitle(schedule.thesis)}</p>
+                              <td className="px-6 py-4">
+                                <p className="text-sm text-slate-900">{getThesisTitle(schedule.thesis)}</p>
                               </td>
-                              <td className="px-6 py-3">
+                              <td className="px-6 py-4">
                                 <p className="text-sm text-slate-900">{getDefenseType(getThesisStatus(schedule))}</p>
                               </td>
-                              <td className="px-6 py-3">
-                                <p className="text-sm text-slate-600">
-                                  {schedule.date_time ? format(parseISO(schedule.date_time), 'h:mm a') : '-'}
-                                </p>
+                              <td className="px-6 py-4">
+                                <p className="text-sm text-slate-600">{formatDateTime(schedule.date_time)}</p>
                               </td>
-                              <td className="px-6 py-3">
+                              <td className="px-6 py-4">
                                 <p className="text-sm text-slate-600">{schedule.location || '-'}</p>
                               </td>
+                              <td className="px-6 py-4">
+                                <p className="text-sm text-slate-600">
+                                  {schedule.duration_minutes && schedule.duration_minutes > 0 
+                                    ? formatDuration(schedule.duration_minutes) 
+                                    : '-'}
+                                </p>
+                              </td>
+                              <td className="px-6 py-4">
+                                <Badge className={`border ${getStatusColor(schedule.status || 'scheduled')}`}>
+                                  {schedule.status?.replace('_', ' ') || 'scheduled'}
+                                </Badge>
+                                {/* Show pending approval message for advisers */}
+                                {isAdviser(userRole) && schedule.status === 'pending' && (
+                                  <div className="mt-1 text-xs text-yellow-600">
+                                    Pending admin approval
+                                  </div>
+                                )}
+                              </td>
                               {userRole === 'admin' && (
-                                <td className="px-6 py-3">
+                                <td className="px-6 py-4">
+                                  <div className="flex space-x-2">
+                                    {schedule.status === 'pending' ? (
+                                      <>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="p-2 h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                              onClick={() => handleApproveSchedule(schedule.id)}
+                                            >
+                                              <Check className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Approve Schedule</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="p-2 h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                              onClick={() => handleRejectSchedule(schedule.id)}
+                                            >
+                                              <X className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Reject Schedule</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button variant="outline" size="sm" className="p-2 h-8 w-8">
+                                              <Eye className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>View Schedule</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button variant="outline" size="sm" className="p-2 h-8 w-8">
+                                              <Edit className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Edit Schedule</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="p-2 h-8 w-8 text-red-600 hover:text-red-700"
+                                              onClick={() => handleDeleteSchedule(schedule.id)}
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Delete Schedule</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              )}
+                              {isAdviser(userRole) && schedule.status !== 'pending' && (
+                                <td className="px-6 py-4">
                                   <div className="flex space-x-2">
                                     <Button variant="outline" size="sm" className="p-2 h-8 w-8">
                                       <Eye className="h-4 w-4" />
                                     </Button>
                                     <Button variant="outline" size="sm" className="p-2 h-8 w-8">
                                       <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
-                                      className="p-2 h-8 w-8 text-red-600 hover:text-red-700"
-                                      onClick={() => handleDeleteSchedule(schedule.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </div>
                                 </td>
@@ -684,9 +691,108 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
                       </table>
                     </div>
                   )}
-                </Card>
+                </div>
+                
+                {/* Schedules for Selected Date Section */}
+                {selectedDate && (
+                  <div className="flex-shrink-0 p-6 border-t border-slate-200">
+                    <h3 className="text-lg font-medium text-slate-800 mb-4">
+                      Defenses on {format(selectedDate, 'MMMM d, yyyy')}
+                    </h3>
+                    {getSchedulesForDate(selectedDate).length === 0 ? (
+                      <div className="py-4 text-center">
+                        <CalendarIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-slate-500 text-sm">No defenses scheduled for this date</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Thesis</th>
+                              <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Defense Type</th>
+                              <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Time</th>
+                              <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Location</th>
+                              {userRole === 'admin' && (
+                                <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-slate-600">Actions</th>
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200">
+                            {getSchedulesForDate(selectedDate).map((schedule) => (
+                              <tr key={schedule.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-6 py-3">
+                                  <p className="text-sm text-slate-900 font-medium">{getThesisTitle(schedule.thesis)}</p>
+                                </td>
+                                <td className="px-6 py-3">
+                                  <p className="text-sm text-slate-900">{getDefenseType(getThesisStatus(schedule))}</p>
+                                </td>
+                                <td className="px-6 py-3">
+                                  <p className="text-sm text-slate-600">
+                                    {schedule.date_time ? format(parseISO(schedule.date_time), 'h:mm a') : '-'}
+                                  </p>
+                                </td>
+                                <td className="px-6 py-3">
+                                  <p className="text-sm text-slate-600">{schedule.location || '-'}</p>
+                                </td>
+                                {userRole === 'admin' && (
+                                  <td className="px-6 py-3">
+                                    <div className="flex space-x-2">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button variant="outline" size="sm" className="p-2 h-8 w-8">
+                                            <Eye className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>View Schedule</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button variant="outline" size="sm" className="p-2 h-8 w-8">
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Edit Schedule</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="p-2 h-8 w-8 text-red-600 hover:text-red-700"
+                                            onClick={() => handleDeleteSchedule(schedule.id)}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Delete Schedule</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </td>
+                                )}
+                                {isAdviser(userRole) && schedule.status === 'pending' && (
+                                  <td className="px-6 py-3">
+                                    <div className="text-xs text-yellow-600">
+                                      Pending approval
+                                    </div>
+                                  </td>
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
+            </Card>
           </div>
           
           {/* Right Section - Calendar */}
@@ -750,5 +856,6 @@ export function ScheduleManagement({ userRole }: ScheduleManagementProps) {
         </div>
       </div>
     </div>
-  );
+  </TooltipProvider>
+);
 }

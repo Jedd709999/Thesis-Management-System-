@@ -983,3 +983,52 @@ class GoogleDriveService:
     def delete_folder(self, folder_id: str) -> bool:
         """Delete a folder from Google Drive"""
         return self.delete_file(folder_id)
+    
+    def update_folder_permissions_to_readonly(self, folder_id: str) -> bool:
+        """
+        Update a Google Drive folder's permissions to read-only for all users.
+        
+        Args:
+            folder_id: Google Drive folder ID
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if not self.service:
+            print("ERROR: Google Drive service not initialized")
+            return False
+        
+        try:
+            # First, get all existing permissions
+            # Note: For regular Drive folders, we don't need supportsAllDrives parameter
+            permissions = self.service.permissions().list(
+                fileId=folder_id,
+                fields='permissions(id,role,type,emailAddress,domain)'
+            ).execute()
+            
+            # Update each permission to reader role (except owner)
+            for permission in permissions.get('permissions', []):
+                # Skip owner permissions - don't change them
+                if permission.get('role') == 'owner':
+                    continue
+                    
+                # Update permission to reader role (read-only)
+                updated_permission = {
+                    'role': 'reader'
+                }
+                
+                # For regular Drive folders, we don't need supportsAllDrives parameter
+                self.service.permissions().update(
+                    fileId=folder_id,
+                    permissionId=permission['id'],
+                    body=updated_permission
+                ).execute()
+            
+            print(f"Successfully updated folder {folder_id} permissions to read-only")
+            return True
+            
+        except Exception as e:
+            print(f"Error updating folder permissions to read-only: {e}")
+            import traceback
+            traceback.print_exc()
+            return False

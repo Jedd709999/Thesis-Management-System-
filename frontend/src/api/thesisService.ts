@@ -151,7 +151,9 @@ import { PanelAction } from '../types';
 
 export const fetchPanelActions = async (thesisId: string): Promise<PanelAction[]> => {
   try {
+    console.log('Fetching panel actions for thesis:', thesisId);
     const response = await api.get(`/panel-actions/?thesis=${thesisId}`);
+    console.log('Panel actions response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching panel actions:', error);

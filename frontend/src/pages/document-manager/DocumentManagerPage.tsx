@@ -203,6 +203,27 @@ export function DocumentManager({ userRole }: DocumentManagerProps) {
       'Unknown';
   };
 
+  // Helper function to safely get group name from document
+  const getGroupName = (document: Document) => {
+    // Check thesis_detail first
+    if (document.thesis_detail && typeof document.thesis_detail === 'object' && 'group' in document.thesis_detail) {
+      const group = document.thesis_detail.group;
+      if (group && typeof group === 'object' && 'name' in group) {
+        return (group as Group).name;
+      }
+    }
+    
+    // Fallback to thesis
+    if (document.thesis && typeof document.thesis === 'object' && 'group' in document.thesis) {
+      const group = document.thesis.group;
+      if (group && typeof group === 'object' && 'name' in group) {
+        return (group as Group).name;
+      }
+    }
+    
+    return 'Unknown Group';
+  };
+
   // Filter and sort documents
   const filteredDocuments = (Array.isArray(documents) ? documents : [])
     .filter(doc => {
@@ -687,7 +708,7 @@ export function DocumentManager({ userRole }: DocumentManagerProps) {
           <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 w-full">
             <p className="text-amber-700 text-sm flex items-start">
               <AlertCircle className="w-4 h-4 inline mr-2 mt-0.5 flex-shrink-0" />
-              <span>You must have an approved thesis before you can upload documents. Please ensure your thesis has been approved by your adviser before attempting to upload documents.</span>
+              <span>You must have an approved topic before you can upload documents. Please wait for your adviser to approve your topic proposal.</span>
             </p>
           </div>
         )}
@@ -841,7 +862,7 @@ export function DocumentManager({ userRole }: DocumentManagerProps) {
                     <span className="font-medium">Type:</span> {getDocumentTypeLabel(doc.document_type)}
                   </p>
                   <p>
-                    <span className="font-medium">Version:</span> v{doc.version}
+                    <span className="font-medium">Group:</span> {getGroupName(doc)}
                   </p>
                   <p>
                     <span className="font-medium">Size:</span> {doc.file_size_display || 'Unknown size'}

@@ -5,6 +5,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 from api.models.thesis_models import Thesis
 from api.models.group_models import Group
 from api.serializers.thesis_serializers import ThesisSerializer
@@ -558,7 +559,7 @@ class ThesisViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def archive(self, request, pk=None):
-        """Archive a thesis (admin only) - changes status to ARCHIVED"""
+        """Archive a thesis (admin only) - changes status to ARCHIVED and creates ArchiveRecord"""
         thesis = self.get_object()
         
         # Check if user is admin
@@ -578,6 +579,70 @@ class ThesisViewSet(viewsets.ModelViewSet):
         # Change thesis status to ARCHIVED
         thesis.status = 'ARCHIVED'
         thesis.save(update_fields=['status', 'updated_at'])
+        
+        # Also create an ArchiveRecord for this thesis
+        try:
+            from api.models.archive_record_models import ArchiveRecord
+            
+            # Get panel members
+            panel_members = []
+            if thesis.group and thesis.group.panels:
+                panel_members = [f"{panel.first_name} {panel.last_name}" for panel in thesis.group.panels.all()]
+
+            # Get adviser name
+            adviser_name = None
+            if thesis.adviser:
+                adviser_name = f"{thesis.adviser.first_name} {thesis.adviser.last_name}"
+
+            # Get keywords as list
+            keywords_list = thesis.get_keywords_list()
+
+            # Create archive record with all required information
+            archive_data = {
+                'title': thesis.title,
+                'abstract': thesis.abstract,
+                'keywords': keywords_list,
+                'status': thesis.status,
+                'adviser': str(thesis.adviser.id) if thesis.adviser else None,
+                'adviser_name': adviser_name,
+                'group': str(thesis.group.id),
+                'group_name': thesis.group.name if thesis.group else 'Unknown Group',
+                'panels': panel_members,
+                'drive_folder_url': thesis.get_drive_folder_url(),
+                'finished_at': timezone.now().isoformat(),
+                'created_at': thesis.created_at.isoformat(),
+                'updated_at': thesis.updated_at.isoformat(),
+            }
+            
+            archive_record = ArchiveRecord.objects.create(
+                content_type='thesis',
+                original_id=thesis.id,
+                data=archive_data,
+                archived_by=request.user,
+                reason='Archived by administrator',
+                retention_period_years=7
+            )
+            
+            # Update Google Drive folder permissions to read-only if folder exists
+            if thesis.drive_folder_id:
+                try:
+                    from api.services.google_drive_service import GoogleDriveService
+                    # Initialize Google Drive service with the thesis proposer's credentials if available
+                    drive_service = GoogleDriveService(user=thesis.proposer if thesis.proposer else None)
+                    if drive_service.service:
+                        success = drive_service.update_folder_permissions_to_readonly(thesis.drive_folder_id)
+                        if success:
+                            print(f"Successfully updated Google Drive folder {thesis.drive_folder_id} to read-only")
+                        else:
+                            print(f"Failed to update Google Drive folder {thesis.drive_folder_id} to read-only")
+                    else:
+                        print(f"Google Drive service not available for folder {thesis.drive_folder_id}")
+                except Exception as e:
+                    print(f"Error updating Google Drive folder permissions: {e}")
+            
+        except Exception as e:
+            print(f"Error creating archive record: {e}")
+            # We don't return an error here because the thesis was already archived successfully
         
         return Response({
             'status': 'success',

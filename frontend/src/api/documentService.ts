@@ -203,13 +203,8 @@ export async function searchDocuments(query: string): Promise<{
 export async function checkUserHasThesis() {
   try {
     const groupsRes = await api.get('/groups/get_current_user_groups/')
-<<<<<<< HEAD
     const groups = Array.isArray(groupsRes.data) ? groupsRes.data : []
     
-=======
-    const groups = groupsRes.data || []
-
->>>>>>> 13a4e22ac92d7824c227a4dff1ae74d9d5e9cb09
     const groupTheses = groups.filter((g: any) => g.thesis)
     return {
       hasThesis: groupTheses.length > 0,
