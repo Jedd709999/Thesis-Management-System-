@@ -139,6 +139,41 @@ class ThesisViewSet(viewsets.ModelViewSet):
         return obj
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def statistics(self, request):
+        """Get thesis statistics for admin dashboard"""
+        if request.user.role != 'ADMIN':
+            return Response({'error': 'Only admins can view thesis statistics'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Get all theses counts by status
+        total_theses = Thesis.objects.count()
+        
+        # Count theses by various statuses
+        topic_submitted = Thesis.objects.filter(status='TOPIC_SUBMITTED').count()
+        topic_approved = Thesis.objects.filter(status='TOPIC_APPROVED').count()
+        topic_rejected = Thesis.objects.filter(status='TOPIC_REJECTED').count()
+        concept_submitted = Thesis.objects.filter(status='CONCEPT_SUBMITTED').count()
+        concept_approved = Thesis.objects.filter(status='CONCEPT_APPROVED').count()
+        proposal_submitted = Thesis.objects.filter(status='PROPOSAL_SUBMITTED').count()
+        proposal_approved = Thesis.objects.filter(status='PROPOSAL_APPROVED').count()
+        final_submitted = Thesis.objects.filter(status='FINAL_SUBMITTED').count()
+        final_approved = Thesis.objects.filter(status='FINAL_APPROVED').count()
+        archived = Thesis.objects.filter(status='ARCHIVED').count()
+
+        return Response({
+            'total_theses': total_theses,
+            'topic_submitted': topic_submitted,
+            'topic_approved': topic_approved,
+            'topic_rejected': topic_rejected,
+            'concept_submitted': concept_submitted,
+            'concept_approved': concept_approved,
+            'proposal_submitted': proposal_submitted,
+            'proposal_approved': proposal_approved,
+            'final_submitted': final_submitted,
+            'final_approved': final_approved,
+            'archived': archived
+        })
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def get_current_user_theses(self, request):
         """Get theses for groups where the user is a member, adviser, panel, or leader"""
         user = request.user

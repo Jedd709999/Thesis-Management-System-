@@ -1,6 +1,9 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from api.models import Thesis, Group, OralDefenseSchedule, PanelAction
+from api.models.thesis_models import Thesis
+from api.models.group_models import Group
+from api.models.schedule_models import OralDefenseSchedule
+from api.models.panel_action_models import PanelAction
 
 class PanelFeedbackTestCase(TestCase):
     def setUp(self):

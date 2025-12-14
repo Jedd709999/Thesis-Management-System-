@@ -2,9 +2,12 @@
 import os
 import sys
 import django
-from django.test import TestCase
+
+from api.models.panel_action_models import PanelAction
+from api.models.user_models import User
+from api.models.thesis_models import Thesis
+from api.models.schedule_models import OralDefenseSchedule
 from django.contrib.auth import get_user_model
-from api.models import Thesis, Group, OralDefenseSchedule, PanelAction
 
 # Set up Django environment
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')

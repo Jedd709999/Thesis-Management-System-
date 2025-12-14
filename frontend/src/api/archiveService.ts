@@ -15,6 +15,14 @@ export async function fetchArchives(params?: {
 }
 
 /**
+ * Search archive records by query and year
+ */
+export async function searchArchives(query: string, year: string): Promise<ArchiveRecord[]> {
+  const res = await api.get('/archives/search/', { params: { q: query, year } })
+  return res.data
+}
+
+/**
  * Fetch a single archive record by ID
  */
 export async function fetchArchive(id: string): Promise<ArchiveRecord> {

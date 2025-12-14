@@ -2,7 +2,7 @@ from rest_framework import serializers
 from api.models.schedule_models import ApprovalSheet, OralDefenseSchedule
 from api.models.user_models import User
 from api.models.document_models import Document
-from api.serializers.schedule_serializers import ScheduleSerializer
+from api.serializers.schedule_serializers import OralDefenseScheduleSerializer
 from api.serializers.user_serializers import UserSerializer
 from api.serializers.document_serializers import DocumentSerializer
 
@@ -23,7 +23,7 @@ class ApprovalSheetSerializer(serializers.ModelSerializer):
     def get_schedule_detail(self, obj):
         """Get detailed information about the schedule"""
         if obj.schedule:
-            return ScheduleSerializer(obj.schedule).data
+            return OralDefenseScheduleSerializer(obj.schedule).data
         return None
     
     def get_panel_member_detail(self, obj):

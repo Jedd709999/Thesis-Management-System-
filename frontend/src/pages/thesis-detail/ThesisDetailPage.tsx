@@ -312,7 +312,7 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
           {isAdviser && (
             // Only show approve/reject buttons for submitted theses
             ['TOPIC_SUBMITTED', 'CONCEPT_SUBMITTED', 'PROPOSAL_SUBMITTED', 'FINAL_SUBMITTED'].includes(thesis.status) && (
-              <>
+              <div className="flex gap-2">
                 <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2">
@@ -388,12 +388,11 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
                     </div>
                   </DialogContent>
                 </Dialog>
-              </>
+              </div>
             )
           )}
         </div>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">

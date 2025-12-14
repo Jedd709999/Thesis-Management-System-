@@ -45,12 +45,12 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "8001:8000"
     dns:
       - 8.8.8.8
       - 8.8.4.4
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/admin/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -61,7 +61,7 @@ services:
       args:
         - VITE_GOOGLE_CLIENT_ID=47765248404-3cio0hk7oasn17dfg86grrf3sh69okgg.apps.googleusercontent.com
         - VITE_GOOGLE_CLIENT_SECRET=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
-        - VITE_API_BASE_URL=http://localhost:8000/api
+        - VITE_API_BASE_URL=http://localhost:8001/api
         - VITE_GOOGLE_REDIRECT_URI=http://localhost:8080/auth/complete/google-oauth2/
 
     volumes:
@@ -76,7 +76,7 @@ services:
       - NODE_ENV=production
       - VITE_GOOGLE_CLIENT_ID=47765248404-3cio0hk7oasn17dfg86grrf3sh69okgg.apps.googleusercontent.com
       - VITE_GOOGLE_CLIENT_SECRET=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
-      - VITE_API_BASE_URL=http://localhost:8000/api
+      - VITE_API_BASE_URL=http://localhost:8001/api
       - VITE_GOOGLE_REDIRECT_URI=http://localhost:8080/auth/complete/google-oauth2/
 
     dns:

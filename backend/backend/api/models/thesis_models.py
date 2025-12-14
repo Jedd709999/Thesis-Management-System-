@@ -1,7 +1,7 @@
 import uuid
 from django.db import models
 from django.utils import timezone
-from .group_models import Group, TopicProposal
+from .group_models import Group
 from .user_models import User
 
 class ThesisQuerySet(models.QuerySet):
@@ -56,13 +56,6 @@ class Thesis(models.Model):
     keywords = models.TextField(blank=True, null=True, help_text="Comma-separated keywords for the thesis")
     group = models.OneToOneField(Group, on_delete=models.CASCADE, related_name='thesis')
     proposer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='proposed_theses')
-    origin_proposal = models.OneToOneField(
-        TopicProposal,  # Direct reference to the model
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='resulting_thesis'
-    )
     adviser = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

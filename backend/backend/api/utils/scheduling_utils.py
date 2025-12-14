@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timedelta
 from django.db import transaction
 from django.utils import timezone
-from api.models.schedule_models import OralDefenseSchedule, PanelMemberAvailability
+from api.models.schedule_models import OralDefenseSchedule
 from api.models.user_models import User
 from api.models.thesis_models import Thesis
 from api.utils.notification_utils import create_notification
@@ -10,6 +10,8 @@ from api.utils.notification_utils import create_notification
 def check_panel_member_availability(panel_members, start_time, end_time, date):
     """
     Check if panel members are available at the given time.
+    NOTE: Panel member availability tracking has been removed from the system.
+    This function now assumes all panel members are available.
     
     Args:
         panel_members: List of User objects (panel members)
@@ -20,46 +22,15 @@ def check_panel_member_availability(panel_members, start_time, end_time, date):
     Returns:
         dict: {
             'available_members': list of available User objects,
-            'unavailable_members': list of unavailable User objects,
-            'conflicts': list of conflict details
+            'unavailable_members': list of unavailable User objects (empty in this implementation),
+            'conflicts': list of conflict details (empty in this implementation)
         }
     """
-    available_members = []
-    unavailable_members = []
-    conflicts = []
-    
-    day_of_week = date.weekday()  # 0=Monday, 6=Sunday
-    
-    for member in panel_members:
-        # Check if member has any availability records
-        availabilities = PanelMemberAvailability.objects.filter(user=member)
-        
-        if not availabilities.exists():
-            # No availability set, assume available but log as warning
-            available_members.append(member)
-            continue
-            
-        # Check member's availability for this day and time
-        available = availabilities.filter(
-            day_of_week=day_of_week,
-            start_time__lte=start_time,
-            end_time__gte=end_time
-        ).exists()
-        
-        if available:
-            available_members.append(member)
-        else:
-            unavailable_members.append(member)
-            conflicts.append({
-                'member': str(member),
-                'member_id': str(member.id),
-                'reason': f'Not available on {date.strftime("%A")} at {start_time}-{end_time}'
-            })
-    
+    # All panel members are assumed to be available since we removed availability tracking
     return {
-        'available_members': available_members,
-        'unavailable_members': unavailable_members,
-        'conflicts': conflicts
+        'available_members': list(panel_members),
+        'unavailable_members': [],
+        'conflicts': []
     }
 
 def find_free_time_slots(panel_members, date, duration_minutes=60, start_hour=9, end_hour=17):

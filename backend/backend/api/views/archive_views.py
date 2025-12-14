@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db import transaction, models
+from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -284,6 +285,39 @@ class ArchiveRecordViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(archive_record)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'])
+    def search(self, request):
+        """Search archive records by keywords and filter by year"""
+        query = request.GET.get('q', '').strip()
+        year = request.GET.get('year', '').strip()
+        
+        # Start with the base queryset based on user permissions
+        queryset = self.get_queryset().filter(content_type='thesis')
+        
+        # Apply search query if provided
+        if query:
+            queryset = queryset.filter(
+                Q(data__title__icontains=query) |
+                Q(data__abstract__icontains=query) |
+                Q(data__keywords__icontains=query)
+            )
+        
+        # Apply year filter if provided
+        if year and year != 'all':
+            try:
+                year_int = int(year)
+                start_date = timezone.make_aware(timezone.datetime(year_int, 1, 1))
+                end_date = timezone.make_aware(timezone.datetime(year_int + 1, 1, 1))
+                queryset = queryset.filter(
+                    archived_at__gte=start_date,
+                    archived_at__lt=end_date
+                )
+            except (ValueError, TypeError):
+                pass  # Invalid year, ignore filter
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def download_pdf_report(self, request, year=None):
         """Download PDF report of finished theses for a specific year"""

@@ -2,7 +2,6 @@ import uuid
 from django.db import models
 from django.utils import timezone
 from .thesis_models import Thesis
-from .group_models import TopicProposal
 from .user_models import User
 
 class Document(models.Model):
@@ -37,13 +36,6 @@ class Document(models.Model):
         blank=True  # Changed back to blank=True to avoid migration issues
     )
     title = models.CharField(max_length=255, blank=True, null=True)
-    topic_proposal = models.ForeignKey(
-        TopicProposal,
-        on_delete=models.CASCADE,
-        related_name='documents',
-        null=True,
-        blank=True
-    )
     uploaded_by = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 
@@ -100,7 +92,6 @@ class Document(models.Model):
         """Create a new version of this document."""
         new_version = Document.objects.create(
             thesis=self.thesis,
-            topic_proposal=self.topic_proposal,
             uploaded_by=uploaded_by,
             document_type=self.document_type,
             version=self.version + 1,

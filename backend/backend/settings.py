@@ -12,7 +12,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'changeme')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'backend']
 
 # Application definition
 INSTALLED_APPS = [
@@ -206,7 +206,7 @@ else:
         )
 
 # Site settings
-SITE_URL = os.getenv('SITE_URL', 'http://localhost:8000')
+SITE_URL = os.getenv('SITE_URL', 'http://localhost:8001')
 SITE_NAME = os.getenv('SITE_NAME', 'Thesis Management System')
 SITE_ID = 1  # Required for django.contrib.sites
 
@@ -245,7 +245,7 @@ GOOGLE_SHARED_DRIVE_ID = os.getenv('GOOGLE_SHARED_DRIVE_ID', None)
 
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '47765248404-3cio0hk7oasn17dfg86grrf3sh69okgg.apps.googleusercontent.com'
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'
-SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = 'http://localhost:8000/auth/complete/google-oauth2/'
+SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_URI = 'http://localhost:8001/auth/complete/google-oauth2/'
 
 
 # Social authentication settings

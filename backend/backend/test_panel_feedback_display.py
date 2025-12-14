@@ -5,7 +5,6 @@ Test script to verify panel feedback display functionality
 import os
 import sys
 import django
-from django.conf import settings
 
 # Add the backend directory to the Python path
 backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -15,7 +14,10 @@ sys.path.insert(0, backend_dir)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings')
 django.setup()
 
-from api.models import PanelAction, User, Thesis, OralDefenseSchedule
+from api.models.panel_action_models import PanelAction
+from api.models.user_models import User
+from api.models.thesis_models import Thesis
+from api.models.schedule_models import OralDefenseSchedule
 from django.contrib.auth import get_user_model
 
 def test_panel_feedback():

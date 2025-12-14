@@ -17,9 +17,9 @@ from api.models import (
     Document, OralDefenseSchedule, 
     Notification, AutoScheduleRun
 )
-from api.models.group_models import GroupMember, TopicProposal
+from api.models.group_models import GroupMember
 from api.models.document_models import DocumentVersion
-from api.models.schedule_models import ApprovalSheet, Evaluation, PanelMemberAvailability
+from api.models.schedule_models import ApprovalSheet
 from api.models.drive_models import DriveCredential, DriveFolder
 from api.models.archive_record_models import ArchiveRecord
 from api.models.audit_log_models import AuditLog

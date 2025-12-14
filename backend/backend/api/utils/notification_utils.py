@@ -84,33 +84,6 @@ def create_schedule_notification(recipient, schedule, sender=None):
         payload=payload
     )
 
-def create_topic_proposal_reviewed_notification(recipient, topic_proposal, sender=None):
-    """
-    Create a notification for a reviewed topic proposal.
-    
-    Args:
-        recipient: User object
-        topic_proposal: TopicProposal object
-        sender: User object (optional)
-    """
-    payload = {
-        'topic_proposal_id': str(topic_proposal.id),
-        'title': topic_proposal.title,
-        'status': topic_proposal.status,
-        'review_comments': topic_proposal.review_comments,
-    }
-    
-    status_display = topic_proposal.get_status_display()
-    return create_notification(
-        recipient=recipient,
-        notification_type=NotificationType.TOPIC_PROPOSAL_REVIEWED,
-        title='Topic Proposal Reviewed',
-        message=f'Your topic proposal "{topic_proposal.title}" has been {status_display.lower()}',
-        related_object=topic_proposal,
-        priority='normal',
-        sender=sender,
-        payload=payload
-    )
 
 def create_document_updated_notification(recipient, document, sender=None):
     """

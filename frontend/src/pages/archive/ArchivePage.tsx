@@ -4,37 +4,32 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { Download, FileText, Calendar, User, Archive as ArchiveIcon, Loader2, FolderOpen } from 'lucide-react';
+import { Download, FileText, Calendar, User, Archive as ArchiveIcon, Loader2, FolderOpen, Search } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../api/api';
+import { searchArchives } from '../../api/archiveService';
+import { ArchiveRecord } from '../../types';
 
-interface ArchiveRecord {
-  id: string;
-  content_type: string;
-  data: {
-    title: string;
-    abstract?: string;
-    keywords?: string[];
-    group_name?: string;
-    adviser_name?: string;
-    panels?: string[];
-    topic?: string;
-    finished_at?: string;
-    drive_folder_url?: string;
-  };
-  archived_at: string;
-  archived_by_detail: {
-    first_name: string;
-    last_name: string;
-    email: string;
-  };
+// Define the specific data structure for thesis archive records
+interface ThesisArchiveData {
+  title: string;
+  abstract?: string;
+  keywords?: string[];
+  group_name?: string;
+  adviser_name?: string;
+  panels?: string[];
+  topic?: string;
+  finished_at?: string;
+  drive_folder_url?: string;
+  [key: string]: any; // Allow additional properties
 }
 
 const ArchivePage = () => {
   const { user } = useAuth();
   const [archives, setArchives] = useState<ArchiveRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState<string>('2025');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedYear, setSelectedYear] = useState<string>('all');
   const [selectedFormat, setSelectedFormat] = useState<string>('pdf');
   const [downloading, setDownloading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -48,8 +43,21 @@ const ArchivePage = () => {
 
   // Set default year to current year
   useEffect(() => {
-    setSelectedYear(getCurrentYear().toString());
+    setSelectedYear('all');
   }, []);
+
+  // Auto-search when searchQuery or selectedYear changes
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery || selectedYear !== 'all') {
+        handleSearch();
+      } else {
+        loadArchives();
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, selectedYear]);
 
   const loadArchives = async () => {
     try {
@@ -61,6 +69,24 @@ const ArchivePage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = async () => {
+    try {
+      setLoading(true);
+      const results = await searchArchives(searchQuery, selectedYear);
+      setArchives(results);
+    } catch (error) {
+      console.error('Failed to search archives:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedYear('all');
+    loadArchives();
   };
 
   const handleDownloadReport = () => {
@@ -149,6 +175,11 @@ const ArchivePage = () => {
     return selectedYear === 'all' || archiveYear === selectedYear;
   });
 
+  // Type guard to check if archive data has the required properties
+  const isThesisArchiveData = (data: any): data is ThesisArchiveData => {
+    return data && typeof data === 'object' && 'title' in data;
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -172,6 +203,22 @@ const ArchivePage = () => {
         <div className="flex flex-col md:flex-row gap-4 items-end">
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
+              Search
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by title, abstract, or keywords..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              />
+            </div>
+          </div>
+          
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Year
             </label>
             <Select value={selectedYear} onValueChange={setSelectedYear}>
@@ -187,6 +234,16 @@ const ArchivePage = () => {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button onClick={handleSearch} className="flex items-center gap-2">
+              <Search className="w-4 h-4" />
+              Search
+            </Button>
+            <Button variant="outline" onClick={handleResetFilters}>
+              Reset
+            </Button>
           </div>
         </div>
       </Card>
@@ -245,19 +302,19 @@ const ArchivePage = () => {
                         <FileText className="w-5 h-5 text-gray-400 mr-3" />
                         <div>
                           <p className="text-sm font-medium text-gray-900">
-                            {archive.data.title}
+                            {isThesisArchiveData(archive.data) ? archive.data.title : 'Untitled'}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-900 max-w-md truncate">
-                        {archive.data.abstract || 'No abstract provided'}
+                        {isThesisArchiveData(archive.data) ? (archive.data.abstract || 'No abstract provided') : 'No abstract provided'}
                       </p>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {archive.data.keywords && archive.data.keywords.length > 0 ? (
+                        {isThesisArchiveData(archive.data) && archive.data.keywords && archive.data.keywords.length > 0 ? (
                           archive.data.keywords.map((keyword, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
                               {keyword}
@@ -270,16 +327,16 @@ const ArchivePage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-900">
-                        {archive.data.group_name || 'No group assigned'}
+                        {isThesisArchiveData(archive.data) ? (archive.data.group_name || 'No group assigned') : 'No group assigned'}
                       </p>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-900">
-                        {archive.data.adviser_name || 'No adviser assigned'}
+                        {isThesisArchiveData(archive.data) ? (archive.data.adviser_name || 'No adviser assigned') : 'No adviser assigned'}
                       </p>
                     </td>
                     <td className="px-6 py-4">
-                      {archive.data.panels && archive.data.panels.length > 0 ? (
+                      {isThesisArchiveData(archive.data) && archive.data.panels && archive.data.panels.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {archive.data.panels.slice(0, 2).map((panel, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
@@ -305,7 +362,7 @@ const ArchivePage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {archive.data.drive_folder_url && (
+                      {isThesisArchiveData(archive.data) && archive.data.drive_folder_url && (
                         <a 
                           href={archive.data.drive_folder_url} 
                           target="_blank" 

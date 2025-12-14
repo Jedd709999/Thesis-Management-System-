@@ -5,10 +5,10 @@ from rest_framework import status
 from django.db import transaction, models
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from api.models.schedule_models import OralDefenseSchedule, PanelMemberAvailability
+from api.models.schedule_models import OralDefenseSchedule
 from api.models.thesis_models import Thesis
 from api.models.user_models import User
-from api.serializers.schedule_serializers import ScheduleSerializer, ScheduleAvailabilitySerializer
+from api.serializers.schedule_serializers import OralDefenseScheduleSerializer, ScheduleAvailabilitySerializer
 from api.permissions.role_permissions import IsAdviser, IsAdviserOrPanelForSchedule, CanCreateSchedule
 from api.services.notification_service import NotificationService
 from api.utils.scheduling_utils import (
@@ -19,7 +19,7 @@ from api.utils.scheduling_utils import (
 
 class ScheduleViewSet(viewsets.ModelViewSet):
     queryset = OralDefenseSchedule.objects.all().select_related('thesis__group','organizer')
-    serializer_class = ScheduleSerializer
+    serializer_class = OralDefenseScheduleSerializer
     permission_classes = [permissions.IsAuthenticated, CanCreateSchedule]
 
     def get_queryset(self):
@@ -149,8 +149,8 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             
             if conflicting_schedules.exists():
                 conflicts.append({
-                    'schedule': ScheduleSerializer(schedule).data,
-                    'conflicts': ScheduleSerializer(conflicting_schedules, many=True).data
+                    'schedule': OralDefenseScheduleSerializer(schedule).data,
+                    'conflicts': OralDefenseScheduleSerializer(conflicting_schedules, many=True).data
                 })
         
         return Response({

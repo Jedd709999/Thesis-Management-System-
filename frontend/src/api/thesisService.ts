@@ -161,6 +161,33 @@ export const fetchPanelActions = async (thesisId: string): Promise<PanelAction[]
   }
 };
 
+/**
+ * Fetch thesis statistics for admin dashboard
+ */
+export async function fetchThesisStatistics(): Promise<{
+  total_theses: number;
+  topic_submitted: number;
+  topic_approved: number;
+  topic_rejected: number;
+  concept_submitted: number;
+  concept_approved: number;
+  proposal_submitted: number;
+  proposal_approved: number;
+  final_submitted: number;
+  final_approved: number;
+  archived: number;
+}> {
+  try {
+    console.log('ThesisService: Fetching thesis statistics');
+    const res = await api.get('/theses/statistics/')
+    console.log('ThesisService: Thesis statistics response:', res.data);
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching thesis statistics:', error);
+    throw error;
+  }
+}
+
 // Legacy exports
 export const listThesis = fetchTheses
 export const getAllTheses = fetchTheses

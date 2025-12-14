@@ -6,7 +6,6 @@ from .schedule_views import *
 from .notification_views import *
 from .google_docs_views import *
 from .panel_views import *
-from .topic_proposal_views import *
 from .approval_sheet_views import *
 from .evaluation_views import *
 from .archive_views import *

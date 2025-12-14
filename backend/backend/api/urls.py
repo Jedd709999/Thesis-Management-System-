@@ -4,8 +4,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .views import user_views, thesis_views, schedule_views, notification_views, group_views, document_views, google_docs_views
 from .views.google_oauth_views import GoogleConnect, GoogleDisconnect, GoogleStatus
-from .views.panel_views import PanelMemberAvailabilityViewSet, PanelActionViewSet
-from .views.topic_proposal_views import TopicProposalViewSet
+from .views.panel_views import PanelActionViewSet
 from .views.approval_sheet_views import ApprovalSheetViewSet
 from .views.evaluation_views import EvaluationViewSet
 from .views.archive_views import ArchiveRecordViewSet
@@ -17,7 +16,6 @@ router = DefaultRouter()
 router.register(r'users', user_views.UserViewSet)
 router.register(r'theses', thesis_views.ThesisViewSet)
 router.register(r'schedules', schedule_views.ScheduleViewSet)
-router.register(r'panel-availability', PanelMemberAvailabilityViewSet)
 router.register(r'panel-actions', PanelActionViewSet, basename='panel-action')
 router.register(r'notifications', notification_views.NotificationViewSet)
 
@@ -30,7 +28,6 @@ router.register(
 )
 
 router.register(r'documents', document_views.DocumentViewSet)
-router.register(r'topic-proposals', TopicProposalViewSet)
 router.register(r'approval-sheets', ApprovalSheetViewSet)
 router.register(r'evaluations', EvaluationViewSet)
 router.register(r'archives', ArchiveRecordViewSet)
@@ -46,11 +43,9 @@ def api_root(request):
         'users': router.get_api_root_view()(request).data.get('users'),
         'theses': router.get_api_root_view()(request).data.get('theses'),
         'schedules': router.get_api_root_view()(request).data.get('schedules'),
-        'panel-availability': router.get_api_root_view()(request).data.get('panel-availability'),
         'notifications': router.get_api_root_view()(request).data.get('notifications'),
         'groups': router.get_api_root_view()(request).data.get('groups'),
         'documents': router.get_api_root_view()(request).data.get('documents'),
-        'topic-proposals': router.get_api_root_view()(request).data.get('topic-proposals'),
         'approval-sheets': router.get_api_root_view()(request).data.get('approval-sheets'),
         'evaluations': router.get_api_root_view()(request).data.get('evaluations'),
         'archives': router.get_api_root_view()(request).data.get('archives'),

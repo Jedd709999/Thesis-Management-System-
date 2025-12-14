@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.models import PanelAction
+from api.models.panel_action_models import PanelAction
 from api.serializers.user_serializers import UserSerializer
 
 class PanelActionSerializer(serializers.ModelSerializer):

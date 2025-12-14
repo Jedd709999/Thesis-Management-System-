@@ -234,40 +234,6 @@ class TestNotificationEndpoints:
 
 
 @pytest.mark.django_db
-class TestTopicProposalEndpoints:
-    """Test topic proposal endpoints"""
-    
-    def test_topic_proposal_list_endpoint(self, authenticated_client):
-        """Test listing topic proposals"""
-        response = authenticated_client.get('/api/topic-proposals/')
-        assert response.status_code == status.HTTP_200_OK
-    
-    def test_topic_proposal_create_endpoint(self, authenticated_client, student_user):
-        """Test creating a topic proposal"""
-        # First create a group
-        adviser = User.objects.create_user(
-            email='advisertopic@test.com',
-            password='testpass123',
-            role='ADVISER'
-        )
-        
-        group = student_user.member_groups.create(
-            name='Topic Group',
-            adviser=adviser
-        )
-        
-        data = {
-            'group': group.id,
-            'title': 'Test Topic Proposal',
-            'abstract': 'This is a test topic proposal',
-            'keywords': ['test', 'proposal']
-        }
-        response = authenticated_client.post('/api/topic-proposals/', data)
-        assert response.status_code == status.HTTP_201_CREATED
-        assert response.data['title'] == 'Test Topic Proposal'
-
-
-@pytest.mark.django_db
 class TestApprovalSheetEndpoints:
     """Test approval sheet endpoints"""
     

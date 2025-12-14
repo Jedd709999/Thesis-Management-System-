@@ -12,7 +12,7 @@ from .models.user_models import User
 from .models.group_models import Group, GroupMember
 from .models.thesis_models import Thesis
 from .models.document_models import Document
-from .models.schedule_models import OralDefenseSchedule, ApprovalSheet, Evaluation, PanelMemberAvailability
+from .models.schedule_models import OralDefenseSchedule, ApprovalSheet, Evaluation
 from .models.notification_models import Notification
 from .models.archive_record_models import ArchiveRecord
 
@@ -273,7 +273,7 @@ class ThesisAdmin(admin.ModelAdmin):
             'fields': ('title', 'abstract', 'keywords', 'status')
         }),
         ('Relationships', {
-            'fields': ('group', 'proposer', 'adviser', 'origin_proposal')
+            'fields': ('group', 'proposer', 'adviser')
         }),
         ('Feedback', {
             'fields': ('adviser_feedback',)
@@ -292,30 +292,6 @@ class ThesisAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('group', 'adviser', 'proposer')
-
-
-class PanelMemberAvailabilityAdmin(admin.ModelAdmin):
-    list_display = ('user', 'get_day_of_week_display', 'start_time', 'end_time', 'is_recurring')
-    list_filter = ('day_of_week', 'is_recurring', 'created_at')
-    search_fields = ('user__email', 'user__first_name', 'user__last_name')
-    date_hierarchy = 'created_at'
-    readonly_fields = ('created_at', 'updated_at')
-    fieldsets = (
-        ('Member Information', {
-            'fields': ('user',)
-        }),
-        ('Availability Details', {
-            'fields': ('day_of_week', 'start_time', 'end_time', 'is_recurring')
-        }),
-        ('Validity Period', {
-            'fields': ('valid_from', 'valid_until', 'notes'),
-            'classes': ('collapse',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
-    )
 
 
 class ArchiveRecordAdmin(admin.ModelAdmin):
@@ -347,6 +323,5 @@ admin.site.register(Document, DocumentAdmin)
 admin.site.register(OralDefenseSchedule, DefenseScheduleAdmin)
 admin.site.register(ApprovalSheet, ApprovalSheetAdmin)
 admin.site.register(Evaluation, EvaluationAdmin)
-admin.site.register(PanelMemberAvailability, PanelMemberAvailabilityAdmin)
 admin.site.register(Notification, NotificationAdmin)
 admin.site.register(ArchiveRecord, ArchiveRecordAdmin)
