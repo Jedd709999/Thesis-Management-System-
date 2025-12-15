@@ -758,3 +758,71 @@ class ThesisViewSet(viewsets.ModelViewSet):
             'message': f"This thesis topic {'already exists' if exists else 'is not yet existed'}",
             'total_results': len(results)
         })
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def find_similar_by_keywords(self, request):
+        """Find theses with similar keywords to detect potential duplicates"""
+        thesis_id = request.query_params.get('thesis_id', None)
+        
+        if not thesis_id:
+            return Response({
+                'error': 'thesis_id parameter is required'
+            }, status=400)
+        
+        try:
+            # Get the reference thesis
+            reference_thesis = Thesis.objects.get(id=thesis_id)
+            
+            # Get reference keywords
+            reference_keywords = reference_thesis.get_keywords_list()
+            
+            if not reference_keywords:
+                return Response({
+                    'similar_theses': [],
+                    'count': 0,
+                    'message': 'No keywords found in the reference thesis'
+                })
+            
+            # Find similar theses based on keyword overlap
+            similar_theses = []
+            all_theses = Thesis.objects.exclude(id=thesis_id).exclude(keywords__isnull=True).exclude(keywords='')
+            
+            for thesis in all_theses:
+                thesis_keywords = thesis.get_keywords_list()
+                if not thesis_keywords:
+                    continue
+                
+                # Calculate similarity based on keyword overlap
+                common_keywords = set(reference_keywords) & set(thesis_keywords)
+                similarity_ratio = len(common_keywords) / len(set(reference_keywords)) if reference_keywords else 0
+                
+                # If at least 50% of keywords match, consider it similar
+                if similarity_ratio >= 0.5:
+                    similar_theses.append({
+                        'id': str(thesis.id),
+                        'title': thesis.title,
+                        'group_name': thesis.group.name if thesis.group else None,
+                        'status': thesis.status,
+                        'status_display': thesis.get_status_display(),
+                        'common_keywords': list(common_keywords),
+                        'similarity_ratio': similarity_ratio,
+                        'total_common_keywords': len(common_keywords)
+                    })
+            
+            # Sort by similarity ratio (highest first)
+            similar_theses.sort(key=lambda x: x['similarity_ratio'], reverse=True)
+            
+            return Response({
+                'similar_theses': similar_theses[:10],  # Limit to top 10 matches
+                'count': len(similar_theses),
+                'message': f"Found {len(similar_theses)} theses with similar keywords"
+            })
+            
+        except Thesis.DoesNotExist:
+            return Response({
+                'error': 'Thesis not found'
+            }, status=404)
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=500)

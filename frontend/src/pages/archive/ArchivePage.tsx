@@ -288,7 +288,7 @@ const ArchivePage = () => {
                     <p className="mt-2 text-gray-500">Loading archives...</p>
                   </td>
                 </tr>
-              ) : filteredArchives.length === 0 ? (
+              ) : Array.isArray(filteredArchives) && filteredArchives.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
                     No archived theses found
@@ -314,7 +314,7 @@ const ArchivePage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
-                        {isThesisArchiveData(archive.data) && archive.data.keywords && archive.data.keywords.length > 0 ? (
+                        {isThesisArchiveData(archive.data) && archive.data.keywords && Array.isArray(archive.data.keywords) && archive.data.keywords.length > 0 ? (
                           archive.data.keywords.map((keyword, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
                               {keyword}
@@ -324,6 +324,7 @@ const ArchivePage = () => {
                           <span className="text-xs text-gray-500">No keywords</span>
                         )}
                       </div>
+
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-900">
@@ -336,14 +337,14 @@ const ArchivePage = () => {
                       </p>
                     </td>
                     <td className="px-6 py-4">
-                      {isThesisArchiveData(archive.data) && archive.data.panels && archive.data.panels.length > 0 ? (
+                      {isThesisArchiveData(archive.data) && archive.data.panels && Array.isArray(archive.data.panels) && archive.data.panels.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {archive.data.panels.slice(0, 2).map((panel, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
                               {panel}
                             </Badge>
                           ))}
-                          {archive.data.panels.length > 2 && (
+                          {Array.isArray(archive.data.panels) && archive.data.panels.length > 2 && (
                             <Badge variant="secondary" className="text-xs">
                               +{archive.data.panels.length - 2} more
                             </Badge>

@@ -79,9 +79,9 @@ export function DocumentUploadDialog({ thesis, onUploadSuccess, children }: Docu
 
   // Auto-select the only allowed document type
   React.useEffect(() => {
-    if (allowedTypes.length === 1) {
+    if (Array.isArray(allowedTypes) && allowedTypes.length === 1) {
       setDocumentType(allowedTypes[0].value);
-    } else if (allowedTypes.length === 0) {
+    } else if (Array.isArray(allowedTypes) && allowedTypes.length === 0) {
       setDocumentType('');
     }
   }, [allowedTypes]);
@@ -205,7 +205,7 @@ export function DocumentUploadDialog({ thesis, onUploadSuccess, children }: Docu
   };
 
   // If no document types are allowed (only when TOPIC_SUBMITTED), don't render the dialog trigger
-  if (allowedTypes.length === 0) {
+  if (Array.isArray(allowedTypes) && allowedTypes.length === 0) {
     return null;
   }
 

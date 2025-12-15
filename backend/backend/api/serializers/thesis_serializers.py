@@ -9,11 +9,15 @@ class ThesisSerializer(serializers.ModelSerializer):
     adviser = serializers.SerializerMethodField(read_only=True)
     progress = serializers.SerializerMethodField(read_only=True)
     drive_folder_url = serializers.SerializerMethodField(read_only=True)
+    keywords = serializers.ListField(child=serializers.CharField(), required=False)
     
     class Meta:
         model = Thesis
         fields = ('id','title','abstract','keywords','group','group_id','proposer','adviser','status','adviser_feedback','progress','drive_folder_id','drive_folder_url','created_at','updated_at')
         read_only_fields = ('status','proposer','drive_folder_id','drive_folder_url','created_at','updated_at')
+        extra_kwargs = {
+            'keywords': {'required': False}
+        }
     
     def get_group(self, obj):
         if obj.group:
@@ -125,6 +129,7 @@ class ThesisSerializer(serializers.ModelSerializer):
         return obj.get_drive_folder_url()
     
     def validate(self, attrs):
+        print(f"Attrs in validate: {attrs}")
         group = attrs.get('group_id')
         
         # Check if group already has a thesis
@@ -139,8 +144,15 @@ class ThesisSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
+        # Debug logging
+        print(f"Validated data received: {validated_data}")
+        
         # Extract group_id from validated_data
         group = validated_data.pop('group', None)
+        
+        # Extract keywords from validated_data
+        keywords = validated_data.pop('keywords', None)
+        print(f"Extracted keywords: {keywords}")
         
         # Set adviser from group if available
         adviser = None
@@ -156,4 +168,35 @@ class ThesisSerializer(serializers.ModelSerializer):
             proposer=self.context['request'].user
         )
         
+        # Set keywords if provided
+        if keywords is not None:
+            # Convert array to comma-separated string
+            if isinstance(keywords, list):
+                thesis.set_keywords_from_list(keywords)
+                print(f"Setting keywords from list: {keywords}")
+            else:
+                thesis.keywords = keywords
+                print(f"Setting keywords directly: {keywords}")
+            thesis.save()
+            print(f"Saved thesis keywords: {thesis.keywords}")
+        
         return thesis
+    
+    def update(self, instance, validated_data):
+        # Handle keywords update
+        keywords = validated_data.pop('keywords', None)
+        if keywords is not None:
+            if isinstance(keywords, list):
+                instance.set_keywords_from_list(keywords)
+                print(f"Updating keywords from list: {keywords}")
+            else:
+                instance.keywords = keywords
+                print(f"Updating keywords directly: {keywords}")
+        
+        # Update other fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.save()
+        print(f"Updated thesis keywords: {instance.keywords}")
+        return instance

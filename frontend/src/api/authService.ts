@@ -324,6 +324,12 @@ export function getTokenExpiration(token: string): Date | null {
 
 // Check if token will expire within the next X minutes
 export function willTokenExpireSoon(token: string, minutesThreshold: number = 5): boolean {
+  // Add defensive check for token
+  if (!token || typeof token !== 'string') {
+    console.log('AuthService: Invalid token provided to willTokenExpireSoon');
+    return true;
+  }
+  
   const expiration = getTokenExpiration(token)
   console.log('AuthService: Checking if token will expire soon');
   console.log('AuthService: Token expiration:', expiration);

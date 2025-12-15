@@ -11,13 +11,14 @@ django.setup()
 # Import routing after Django setup
 from api.routing import websocket_urlpatterns  # Changed back from 'backend.api.routing'
 
+# Import custom JWT auth middleware
+from api.middleware.jwt_auth_middleware import JWTAuthMiddleware
+
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
-    "websocket": AllowedHostsOriginValidator(
-        AuthMiddlewareStack(
-            URLRouter(
-                websocket_urlpatterns
-            )
+    "websocket": JWTAuthMiddleware(  # Use JWT auth middleware instead of standard AuthMiddlewareStack
+        URLRouter(
+            websocket_urlpatterns
         )
     ),
 })

@@ -1,6 +1,6 @@
 from django.urls import re_path
-from api.consumers import DocumentEditConsumer  # Changed from 'backend.api.consumers'
+from api.consumers.notification_consumer import NotificationConsumer
 
 websocket_urlpatterns = [
-    re_path(r'ws/document/(?P<document_id>\d+)/$', DocumentEditConsumer.as_asgi()),
+    re_path(r'ws/notifications/$', NotificationConsumer.as_asgi()),
 ]

@@ -6,6 +6,7 @@ from django.utils import timezone
 from api.models.notification_models import Notification
 from api.serializers.notification_serializers import NotificationSerializer
 from api.permissions.role_permissions import CanManageNotifications
+from api.utils.notification_utils import mark_notification_as_read, delete_notification_and_send_websocket
 
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all().select_related('recipient', 'sender', 'related_content_type')
@@ -52,10 +53,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='mark-read')
     def mark_read(self, request, pk=None):
         """Mark a notification as read"""
-        notification = self.get_object()
-        notification.mark_as_read()
-        serializer = self.get_serializer(notification)
-        return Response(serializer.data)
+        # Use the utility function that also sends WebSocket updates
+        notification = mark_notification_as_read(pk, request.user)
+        if notification:
+            serializer = self.get_serializer(notification)
+            return Response(serializer.data)
+        else:
+            return Response({'error': 'Notification not found'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=['post'], url_path='mark-unread')
     def mark_unread(self, request, pk=None):
@@ -76,6 +80,18 @@ class NotificationViewSet(viewsets.ModelViewSet):
             'message': f'Marked {updated_count} notifications as read',
             'updated_count': updated_count
         })
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete a notification and send WebSocket notification"""
+        instance = self.get_object()
+        notification_id = str(instance.id)
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def perform_destroy(self, instance):
+        """Override to send WebSocket notification when deleting"""
+        # Use the utility function that also sends WebSocket updates
+        delete_notification_and_send_websocket(str(instance.id), self.request.user)
 
     @action(detail=False, methods=['get'], url_path='unread-count')
     def unread_count(self, request):

@@ -115,15 +115,14 @@ interface GroupManagementProps {
 }
 
 interface User {
-  id: number;
+  id: string;
   email: string;
   first_name: string;
   last_name: string;
   role: string;
 }
 
-const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewDetail }) => {
-  const { user: currentUser } = useAuth();
+const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewDetail }) => {  const { user: currentUser } = useAuth();
   const [groups, setGroups] = useState<{ my: Group[]; others: Group[] }>({
     my: [],
     others: [],
@@ -141,9 +140,8 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
   const [groupName, setGroupName] = useState('');
   const [researchTopics, setResearchTopics] = useState('');
-  const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
-  const [preferredAdviser, setPreferredAdviser] = useState<number | null>(null);
-  const [selectedAdviser, setSelectedAdviser] = useState<number | null>(null);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);  const [preferredAdviser, setPreferredAdviser] = useState<string | null>(null);
+  const [selectedAdviser, setSelectedAdviser] = useState<string | null>(null);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [availableAdvisers, setAvailableAdvisers] = useState<User[]>([]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -160,32 +158,30 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
   // Effect to filter users based on search query
   useEffect(() => {
     if (memberSearchQuery.trim() === '') {
-      setFilteredUsers(availableUsers);
+      setFilteredUsers(Array.isArray(availableUsers) ? availableUsers : []);
     } else {
       const query = memberSearchQuery.toLowerCase();
-      const filtered = availableUsers.filter(user => 
+      const filtered = Array.isArray(availableUsers) ? availableUsers.filter(user => 
         user.first_name.toLowerCase().includes(query) || 
         user.last_name.toLowerCase().includes(query) ||
         user.email.toLowerCase().includes(query)
-      );
+      ) : [];
       setFilteredUsers(filtered);
     }
-  }, [memberSearchQuery, availableUsers]);
-  
+  }, [memberSearchQuery, availableUsers]);  
   // Effect to filter advisers based on search query
   useEffect(() => {    if (adviserSearchQuery.trim() === '') {
-      setFilteredAdvisers(availableAdvisers);
+      setFilteredAdvisers(Array.isArray(availableAdvisers) ? availableAdvisers : []);
     } else {
       const query = adviserSearchQuery.toLowerCase();
-      const filtered = availableAdvisers.filter(adviser => 
+      const filtered = Array.isArray(availableAdvisers) ? availableAdvisers.filter(adviser => 
         adviser.first_name.toLowerCase().includes(query) || 
         adviser.last_name.toLowerCase().includes(query) ||
         adviser.email.toLowerCase().includes(query)
-      );
+      ) : [];
       setFilteredAdvisers(filtered);
     }
   }, [adviserSearchQuery, availableAdvisers]);
-
   // Filter helper - enhanced with multiple filter criteria
   const filterGroups = (list: Group[]) => {    return list.filter((g) => {
       // Text search filter
@@ -339,21 +335,12 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
     setGroupName(group.name || '');
     setResearchTopics(group.possible_topics || '');
     
-    // Set selected members (convert string IDs to numbers)
-    const memberIds = (group.members || []).map(member => {
-      const id = typeof member.id === 'string' ? parseInt(member.id, 10) : member.id;
-      return isNaN(id) ? 0 : id;
-    }).filter(id => id > 0);
+    // Set selected members (keep as strings)
+    const memberIds = (group.members || []).map(member => member.id);
     setSelectedMembers(memberIds);
     
     // Set preferred adviser
-    const adviserId = group.preferred_adviser?.id;
-    if (adviserId) {
-      const id = typeof adviserId === 'string' ? parseInt(adviserId, 10) : adviserId;
-      setPreferredAdviser(isNaN(id) ? null : id);
-    } else {
-      setPreferredAdviser(null);
-    }
+    setPreferredAdviser(group.preferred_adviser?.id || null);
     
     // Clear any previous errors
     setFormErrors({});
@@ -460,7 +447,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
     }
     
     try {
-      const updatedGroup = await assignAdviser(group.id, selectedAdviser);
+      const updatedGroup = await assignAdviser(group.id, selectedAdviser || '');
       // Refresh the pending proposals list
       const pendingProposalsResponse = await fetchPendingProposals();
       setPendingProposals(pendingProposalsResponse.map(transformGroup));
@@ -539,8 +526,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
     if (!confirmed) return;
     
     try {
-      await removeGroupMember(group.id, currentUser.id);
-      
+      await removeGroupMember(group.id, Number(currentUser.id));      
       // Refresh groups
       const myGroupsResponse = await fetchCurrentUserGroups();
       const otherGroupsResponse = await fetchOtherGroups();
@@ -563,13 +549,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
     setEditingGroup(group);
     
     // Set the currently assigned adviser if any
-    const adviserId = group.adviser?.id;
-    if (adviserId) {
-      const id = typeof adviserId === 'string' ? parseInt(adviserId, 10) : adviserId;
-      setSelectedAdviser(isNaN(id) ? null : id);
-    } else {
-      setSelectedAdviser(null);
-    }
+    setSelectedAdviser(group.adviser?.id || null);
     
     // Reset adviser search when opening dialog
     setAdviserSearchQuery('');
@@ -746,18 +726,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
         const studentsInGroups = new Set(
           allGroupMembers
             .filter(member => member && member.id)
-            .map(member => {
-              // Handle both string and number IDs
-              let idValue: number | null = null;
-              if (typeof member.id === 'string') {
-                const id = parseInt(member.id, 10);
-                idValue = isNaN(id) ? null : id;
-              } else if (typeof member.id === 'number') {
-                idValue = member.id;
-              }
-              return idValue;
-            })
-            .filter((id): id is number => id !== null)
+            .map(member => member.id)
         );
         
         // Filter out students who are already in groups
@@ -774,7 +743,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
     }
   };
   
-  const toggleMemberSelection = (userId: number) => {
+  const toggleMemberSelection = (userId: string) => {
     setSelectedMembers(prev => 
       prev.includes(userId) 
         ? prev.filter(id => id !== userId) 
@@ -896,16 +865,13 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
           const allGroups = allGroupsResponse.map(transformGroup);
           
           // Get all student IDs that are already in groups
-          const studentIdsInGroups = new Set<number>();
+          const studentIdsInGroups = new Set<string>();
           allGroups.forEach(group => {
             if (group.members && Array.isArray(group.members)) {
               group.members.forEach(member => {
                 if (member && member.id) {
-                  // Convert ID to number regardless of whether it's string or number
-                  const memberId = typeof member.id === 'string' ? parseInt(member.id, 10) : member.id;
-                  if (!isNaN(memberId)) {
-                    studentIdsInGroups.add(memberId);
-                  }
+                  // Keep ID as string
+                  studentIdsInGroups.add(member.id);
                 }
               });
             }
@@ -1082,14 +1048,14 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                                 </span>
                               </span>
                             </div>
-                            {selectedMembers.length > 1 && (
+                            {Array.isArray(selectedMembers) && selectedMembers.length > 1 && (
                               <button
                                 type="button"
                                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive bg-background text-foreground hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   // Only clear additional members, keep the leader (first member)
-                                  setSelectedMembers(selectedMembers.length > 0 ? [selectedMembers[0]] : []);
+                                  setSelectedMembers(Array.isArray(selectedMembers) && selectedMembers.length > 0 ? [selectedMembers[0]] : []);
                                 }}
                               >
                                 Clear Additional
@@ -1249,13 +1215,13 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                                     <div 
                                       key={adviser.id} 
                                       className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
-                                        preferredAdviser === adviser.id ? 'bg-blue-50 border border-blue-200' : ''
+                                        (preferredAdviser || '') === (adviser.id || '') ? 'bg-blue-50 border border-blue-200' : ''
                                       }`}
-                                      onClick={() => setPreferredAdviser(adviser.id === preferredAdviser ? null : adviser.id)}
+                                      onClick={() => setPreferredAdviser((adviser.id || '') === (preferredAdviser || '') ? null : adviser.id)}
                                     >
                                       <input
                                         type="radio"
-                                        checked={preferredAdviser === adviser.id}
+                                        checked={(preferredAdviser || '') === (adviser.id || '')}
                                         onChange={() => {}}
                                         className="cursor-pointer"
                                       />
@@ -1355,8 +1321,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                         <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>
                       )}
                     </div>
-                  </div>
-                  
+                  </div>                  
                   <div className="grid grid-cols-4 items-start gap-4">
                     <Label htmlFor="edit-research-topics" className="text-right pt-2">
                       Research Topics *
@@ -1399,14 +1364,14 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                               </span>
                             </span>
                           </div>
-                          {selectedMembers.length > 1 && (
+                          {Array.isArray(selectedMembers) && selectedMembers.length > 1 && (
                             <button
                               type="button"
                               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive bg-background text-foreground hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 border h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 // Only clear additional members, keep the leader (first member)
-                                setSelectedMembers(selectedMembers.length > 0 ? [selectedMembers[0]] : []);
+                                setSelectedMembers(Array.isArray(selectedMembers) && selectedMembers.length > 0 ? [selectedMembers[0]] : []);
                               }}
                             >
                               Clear Additional
@@ -1544,13 +1509,12 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                                   <div 
                                     key={adviser.id} 
                                     className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
-                                      preferredAdviser === adviser.id ? 'bg-blue-50 border border-blue-200' : ''
+                                      (preferredAdviser || '') === (adviser.id || '') ? 'bg-blue-50 border border-blue-200' : ''
                                     }`}
-                                    onClick={() => setPreferredAdviser(adviser.id === preferredAdviser ? null : adviser.id)}
-                                  >
+                                    onClick={() => setPreferredAdviser((adviser.id || '') === (preferredAdviser || '') ? null : adviser.id)}                                  >
                                     <input
                                       type="radio"
-                                      checked={preferredAdviser === adviser.id}
+                                      checked={(preferredAdviser || '') === (adviser.id || '')}
                                       onChange={() => {}}
                                       className="cursor-pointer"
                                     />
@@ -1736,13 +1700,13 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                               <div 
                                 key={adviser.id} 
                                 className={`flex items-center gap-2 p-2 hover:bg-slate-100 rounded cursor-pointer ${
-                                  selectedAdviser === adviser.id ? 'bg-blue-50 border border-blue-200' : ''
+                                  (selectedAdviser || '') === (adviser.id || '') ? 'bg-blue-50 border border-blue-200' : ''
                                 }`}
-                                onClick={() => setSelectedAdviser(adviser.id === selectedAdviser ? null : adviser.id)}
+                                onClick={() => setSelectedAdviser((adviser.id || '') === (selectedAdviser || '') ? null : adviser.id)}
                               >
                                 <input
                                   type="radio"
-                                  checked={selectedAdviser === adviser.id}
+                                  checked={(selectedAdviser || '') === (adviser.id || '')}
                                   onChange={() => {}}
                                   className="cursor-pointer"
                                 />

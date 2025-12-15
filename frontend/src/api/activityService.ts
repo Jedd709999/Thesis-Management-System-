@@ -26,7 +26,9 @@ export const fetchRecentActivities = async (limit: number = 10): Promise<Activit
     // Since there's no dedicated activity endpoint, we'll use recent notifications as activities
     const response = await api.get(`/notifications/mine/?limit=${limit}`);
     // Convert notifications to activities format
-    return response.data.results || response.data;
+    // Ensure we always return an array
+    const data = response.data.results || response.data;
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error('Failed to fetch recent activities:', error);
     return [];
@@ -37,7 +39,9 @@ export const fetchUnreadNotifications = async (): Promise<ActivityNotification[]
   try {
     // Use the correct endpoint for unread notifications
     const response = await api.get('/notifications/mine/?read=false');
-    return response.data.results || response.data;
+    // Ensure we always return an array
+    const data = response.data.results || response.data;
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error('Failed to fetch unread notifications:', error);
     return [];

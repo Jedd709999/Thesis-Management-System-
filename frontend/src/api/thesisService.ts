@@ -97,7 +97,9 @@ export async function fetchThesis(id: string): Promise<Thesis> {
  * Create a new thesis
  */
 export async function createThesis(data: ThesisFormData): Promise<Thesis> {
+  console.log('Sending thesis data to backend:', data);
   const res = await api.post('theses/', data)
+  console.log('Received response from backend:', res.data);
   return res.data
 }
 
@@ -192,6 +194,21 @@ export async function fetchThesisStatistics(): Promise<{
 export const listThesis = fetchTheses
 export const getAllTheses = fetchTheses
 export const getThesis = fetchThesis
+
+/**
+ * Find similar theses by keywords
+ */
+export async function findSimilarTheses(thesisId: string): Promise<any> {
+  try {
+    console.log('ThesisService: Finding similar theses for:', thesisId);
+    const res = await api.get(`/theses/find_similar_by_keywords/`, { params: { thesis_id: thesisId } });
+    console.log('ThesisService: Similar theses response:', res.data);
+    return res.data;
+  } catch (error) {
+    console.error('Error finding similar theses:', error);
+    throw error;
+  }
+}
 
 /**
  * Search for thesis topics by keyword to prevent duplication

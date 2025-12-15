@@ -205,9 +205,9 @@ export async function checkUserHasThesis() {
     const groupsRes = await api.get('/groups/get_current_user_groups/')
     const groups = Array.isArray(groupsRes.data) ? groupsRes.data : []
     
-    const groupTheses = groups.filter((g: any) => g.thesis)
+    const groupTheses = Array.isArray(groups) ? groups.filter((g: any) => g.thesis) : [];
     return {
-      hasThesis: groupTheses.length > 0,
+      hasThesis: Array.isArray(groupTheses) && groupTheses.length > 0,
       theses: groupTheses
     }
   } catch (error) {

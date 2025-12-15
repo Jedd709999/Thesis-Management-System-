@@ -1,46 +1,54 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-interface WebSocketOptions {
-  onMessage?: (data: any) => void
-  onConnect?: () => void
-  onDisconnect?: () => void
-  onError?: (error: Event) => void
-  reconnectInterval?: number
-  maxReconnectAttempts?: number
+interface UseWebSocketOptions {
+  onMessage?: (data: any) => void;
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+  onError?: (error: Event) => void;
+  reconnectInterval?: number;
+  maxReconnectAttempts?: number;
 }
 
-/**
- * WebSocket hook for real-time updates
- * Usage:
- * const { connected, send } = useWebSocket('ws://localhost:8000/ws/notifications/', {
- *   onMessage: (data) => console.log('Received:', data)
- * })
- */
-export function useWebSocket(url: string, options: WebSocketOptions = {}) {
+export function useWebSocket(
+  url: string,
+  options: UseWebSocketOptions = {}
+) {
   const {
     onMessage,
     onConnect,
     onDisconnect,
     onError,
-    reconnectInterval = 5000,
+    reconnectInterval = 3000,
     maxReconnectAttempts = 5
-  } = options
+  } = options;
 
-  const [connected, setConnected] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
-  const reconnectAttemptsRef = useRef(0)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [connected, setConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
 
   const connect = useCallback(() => {
     try {
+      // Clear any existing reconnect timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      
+      // Log the URL we're trying to connect to
+      console.log('Attempting WebSocket connection to:', url);
+      
       const token = localStorage.getItem('access_token')
       const wsUrl = token ? `${url}?token=${token}` : url
+      
+      console.log('Final WebSocket URL with token:', wsUrl);
       
       const ws = new WebSocket(wsUrl)
       
       ws.onopen = () => {
-        console.log('WebSocket connected')
+        console.log('WebSocket connected successfully')
         setConnected(true)
         setError(null)
         reconnectAttemptsRef.current = 0
@@ -50,6 +58,7 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
+          console.log('WebSocket message received:', data)
           onMessage?.(data)
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err)
@@ -62,20 +71,34 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
         onError?.(event)
       }
       
-      ws.onclose = () => {
-        console.log('WebSocket disconnected')
+      ws.onclose = (event) => {
+        console.log('WebSocket disconnected', event)
         setConnected(false)
         onDisconnect?.()
         
-        // Attempt reconnection
+        // Log the close code and reason
+        console.log('WebSocket close code:', event.code)
+        console.log('WebSocket close reason:', event.reason)
+        console.log('WebSocket wasClean:', event.wasClean)
+        
+        // Don't attempt reconnection if the close was clean (code 1000) or if it's an authentication failure (code 4001)
+        // For code 1006 (abnormal closure), we should still attempt reconnection as it might be a temporary network issue
+        if (event.code === 1000 || event.code === 4001) {
+          console.log('WebSocket closed cleanly or due to authentication failure, not reconnecting')
+          return
+        }
+        
+        // Attempt reconnection for all other cases including 1006 (abnormal closure)
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++
+          console.log(`Scheduling reconnection attempt ${reconnectAttemptsRef.current} in ${reconnectInterval}ms`)
           reconnectTimeoutRef.current = setTimeout(() => {
             console.log(`Reconnecting... (Attempt ${reconnectAttemptsRef.current})`)
             connect()
           }, reconnectInterval)
         } else {
           setError('Max reconnection attempts reached')
+          console.log('Max reconnection attempts reached, stopping reconnection attempts')
         }
       }
       
@@ -89,9 +112,12 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
     }
-    wsRef.current?.close()
-    wsRef.current = null
+    if (wsRef.current) {
+      wsRef.current.close()
+      wsRef.current = null
+    }
     setConnected(false)
   }, [])
 
@@ -106,9 +132,11 @@ export function useWebSocket(url: string, options: WebSocketOptions = {}) {
   useEffect(() => {
     connect()
     return () => {
-      disconnect()
+      // Don't automatically disconnect when component unmounts
+      // The disconnect function should be called manually when needed
+      console.log('WebSocket hook unmounted, but not disconnecting automatically')
     }
-  }, [connect, disconnect])
+  }, [connect])
 
   return {
     connected,

@@ -1,12 +1,12 @@
-from api.models.notification_models import Notification
-from api.utils.email_utils import send_notification_email
+from api.utils.notification_utils import create_notification as create_notification_util
 
+# Maintain backward compatibility
 def create_notification(user, title, body='', link=''):
-    print(f"Creating notification for user: {user}, title: {title}")
-    n = Notification.objects.create(user=user, title=title, body=body, link=link)
-    try:
-        send_notification_email(title, body, user.email)
-    except Exception as e:
-        print(f"Failed to send notification email: {e}")
-        # Continue even if email fails
-    return n
+    """Backward compatible function for creating notifications."""
+    return create_notification_util(
+        recipient=user,
+        notification_type='other',
+        title=title,
+        message=body,
+        payload={'link': link} if link else None
+    )

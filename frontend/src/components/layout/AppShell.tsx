@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { useAuth } from '../../hooks/useAuth'
-import { useNotifications } from '../../hooks/useNotifications'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -13,7 +12,6 @@ export const AppShell: React.FC<AppShellProps> = ({ children, onNavigate }) => {
   // For larger screens, sidebar should be open by default
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024)
   const { user, logout } = useAuth()
-  const { unreadCount } = useNotifications(30000) // Poll every 30 seconds
 
   // Handle window resize to adjust sidebar visibility
   useEffect(() => {
@@ -54,7 +52,6 @@ export const AppShell: React.FC<AppShellProps> = ({ children, onNavigate }) => {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar */}
         <Topbar
-          unreadCount={unreadCount}
           onMenuToggle={toggleSidebar}
           onNavigate={onNavigate}
         />

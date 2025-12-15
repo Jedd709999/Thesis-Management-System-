@@ -1,117 +1,85 @@
-import { useState } from 'react';
-import { Bell, FileText, Calendar, Upload, CheckCircle, Filter, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Bell, FileText, Calendar, Upload, CheckCircle, Filter, Trash2, Loader2 } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { useNotifications } from '../../hooks/useNotifications';
+import { formatDistanceToNow } from 'date-fns';
 
 export function NotificationCenter() {
   const [filter, setFilter] = useState('all');
+  const { 
+    notifications, 
+    unreadCount, 
+    loading, 
+    error, 
+    markRead, 
+    markAllRead, 
+    deleteNotif 
+  } = useNotifications();
 
-  const notifications = [
-    {
-      id: '1',
-      category: 'Thesis',
-      icon: FileText,
-      title: 'Thesis proposal needs revision',
-      message: 'Dr. Maria Santos has requested revisions to your thesis proposal. Please review the feedback and update accordingly.',
-      time: '1 hour ago',
-      unread: true,
-      link: '/thesis/1',
-    },
-    {
-      id: '2',
-      category: 'Documents',
-      icon: Upload,
-      title: 'New document uploaded',
-      message: 'Maria Garcia uploaded "Chapter 3 Draft" to Rainforest Biodiversity Team documents.',
-      time: '2 hours ago',
-      unread: true,
-      link: '/documents',
-    },
-    {
-      id: '3',
-      category: 'Thesis',
-      icon: CheckCircle,
-      title: 'Thesis chapter approved',
-      message: 'Your Chapter 1: Introduction has been approved by Dr. Maria Santos. You can now proceed with Chapter 2.',
-      time: '3 hours ago',
-      unread: true,
-      link: '/thesis/1',
-    },
-    {
-      id: '4',
-      category: 'Schedule',
-      icon: Calendar,
-      title: 'Defense date confirmed',
-      message: 'Your thesis defense has been scheduled for December 20, 2024 at 10:00 AM in Room 301.',
-      time: '5 hours ago',
-      unread: false,
-      link: '/schedule',
-    },
-    {
-      id: '5',
-      category: 'Documents',
-      icon: FileText,
-      title: 'Adviser commented on document',
-      message: 'Dr. Maria Santos added 3 comments to your Chapter 2 draft. Review and respond to the feedback.',
-      time: '1 day ago',
-      unread: false,
-      link: '/google-docs',
-    },
-    {
-      id: '6',
-      category: 'Thesis',
-      icon: Upload,
-      title: 'Document version updated',
-      message: 'Version 2.1 of your thesis proposal is now available. Changes include updated methodology section.',
-      time: '1 day ago',
-      unread: false,
-      link: '/thesis/1',
-    },
-    {
-      id: '7',
-      category: 'Schedule',
-      icon: Calendar,
-      title: 'Progress review scheduled',
-      message: 'A progress review meeting has been scheduled with your adviser for December 15, 2024 at 2:00 PM.',
-      time: '2 days ago',
-      unread: false,
-      link: '/schedule',
-    },
-    {
-      id: '8',
-      category: 'Documents',
-      icon: CheckCircle,
-      title: 'Document approved by panel',
-      message: 'Dr. James Wilson approved your literature review document. No further changes required.',
-      time: '2 days ago',
-      unread: false,
-      link: '/documents',
-    },
-    {
-      id: '9',
-      category: 'Thesis',
-      icon: FileText,
-      title: 'Group member added content',
-      message: 'David Chen updated the research methodology section. Review the changes in the shared document.',
-      time: '3 days ago',
-      unread: false,
-      link: '/thesis/1',
-    },
-    {
-      id: '10',
-      category: 'Schedule',
-      icon: Calendar,
-      title: 'Reminder: Upcoming defense',
-      message: 'Your final thesis defense is in 5 days. Make sure all required documents are submitted.',
-      time: '3 days ago',
-      unread: false,
-      link: '/schedule',
-    },
-  ];
+  console.log('NotificationCenter: notifications', notifications);
+  console.log('NotificationCenter: unreadCount', unreadCount);
+  console.log('NotificationCenter: loading', loading);
+  console.log('NotificationCenter: error', error);
 
-  const getCategoryColor = (category: string) => {
+  // Map notification types to categories
+  const mapNotificationTypeToCategory = (type) => {
+    if (!type) return 'Other'; // Handle undefined/null types
+    
+    const typeMap = {
+      'thesis_submitted': 'Thesis',
+      'defense_scheduled': 'Schedule',
+      'defense_reminder': 'Schedule',
+      'defense_cancelled': 'Schedule',
+      'document_uploaded': 'Documents',
+      'document_approved': 'Documents',
+      'document_rejected': 'Documents',
+      'evaluation_submitted': 'Thesis',
+      'thesis_approved': 'Thesis',
+      'thesis_rejected': 'Thesis',
+      'new_comment': 'Documents',
+      'mention': 'Documents',
+      'system_alert': 'System',
+      'schedule_created': 'Schedule',
+      'topic_proposal_reviewed': 'Thesis',
+      'document_updated': 'Documents',
+      'adviser_changed': 'Thesis',
+      'approval_sheet_submitted': 'Thesis',
+      'other': 'Other'
+    };
+    return typeMap[type] || 'Other';
+  };
+
+  // Map categories to icons
+  const getCategoryIcon = (category) => {
+    if (!category) return Bell; // Handle undefined/null categories
+    
+    switch (category) {
+      case 'Thesis': return FileText;
+      case 'Documents': return Upload;
+      case 'Schedule': return Calendar;
+      default: return Bell;
+    }
+  };
+
+  // Ensure notifications is an array before mapping
+  const notificationsArray = Array.isArray(notifications) ? notifications : [];
+  
+  // Format notifications for display
+  const formattedNotifications = notificationsArray
+    .filter(notification => notification) // Filter out any undefined/null notifications
+    .map(notification => ({
+      ...notification,
+      category: mapNotificationTypeToCategory(notification.type),
+      icon: getCategoryIcon(mapNotificationTypeToCategory(notification.type)),
+      time: notification.created_at ? formatDistanceToNow(new Date(notification.created_at), { addSuffix: true }) : 'Unknown time',
+      unread: !notification.is_read,
+      message: notification.body,
+    }));
+
+  const getCategoryColor = (category) => {
     switch (category) {
       case 'Thesis':
         return 'text-green-600 bg-green-100';
@@ -124,13 +92,20 @@ export function NotificationCenter() {
     }
   };
 
-  const filteredNotifications = notifications.filter((notif) => {
+  const filteredNotifications = formattedNotifications.filter((notif) => {
+    if (!notif) return false; // Filter out any undefined/null notifications
     if (filter === 'all') return true;
     if (filter === 'unread') return notif.unread;
-    return notif.category.toLowerCase() === filter.toLowerCase();
+    return notif.category && notif.category.toLowerCase() === filter.toLowerCase();
   });
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  // Calculate category counts
+  const thesisCount = Array.isArray(formattedNotifications) ? 
+    formattedNotifications.filter(n => n && n.category === 'Thesis').length : 0;
+  const documentsCount = Array.isArray(formattedNotifications) ? 
+    formattedNotifications.filter(n => n && n.category === 'Documents').length : 0;
+  const scheduleCount = Array.isArray(formattedNotifications) ? 
+    formattedNotifications.filter(n => n && n.category === 'Schedule').length : 0;
 
   return (
     <div className="p-8 space-y-6">
@@ -140,7 +115,12 @@ export function NotificationCenter() {
           <h1 className="text-3xl text-slate-900 mb-2">Notification Center</h1>
           <p className="text-slate-600">Stay updated with your thesis progress and team activities</p>
         </div>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button 
+          variant="outline" 
+          className="flex items-center gap-2"
+          onClick={markAllRead}
+          disabled={unreadCount === 0}
+        >
           <CheckCircle className="w-4 h-4" />
           Mark All as Read
         </Button>
@@ -152,7 +132,7 @@ export function NotificationCenter() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Total</p>
-              <p className="text-2xl text-slate-900">{notifications.length}</p>
+              <p className="text-2xl text-slate-900">{Array.isArray(formattedNotifications) ? formattedNotifications.length : 0}</p>
             </div>
             <Bell className="w-8 h-8 text-slate-300" />
           </div>
@@ -170,9 +150,7 @@ export function NotificationCenter() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Thesis</p>
-              <p className="text-2xl text-slate-900">
-                {notifications.filter((n) => n.category === 'Thesis').length}
-              </p>
+              <p className="text-2xl text-slate-900">{thesisCount}</p>
             </div>
             <FileText className="w-8 h-8 text-slate-300" />
           </div>
@@ -181,9 +159,7 @@ export function NotificationCenter() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Documents</p>
-              <p className="text-2xl text-slate-900">
-                {notifications.filter((n) => n.category === 'Documents').length}
-              </p>
+              <p className="text-2xl text-slate-900">{documentsCount}</p>
             </div>
             <Upload className="w-8 h-8 text-slate-300" />
           </div>
@@ -201,7 +177,7 @@ export function NotificationCenter() {
               >
                 All
                 <Badge variant="secondary" className="ml-2 bg-slate-100">
-                  {notifications.length}
+                  {Array.isArray(formattedNotifications) ? formattedNotifications.length : 0}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger
@@ -235,21 +211,32 @@ export function NotificationCenter() {
           </div>
 
           <TabsContent value={filter} className="p-6 space-y-3 mt-0">
-            {filteredNotifications.length === 0 ? (
+            {loading ? (
+              <div className="py-12 text-center">
+                <Loader2 className="w-12 h-12 text-slate-300 mx-auto mb-4 animate-spin" />
+                <p className="text-slate-500">Loading notifications...</p>
+              </div>
+            ) : error ? (
+              <div className="py-12 text-center">
+                <Bell className="w-12 h-12 text-red-300 mx-auto mb-4" />
+                <p className="text-red-500 mb-2">Failed to load notifications</p>
+                <p className="text-slate-500 text-sm">{error}</p>
+              </div>
+            ) : Array.isArray(filteredNotifications) && filteredNotifications.length === 0 ? (
               <div className="py-12 text-center">
                 <Bell className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                 <p className="text-slate-500">No notifications in this category</p>
               </div>
             ) : (
-              filteredNotifications.map((notification) => {
+              Array.isArray(filteredNotifications) && filteredNotifications.map((notification) => {
                 const Icon = notification.icon;
                 return (
                   <div
                     key={notification.id}
-                    className={`p-4 rounded-lg border transition-all cursor-pointer ${
+                    className={`p-4 rounded-lg border transition-all ${
                       notification.unread
-                        ? 'bg-green-50 border-green-200 hover:bg-green-100'
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-white border-slate-200'
                     }`}
                   >
                     <div className="flex items-start gap-4">
@@ -264,7 +251,7 @@ export function NotificationCenter() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2">
-                            <h3 className="text-sm text-slate-900">{notification.title}</h3>
+                            <h3 className="text-sm text-slate-900 font-medium">{notification.title}</h3>
                             {notification.unread && (
                               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                             )}
@@ -287,11 +274,21 @@ export function NotificationCenter() {
                           <p className="text-xs text-slate-500">{notification.time}</p>
                           <div className="flex items-center gap-2">
                             {notification.unread && (
-                              <Button variant="ghost" size="sm" className="text-xs h-7">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-xs h-7"
+                                onClick={() => markRead(notification.id)}
+                              >
                                 Mark as Read
                               </Button>
                             )}
-                            <Button variant="ghost" size="sm" className="text-xs h-7 text-slate-400">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-xs h-7 text-slate-400"
+                              onClick={() => deleteNotif(notification.id)}
+                            >
                               <Trash2 className="w-3 h-3" />
                             </Button>
                           </div>

@@ -56,7 +56,7 @@ export function GroupCard({
   const topics = group.possible_topics?.split('\n').filter(topic => topic.trim()) || [];
   
   // Format keywords from comma-separated string to array
-  const keywords = group.keywords?.split(',').map(k => k.trim()).filter(k => k) || [];
+  const keywords = Array.isArray(group.keywords) ? group.keywords : (group.keywords?.split(',').map(k => k.trim()).filter(k => k) || []);
   
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -251,9 +251,8 @@ export function GroupCard({
         <div className="max-w-full">
           <p className="text-xs text-slate-600 uppercase tracking-wider mb-2 truncate">Members</p>
           <div className="flex -space-x-2 max-w-full overflow-hidden">
-            {safeMembers.length > 0 ? (
-              safeMembers.slice(0, 5).map((member, index) => {
-                // Add better error handling for member data
+            {Array.isArray(safeMembers) && safeMembers.length > 0 ? (
+              safeMembers.slice(0, 5).map((member, index) => {                // Add better error handling for member data
                 if (!member || !member.id) return null;
                 
                 const memberId = getMemberIdString(member);
@@ -278,7 +277,7 @@ export function GroupCard({
                 <span className="text-xs text-slate-600">0</span>
               </div>
             )}
-            {safeMembers.length > 5 && (
+            {Array.isArray(safeMembers) && safeMembers.length > 5 && (
               <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center">
                 <span className="text-xs text-slate-600">+{safeMembers.length - 5}</span>
               </div>
@@ -287,7 +286,7 @@ export function GroupCard({
         </div>
         
         {/* Topics Preview - Only show for pending groups */}
-        {group.status === 'PENDING' && topics.length > 0 && (
+        {group.status === 'PENDING' && Array.isArray(topics) && topics.length > 0 && (
           <div className="max-w-full">
             <p className="text-xs text-slate-600 uppercase tracking-wider mb-2 truncate">Research Topics</p>
             <div className="space-y-1 max-w-full">
@@ -296,7 +295,7 @@ export function GroupCard({
                   {topic}
                 </div>
               ))}
-              {topics.length > 2 && (
+              {Array.isArray(topics) && topics.length > 2 && (
                 <div className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full truncate">
                   +{topics.length - 2} more
                 </div>
@@ -327,7 +326,7 @@ export function GroupCard({
         <div className="flex items-center gap-4 text-sm text-slate-600">
           <span className="flex items-center gap-1">
             <Users className="w-4 h-4" />
-            {safeMembers.length}
+            {Array.isArray(safeMembers) ? safeMembers.length : 0}
           </span>
         </div>
         <TooltipProvider delayDuration={300}>

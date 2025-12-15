@@ -407,9 +407,9 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
             <Card className="p-6 border-0 shadow-sm">
               <h2 className="text-slate-900 mb-4">Keywords</h2>
               <div className="flex flex-wrap gap-2">
-                {thesis.keywords.split(',').map((keyword, index) => (
+                {(Array.isArray(thesis.keywords) ? thesis.keywords : thesis.keywords.split(',')).map((keyword, index) => (
                   <Badge key={index} className="bg-blue-100 text-blue-800 border-blue-200">
-                    {keyword.trim()}
+                    {typeof keyword === 'string' ? keyword.trim() : String(keyword)}
                   </Badge>
                 ))}
               </div>

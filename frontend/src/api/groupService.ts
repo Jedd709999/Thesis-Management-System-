@@ -35,9 +35,9 @@ export async function fetchGroups(params?: {
   console.log('GroupService: Group IDs:', result.map(g => g.id));
   
   // Check for duplicates in the response
-  const groupIds = result.map(g => g.id);
+  const groupIds = Array.isArray(result) ? result.map(g => g.id) : [];
   const uniqueGroupIds = [...new Set(groupIds)];
-  if (groupIds.length !== uniqueGroupIds.length) {
+  if (Array.isArray(groupIds) && Array.isArray(uniqueGroupIds) && groupIds.length !== uniqueGroupIds.length) {
     console.warn('GroupService: Duplicate groups found in groups response');
     console.log('GroupService: Duplicate IDs:', groupIds.filter((id, index) => groupIds.indexOf(id) !== index));
   }
@@ -108,14 +108,20 @@ export async function createGroup(data: GroupFormData): Promise<Group> {
     // Ensure adviser_id is either a string or null/undefined
     adviser_id: data.adviser_id ? String(data.adviser_id) : null,
     // Ensure member_ids are strings
-    member_ids: data.member_ids ? data.member_ids.map(id => String(id)) : []
+    member_ids: data.member_ids ? data.member_ids.map(id => {
+      // If it's already a string that looks like a UUID, keep it as is
+      if (typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        return id;
+      }
+      // Otherwise convert to string (handles both numbers and non-UUID strings)
+      return String(id);
+    }) : []
   };
   
   const res = await api.post('groups/', processedData)
   console.log('GroupService: Create group response received', res);
   return res.data
 }
-
 /**
  * Update a group
  */
@@ -214,8 +220,8 @@ export async function fetchCurrentUserGroups(): Promise<Group[]> {
     } else if (res.data && Array.isArray(res.data.results)) {
       // Handle paginated response
       result = res.data.results;
-    } else if (res.data) {
-      // If it's a single group, return it as an array with one item
+    } else if (res.data && typeof res.data === 'object') {
+      // If it's a single group object, return it as an array with one item
       result = [res.data];
     }
     
@@ -223,10 +229,15 @@ export async function fetchCurrentUserGroups(): Promise<Group[]> {
     console.log('GroupService: Current user group IDs:', result.map(g => g.id));
     
     // Check for duplicates in the response and remove them
-    const uniqueGroups = result.filter((group, index, self) => 
+    const uniqueGroups = Array.isArray(result) ? result.filter((group, index, self) => 
       index === self.findIndex(g => g.id === group.id)
-    );
-    
+    ) : [];
+
+    // Log duplicate check information
+    if (Array.isArray(result) && Array.isArray(uniqueGroups) && uniqueGroups.length !== result.length) {
+      console.log('GroupService: Original count:', result.length, 'Deduplicated count:', uniqueGroups.length);
+    }
+
     // Also deduplicate based on group ID and ensure proper structure
     const deduplicatedGroups = uniqueGroups.reduce((acc: Group[], group) => {
       // Check if a group with this ID already exists
@@ -241,7 +252,7 @@ export async function fetchCurrentUserGroups(): Promise<Group[]> {
       return acc;
     }, [] as Group[]);
     
-    if (deduplicatedGroups.length !== result.length) {
+    if (Array.isArray(deduplicatedGroups) && Array.isArray(result) && deduplicatedGroups.length !== result.length) {
       console.warn('GroupService: Duplicate groups found and removed from current user groups response');
       console.log('GroupService: Original count:', result.length, 'Deduplicated count:', deduplicatedGroups.length);
     }
@@ -304,10 +315,15 @@ export async function fetchOtherGroups(): Promise<Group[]> {
     console.log('GroupService: Other group IDs:', result.map(g => g.id));
     
     // Check for duplicates in the response and remove them
-    const uniqueGroups = result.filter((group, index, self) => 
+    const uniqueGroups = Array.isArray(result) ? result.filter((group, index, self) => 
       index === self.findIndex(g => g.id === group.id)
-    );
-    
+    ) : [];
+
+    // Log duplicate check information
+    if (Array.isArray(result) && Array.isArray(uniqueGroups) && uniqueGroups.length !== result.length) {
+      console.log('GroupService: Original count:', result.length, 'Deduplicated count:', uniqueGroups.length);
+    }
+
     // Also deduplicate based on group ID and ensure proper structure
     const deduplicatedGroups = uniqueGroups.reduce((acc: Group[], group) => {
       // Check if a group with this ID already exists
@@ -322,7 +338,7 @@ export async function fetchOtherGroups(): Promise<Group[]> {
       return acc;
     }, [] as Group[]);
     
-    if (deduplicatedGroups.length !== result.length) {
+    if (Array.isArray(deduplicatedGroups) && Array.isArray(result) && deduplicatedGroups.length !== result.length) {
       console.warn('GroupService: Duplicate groups found and removed from other groups response');
       console.log('GroupService: Original count:', result.length, 'Deduplicated count:', deduplicatedGroups.length);
     }
@@ -357,12 +373,12 @@ export async function fetchOtherGroups(): Promise<Group[]> {
 /**
  * Assign an adviser to a group (Admin only)
  */
-export async function assignAdviser(groupId: string, adviserId: number): Promise<Group> {
+export async function assignAdviser(groupId: string, adviserId: number | string): Promise<Group> {
   console.log('GroupService: Assigning adviser:', adviserId, 'to group:', groupId);
   console.log('GroupService: localStorage access_token:', localStorage.getItem('access_token'));
-  const res = await api.post(`groups/${groupId}/assign_adviser/`, { adviser_id: adviserId })
+  const res = await api.post(`groups/${groupId}/assign_adviser/`, { adviser_id: adviserId });
   console.log('GroupService: Assign adviser response received', res);
-  return res.data
+  return res.data;
 }
 
 /**

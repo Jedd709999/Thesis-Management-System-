@@ -23,7 +23,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   }, [])
 
   return (
-    <NotificationContext.Provider value={{ items, refresh }}>
+    <NotificationContext.Provider value={{ items: Array.isArray(items) ? items : [], refresh }}>
       {children}
     </NotificationContext.Provider>
   )

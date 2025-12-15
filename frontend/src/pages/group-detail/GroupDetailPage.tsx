@@ -451,7 +451,7 @@ export function GroupDetail({ groupId, onBack }: GroupDetailProps) {
                   <Users className="w-4 h-4 text-blue-600" />
                   <span className="text-sm text-slate-600">Members</span>
                 </div>
-                <span className="text-slate-900">{group.members.length}</span>
+                <span className="text-slate-900">{Array.isArray(group.members) ? group.members.length : 0}</span>
               </div>
             </div>
           </Card>

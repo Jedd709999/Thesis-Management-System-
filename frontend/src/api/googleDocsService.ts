@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api';
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -91,7 +90,11 @@ export class WebSocketManager {
   connect(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
       try {
-        const wsUrl = `ws://localhost:8000/ws/document/${this.documentId}/`;
+        // Use dynamic URL construction based on environment
+        const baseUrl = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8002/api';
+        const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
+        const wsHost = baseUrl.replace(/^https?:\/\//, '').replace(/\/api$/, '');
+        const wsUrl = `${wsProtocol}://${wsHost}/ws/document/${this.documentId}/`;
         this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {

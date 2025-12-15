@@ -141,11 +141,11 @@ class OperationalTransform {
    * Compose multiple operations into a single operation
    */
   static compose(ops: DocumentOperation[]): DocumentOperation {
-    if (ops.length === 0) {
+    if (!Array.isArray(ops) || ops.length === 0) {
       throw new Error('Cannot compose empty operation list');
     }
     
-    if (ops.length === 1) {
+    if (Array.isArray(ops) && ops.length === 1) {
       return ops[0];
     }
 
@@ -169,17 +169,20 @@ class ConflictResolver {
    */
   static detectConflicts(operations: DocumentOperation[]): Conflict[] {
     const conflicts: Conflict[] = [];
-    const sortedOps = [...operations].sort((a, b) => a.timestamp - b.timestamp);
+    const sortedOps = Array.isArray(operations) ? [...operations].sort((a, b) => a.timestamp - b.timestamp) : [];
     
-    for (let i = 0; i < sortedOps.length; i++) {
-      for (let j = i + 1; j < sortedOps.length; j++) {
-        const op1 = sortedOps[i];
-        const op2 = sortedOps[j];
-        
-        if (this.operationsConflict(op1, op2)) {
-          conflicts.push({
-            operations: [op1, op2]
-          });
+    // Ensure sortedOps is an array before accessing its length
+    if (Array.isArray(sortedOps)) {
+      for (let i = 0; i < sortedOps.length; i++) {
+        for (let j = i + 1; j < sortedOps.length; j++) {
+          const op1 = sortedOps[i];
+          const op2 = sortedOps[j];
+          
+          if (this.operationsConflict(op1, op2)) {
+            conflicts.push({
+              operations: [op1, op2]
+            });
+          }
         }
       }
     }
@@ -275,7 +278,7 @@ const conflictResolutionReducer = (
     case 'DETECT_CONFLICTS':
       return {
         ...state,
-        conflicts: action.payload
+        conflicts: Array.isArray(action.payload) ? action.payload : []
       };
 
     case 'RESOLVE_CONFLICT':
@@ -336,9 +339,9 @@ export const ConflictResolutionProvider: React.FC<ConflictResolutionProviderProp
     operations: [],
     pendingOperations: [],
     resolvedOperations: [],
+    conflicts: [],
     documentVersion: 0,
-    lastSyncTime: Date.now(),
-    conflicts: []
+    lastSyncTime: 0
   });
 
   const addOperation = (operation: Omit<DocumentOperation, 'id' | 'timestamp'>) => {
@@ -352,7 +355,7 @@ export const ConflictResolutionProvider: React.FC<ConflictResolutionProviderProp
     
     // Check for conflicts
     const conflicts = ConflictResolver.detectConflicts([...state.operations, newOperation]);
-    if (conflicts.length > 0) {
+    if (Array.isArray(conflicts) && conflicts.length > 0) {
       dispatch({ type: 'DETECT_CONFLICTS', payload: conflicts });
     }
   };

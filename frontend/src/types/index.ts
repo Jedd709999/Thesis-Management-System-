@@ -52,7 +52,7 @@ export type NotificationType =
   | 'proposal_update'
 
 export interface User {
-  id: number
+  id: string
   email: string
   first_name?: string
   last_name?: string
@@ -65,7 +65,6 @@ export interface User {
   timezone?: string
   notification_preferences?: Record<string, boolean>
 }
-
 export interface Group {
   id: string
   name: string
@@ -220,7 +219,7 @@ export interface Evaluation {
 export interface Notification {
   id: string
   recipient: User
-  type: NotificationType
+  type: string  // Backend returns notification_type as a string
   title: string
   body: string
   link?: string
@@ -318,10 +317,10 @@ export interface ProposalFormData {
 }
 
 export interface ThesisFormData {
-  title: string
-  abstract: string
-  keywords: string
-  group_id: string
+  title: string;
+  abstract: string;
+  keywords: string[];
+  group_id: string;
 }
 
 export interface ScheduleFormData {

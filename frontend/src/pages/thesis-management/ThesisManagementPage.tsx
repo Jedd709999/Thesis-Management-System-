@@ -17,7 +17,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { useAuth } from '../../hooks/useAuth';
-import { fetchTheses, fetchCurrentUserTheses, fetchOtherTheses, createThesis, updateThesis, deleteThesis, adviserReview, archiveThesis, submitThesis } from '../../api/thesisService';
+import { fetchTheses, fetchCurrentUserTheses, fetchOtherTheses, createThesis, updateThesis, deleteThesis, adviserReview, archiveThesis, submitThesis, findSimilarTheses } from '../../api/thesisService';
 import { fetchCurrentUserGroups } from '../../api/groupService';
 import { fetchSchedules } from '../../api/scheduleService';
 import { panelActions } from '../../services/panelService'; // Correct import
@@ -43,9 +43,11 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [abstract, setAbstract] = useState('');
-  const [keywords, setKeywords] = useState('');
+  const [keywords, setKeywords] = useState<string[]>([]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [otherTheses, setOtherTheses] = useState<Thesis[]>([]);
+  const [similarityWarnings, setSimilarityWarnings] = useState<Record<string, any>>({});
+  const [loadingSimilarities, setLoadingSimilarities] = useState(false);
 
   // Adviser approval/rejection state
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
@@ -163,6 +165,46 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     loadUserGroups();
   }, [userRole]);
 
+  // Load similarity warnings when theses change (for all users)
+  useEffect(() => {
+    if (theses && theses.length > 0) {
+      loadSimilarityWarnings();
+    }
+  }, [theses]);
+
+  // Load similarity warnings
+  const loadSimilarityWarnings = async () => {
+    // Load for all users who can see theses
+    if (!theses || theses.length === 0) {
+      return;
+    }
+
+    try {
+      setLoadingSimilarities(true);
+      const similarities: Record<string, any> = {};
+      
+      // Load similarity warnings for a subset of theses to avoid performance issues
+      const thesesToCheck = theses.slice(0, 10); // Limit to first 10 theses
+      
+      for (const thesis of thesesToCheck) {
+        try {
+          const result = await findSimilarTheses(thesis.id);
+          if (result.count > 0) {
+            similarities[thesis.id] = result;
+          }
+        } catch (error) {
+          console.error(`Error loading similarity for thesis ${thesis.id}:`, error);
+        }
+      }
+      
+      setSimilarityWarnings(similarities);
+    } catch (error) {
+      console.error('Error loading similarity warnings:', error);
+    } finally {
+      setLoadingSimilarities(false);
+    }
+  };
+
   // Load scheduled defenses for panel members
   useEffect(() => {
     const loadScheduledDefenses = async () => {
@@ -175,8 +217,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         userRole: userRole?.toUpperCase(),
         isPanel: userRole?.toUpperCase() === 'PANEL',
         hasCurrentUser: !!currentUser,
-        thesesLength: theses.length,
-        otherThesesLength: otherTheses.length
+        thesesLength: Array.isArray(theses) ? theses.length : 0,
+        otherThesesLength: Array.isArray(otherTheses) ? otherTheses.length : 0
       });
 
       // Check if we have theses to load defenses for
@@ -191,8 +233,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       console.log('Loading scheduled defenses');
       console.log('Loading scheduled defenses for panel user:', {
         currentUser: currentUser.id,
-        thesesCount: thesesArray.length,
-        otherThesesCount: otherThesesArray.length
+        thesesCount: Array.isArray(thesesArray) ? thesesArray.length : 0,
+        otherThesesCount: Array.isArray(otherThesesArray) ? otherThesesArray.length : 0
       });
 
       try {
@@ -200,7 +242,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         const defenses: Record<string, any> = {};
 
         // Process theses in batches to avoid overwhelming the API
-        console.log('Processing theses for scheduled defenses:', allTheses.length);
+        console.log('Processing theses for scheduled defenses:', Array.isArray(allTheses) ? allTheses.length : 0);
         for (const thesis of allTheses) {
           try {
             console.log('Fetching schedules for thesis:', thesis.id);
@@ -410,7 +452,19 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
               {filteredList.map((thesis) => (
                 <tr key={thesis.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4">
-                    <p className="text-sm text-slate-900 max-w-md">{thesis.title}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-slate-900 max-w-md">{thesis.title}</p>
+                      {similarityWarnings[thesis.id] && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertTriangle className="w-5 h-5 text-yellow-500 cursor-pointer" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{similarityWarnings[thesis.id].count} similar thesis{similarityWarnings[thesis.id].count !== 1 ? 'es' : ''} found</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <p className="text-sm text-slate-600">
@@ -759,7 +813,10 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         keywords,
         group_id: approvedGroupId
       };
-
+      
+      // Debug logging
+      console.log('Sending thesis data:', thesisData);
+      
       await createThesis(thesisData);
 
       // Refresh theses based on user role
@@ -781,7 +838,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       // Reset form and close dialog
       setTitle('');
       setAbstract('');
-      setKeywords('');
+      setKeywords([]);
       setFormErrors({});
       setIsCreateDialogOpen(false);
 
@@ -1274,13 +1331,13 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     console.log('hasExistingThesis check:', {
       userRole,
       currentUser: currentUser?.id,
-      myThesesCount: groupedTheses.my.length,
-      myTheses: groupedTheses.my.map(t => ({
+      myThesesCount: Array.isArray(groupedTheses.my) ? groupedTheses.my.length : 0,
+      myTheses: Array.isArray(groupedTheses.my) ? groupedTheses.my.map(t => ({
         id: t.id,
         title: t.title,
         proposer: t.proposer,
         proposerType: typeof t.proposer
-      })),
+      })) : [],
       result
     });
     
@@ -1410,11 +1467,30 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                       <div className="col-span-3">
                         <Input
                           id="keywords"
-                          value={keywords}
-                          onChange={(e) => setKeywords(e.target.value)}
-                          placeholder="Enter keywords separated by commas"
-                        />
-                        <p className="text-sm text-slate-500 mt-1">
+                          defaultValue={keywords.join(", ")}
+                          onBlur={(e) => {
+                            // Process keywords only when user leaves the field
+                            const inputValue = e.target.value;
+                            const keywordArray = inputValue
+                              .split(',')
+                              .map(k => k.trim())
+                              .filter(k => k.length > 0);
+                            setKeywords(keywordArray);
+                          }}
+                          onKeyDown={(e) => {
+                            // Process on Enter key
+                            if (e.key === 'Enter') {
+                              e.preventDefault(); // Prevent form submission
+                              const inputValue = e.currentTarget.value;
+                              const keywordArray = inputValue
+                                .split(',')
+                                .map(k => k.trim())
+                                .filter(k => k.length > 0);
+                              setKeywords(keywordArray);
+                            }
+                          }}
+                          placeholder="Enter keywords separated by commas (e.g., machine learning, algorithms, data science)"
+                        />                        <p className="text-sm text-slate-500 mt-1">
                           Enter keywords related to your research topic, separated by commas
                         </p>
                       </div>

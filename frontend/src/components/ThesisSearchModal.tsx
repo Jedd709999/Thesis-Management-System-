@@ -74,13 +74,13 @@ export const ThesisSearchModal: React.FC<ThesisSearchModalProps> = ({
             <p className="font-medium">{message}</p>
             {exists && (
               <p className="text-sm mt-1">
-                Found {results.length} similar thesis topic{results.length !== 1 ? 's' : ''}
+                Found {Array.isArray(results) ? results.length : 0} similar thesis topic{Array.isArray(results) && results.length !== 1 ? 's' : ''}
               </p>
             )}
           </div>
 
           {/* Results */}
-          {exists && results.length > 0 && (
+          {exists && Array.isArray(results) && results.length > 0 && (
             <div className="space-y-4">
               {results.map((result, index) => (
                 <Card key={result.id} className="w-full">
@@ -92,7 +92,7 @@ export const ThesisSearchModal: React.FC<ThesisSearchModalProps> = ({
                           <Badge variant="outline">{result.status_display}</Badge>
                           {result.keywords && (
                             <Badge variant="secondary" className="text-xs">
-                              {result.keywords}
+                              {Array.isArray(result.keywords) ? result.keywords.join(', ') : result.keywords}
                             </Badge>
                           )}
                         </div>
@@ -143,7 +143,7 @@ export const ThesisSearchModal: React.FC<ThesisSearchModalProps> = ({
                           {result.adviser_name && (
                             <p><span className="font-medium">Adviser:</span> {result.adviser_name}</p>
                           )}
-                          {result.group_members.length > 0 && (
+                          {Array.isArray(result.group_members) && result.group_members.length > 0 && (
                             <div>
                               <span className="font-medium">Group Members:</span>
                               <ul className="list-disc list-inside ml-2 mt-1">
@@ -153,7 +153,7 @@ export const ThesisSearchModal: React.FC<ThesisSearchModalProps> = ({
                               </ul>
                             </div>
                           )}
-                          {result.panel_members.length > 0 && (
+                          {Array.isArray(result.panel_members) && result.panel_members.length > 0 && (
                             <div>
                               <span className="font-medium">Panel Members:</span>
                               <ul className="list-disc list-inside ml-2 mt-1">

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { CheckCircle, Clock, Users, TrendingUp, Calendar, Upload, Leaf, Droplets, Loader2, Megaphone, BookOpen } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -426,7 +426,9 @@ export function Dashboard({ userRole, onNavigate }: DashboardProps) {
   const formattedNotifications = notifications.map(notification => ({
     ...notification,
     time: formatDistanceToNow(new Date(notification.created_at), { addSuffix: true }),
-    category: notification.type.charAt(0).toUpperCase() + notification.type.slice(1),
+    category: notification.type && typeof notification.type === 'string' 
+      ? notification.type.charAt(0).toUpperCase() + notification.type.slice(1)
+      : 'Info',
     unread: !notification.is_read,
     message: notification.body,
     read: notification.is_read,
