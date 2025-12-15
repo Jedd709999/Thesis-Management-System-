@@ -1,6 +1,5 @@
 import api from './api'
-import { Group, GroupFormData } from '../types'
-
+import { Group, GroupFormData, User } from '../types'
 /**
  * Fetch all groups (approved only for non-admins)
  */
@@ -493,4 +492,25 @@ export const addMember = addGroupMember
 export const removeMember = removeGroupMember
 export const getGroup = fetchGroup
 export const assignPanels = assignPanel
-export const searchUsers = (query: string) => api.get(`users/?search=${encodeURIComponent(query)}`)
+export const searchUsers = async (query: string, role?: string): Promise<User[]> => {
+  const params: any = {};
+  if (query) params.search = query;
+  if (role) params.role = role;
+  
+  try {
+    const res = await api.get('users/', { params });
+    // Ensure we always return an array
+    if (Array.isArray(res.data)) {
+      return res.data;
+    } else if (res.data && Array.isArray(res.data.results)) {
+      // Handle paginated response
+      return res.data.results;
+    } else {
+      console.warn('Unexpected response format from searchUsers:', res.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error in searchUsers:', error);
+    return [];
+  }
+}

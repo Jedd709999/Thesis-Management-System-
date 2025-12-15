@@ -1,13 +1,23 @@
 from rest_framework import serializers
 from api.models.user_models import User
+from api.models.group_models import Group
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 class UserSerializer(serializers.ModelSerializer):
+    # Add a field to show the count of groups assigned to this user as an adviser
+    assigned_groups_count = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
-        fields = ('id','email','first_name','last_name','bio','avatar','role','is_staff','is_approved','created_at')
+        fields = ('id','email','first_name','last_name','bio','avatar','role','is_staff','is_approved','created_at','assigned_groups_count')
+    
+    def get_assigned_groups_count(self, obj):
+        # Only calculate for adviser users
+        if obj.role == 'ADVISER':
+            return Group.objects.filter(adviser=obj).count()
+        return 0
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)

@@ -63,8 +63,10 @@ export interface User {
   is_staff: boolean
   profile_picture?: string
   timezone?: string
-  notification_preferences?: Record<string, boolean>
+  notification_preferences?: Record<string, boolean>;
+  assigned_groups_count: number;
 }
+
 export interface Group {
   id: string
   name: string

@@ -6,10 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Input } from '../../components/ui/input';
 import { Card } from '../../components/ui/card';
 import { Users, Plus, ChevronDown, ChevronRight, AlertCircle, UserPlus } from 'lucide-react';
-import { Search, Filter, User } from 'lucide-react';
+import { Search, Filter, User as UserIcon } from 'lucide-react';
 import { fetchCurrentUserGroups, fetchOtherGroups, createGroup, searchUsers, fetchGroups, fetchPendingProposals, approveGroup, rejectGroup, resubmitGroup, deleteGroup, updateGroup, removeGroupMember, assignAdviser, assignPanel } from '../../api/groupService';
-import { Group as ApiGroup } from '../../types';
-import { Button } from '../../components/ui/button';
+import { Group as ApiGroup, User } from '../../types';import { Button } from '../../components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -114,13 +113,6 @@ interface GroupManagementProps {
   onViewDetail: (groupId: string) => void;
 }
 
-interface User {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-}
 
 const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewDetail }) => {  const { user: currentUser } = useAuth();
   const [groups, setGroups] = useState<{ my: Group[]; others: Group[] }>({
@@ -557,8 +549,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
     // Load advisers if not already loaded
     if (availableAdvisers.length === 0) {
       try {
-        const response = await searchUsers('');
-        const users = response.data.results || response.data;
+        const users = await searchUsers('');
         const advisers = users.filter((user: User) => user.role === 'ADVISER');
         setAvailableAdvisers(advisers);
         setFilteredAdvisers(advisers);
@@ -626,12 +617,40 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
       
       // Show success message
       alert('Group proposal submitted successfully! It will be reviewed by an administrator.');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating group:', error);
-      alert('Failed to submit group proposal. Please try again.');
+      // Extract error message from the response
+      let errorMessage = 'Failed to submit group proposal. Please try again.';
+      
+      if (error.response && error.response.data) {
+        // Handle different types of error responses
+        if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data;
+        } else if (error.response.data.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.response.data.non_field_errors) {
+          errorMessage = Array.isArray(error.response.data.non_field_errors) 
+            ? error.response.data.non_field_errors.join(', ') 
+            : error.response.data.non_field_errors;
+        } else if (typeof error.response.data === 'object') {
+          // Handle field-specific errors
+          const fieldErrors = Object.entries(error.response.data)
+            .map(([field, messages]) => {
+              if (Array.isArray(messages)) {
+                return `${field}: ${messages.join(', ')}`;
+              }
+              return `${field}: ${messages}`;
+            })
+            .join('; ');
+          if (fieldErrors) {
+            errorMessage = `Validation errors: ${fieldErrors}`;
+          }
+        }
+      }
+      
+      alert(errorMessage);
     }
   };
-
   const handleUpdateGroup = async () => {
     if (!editingGroup) return;
     
@@ -707,8 +726,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
     setSearchQuery(query);
     // Load all users when query is empty (for initial load)
     try {
-      const response = await searchUsers(query || '');
-      const users = response.data.results || response.data;
+      const users = await searchUsers(query || '', 'ADVISER');
       
       // Filter users by role
       let students = users.filter((user: User) => user.role === 'STUDENT');
@@ -837,8 +855,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
 
     const loadAdvisers = async () => {
       try {
-        const response = await searchUsers('');
-        const users = response.data.results || response.data;
+        const users = await searchUsers('');
         const advisers = users.filter((user: User) => user.role === 'ADVISER');
         setAvailableAdvisers(advisers);
       } catch (error) {
@@ -880,8 +897,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
           console.log('Student IDs already in groups:', Array.from(studentIdsInGroups));
           
           // Now search for all users
-          const response = await searchUsers('');
-          const users = response.data.results || response.data;
+          const users = await searchUsers('');
           
           // Filter users by role
           const students = users.filter((user: User) => user.role === 'STUDENT');
@@ -1710,10 +1726,16 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                                   onChange={() => {}}
                                   className="cursor-pointer"
                                 />
-                                <div>
-                                  <div className="font-medium">{adviser.first_name} {adviser.last_name}</div>
-                                  <div className="text-sm text-slate-500">{adviser.email}</div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{adviser.first_name} {adviser.last_name}</div>
+                                  <div className="text-sm text-slate-500 truncate">{adviser.email}</div>
                                 </div>
+                                {/* Display the number of groups assigned to this adviser */}
+                                {adviser.assigned_groups_count !== undefined && (
+                                  <div className="ml-2 bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded-full whitespace-nowrap">
+                                    {adviser.assigned_groups_count} group{adviser.assigned_groups_count !== 1 ? 's' : ''}
+                                  </div>
+                                )}
                               </div>
                             ))
                           ) : (
@@ -1721,8 +1743,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
                               {adviserSearchQuery ? 'No advisers found matching your search' : 'No advisers available'}
                             </div>
                           )}
-                        </div>
-                      </div>
+                        </div>                      </div>
                     )}
                     {/* Always visible selected adviser display */}
                     {selectedAdviser && (
@@ -1807,7 +1828,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
             {userRole === 'admin' && (
               <Select value={adviserFilter} onValueChange={setAdviserFilter}>
                 <SelectTrigger className="w-[180px]">
-                  <User className="w-4 h-4 mr-2" />
+                  <UserIcon className="w-4 h-4 mr-2" />
                   <SelectValue placeholder="Adviser" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1865,3 +1886,4 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
 };
 
 export default GroupManagementPage;
+

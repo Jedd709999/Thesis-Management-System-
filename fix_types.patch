@@ -1,0 +1,13 @@
+diff --git a/frontend/src/types/index.ts b/frontend/src/types/index.ts
+index xxxxxxx..xxxxxxx 100644
+--- a/frontend/src/types/index.ts
++++ b/frontend/src/types/index.ts
+@@ -64,7 +64,7 @@ export interface User {
+   profile_picture?: string
+   timezone?: string
+   notification_preferences?: Record<string, boolean>
+-  assigned_groups_count?: number
++  assigned_groups_count: number
+ }
+ 
+ export interface Group {

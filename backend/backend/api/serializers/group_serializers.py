@@ -256,7 +256,7 @@ class GroupSerializer(serializers.ModelSerializer):
                     print("DEBUG: Set leader to user ID:", leader_id)
                 except User.DoesNotExist:
                     print(f"DEBUG: Leader user with ID {leader_id} does not exist")
-                    raise serializers.ValidationError(f"Leader user with ID {leader_id} does not exist")
+                    raise serializers.ValidationError({"leader_id": f"Leader user with ID {leader_id} does not exist"})
             
             # Add members with their roles
             if member_ids:
@@ -277,7 +277,7 @@ class GroupSerializer(serializers.ModelSerializer):
                         print("DEBUG: Added member with user ID:", user_id, "with role:", role)
                     except User.DoesNotExist:
                         print(f"DEBUG: Member user with ID {user_id} does not exist")
-                        raise serializers.ValidationError(f"Member user with ID {user_id} does not exist")
+                        raise serializers.ValidationError({"member_ids": f"Member user with ID {user_id} does not exist"})
                 
                 # Save the group if leader was set
                 if leader_id:
@@ -302,20 +302,24 @@ class GroupSerializer(serializers.ModelSerializer):
                             print(f"DEBUG: Skipping empty panel ID: {panel_id}")
                     except User.DoesNotExist:
                         print(f"DEBUG: Panel user with ID {panel_id} does not exist")
-                        raise serializers.ValidationError(f"Panel user with ID {panel_id} does not exist")
+                        raise serializers.ValidationError({"panel_ids": f"Panel user with ID {panel_id} does not exist"})
                 
                 group.panels.set(panel_users)
                 print("DEBUG: Set panels and saved group")
             
             print("DEBUG: Group creation completed successfully")
             return group
+        except serializers.ValidationError:
+            # Re-raise validation errors as they are
+            raise
         except Exception as e:
             print("DEBUG: Exception in create method:", str(e))
             print("DEBUG: Exception type:", type(e))
             import traceback
             print("DEBUG: Traceback:", traceback.format_exc())
-            raise
-    
+            # Return a more user-friendly error message
+            raise serializers.ValidationError({"non_field_errors": "An error occurred while creating the group. Please check the data and try again."})
+
     def update(self, instance, validated_data):
         print("DEBUG: Updating group with validated_data:", validated_data)
         try:

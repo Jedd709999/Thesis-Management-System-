@@ -9,8 +9,22 @@ export async function fetchUsers(params?: {
   search?: string
   is_active?: boolean
 }): Promise<User[]> {
-  const res = await api.get('users/', { params })
-  return res.data
+  try {
+    const res = await api.get('users/', { params })
+    // Ensure we always return an array
+    if (Array.isArray(res.data)) {
+      return res.data;
+    } else if (res.data && Array.isArray(res.data.results)) {
+      // Handle paginated response
+      return res.data.results;
+    } else {
+      console.warn('Unexpected response format from fetchUsers:', res.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error in fetchUsers:', error);
+    return [];
+  }
 }
 
 /**
@@ -55,18 +69,60 @@ export async function changePassword(data: {
 export async function searchUsers(query: string): Promise<User[]> {
   // For empty queries, fetch all users (limited to a reasonable number)
   if (!query || query.trim().length === 0) {
-    const res = await api.get('users/', { params: { limit: 50 } });
-    return res.data;
+    try {
+      const res = await api.get('users/', { params: { limit: 50 } });
+      // Ensure we always return an array
+      if (Array.isArray(res.data)) {
+        return res.data;
+      } else if (res.data && Array.isArray(res.data.results)) {
+        // Handle paginated response
+        return res.data.results;
+      } else {
+        console.warn('Unexpected response format from searchUsers (empty query):', res.data);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error in searchUsers (empty query):', error);
+      return [];
+    }
   }
   
   // For short queries, still search but with a minimum length requirement
   if (query.trim().length < 2) {
-    const res = await api.get('users/', { params: { search: query, limit: 50 } });
-    return res.data;
+    try {
+      const res = await api.get('users/', { params: { search: query, limit: 50 } });
+      // Ensure we always return an array
+      if (Array.isArray(res.data)) {
+        return res.data;
+      } else if (res.data && Array.isArray(res.data.results)) {
+        // Handle paginated response
+        return res.data.results;
+      } else {
+        console.warn('Unexpected response format from searchUsers (short query):', res.data);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error in searchUsers (short query):', error);
+      return [];
+    }
   }
   
-  const res = await api.get('users/', { params: { search: query } });
-  return res.data;
+  try {
+    const res = await api.get('users/', { params: { search: query } });
+    // Ensure we always return an array
+    if (Array.isArray(res.data)) {
+      return res.data;
+    } else if (res.data && Array.isArray(res.data.results)) {
+      // Handle paginated response
+      return res.data.results;
+    } else {
+      console.warn('Unexpected response format from searchUsers:', res.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error in searchUsers:', error);
+    return [];
+  }
 }
 
 /**
@@ -75,7 +131,16 @@ export async function searchUsers(query: string): Promise<User[]> {
 export async function getStudents(): Promise<User[]> {
   try {
     const res = await api.get('users/', { params: { role: 'STUDENT', limit: 100 } });
-    return res.data;
+    // Ensure we always return an array
+    if (Array.isArray(res.data)) {
+      return res.data;
+    } else if (res.data && Array.isArray(res.data.results)) {
+      // Handle paginated response
+      return res.data.results;
+    } else {
+      console.warn('Unexpected response format from getStudents:', res.data);
+      return [];
+    }
   } catch (error) {
     console.error('Error fetching students:', error);
     // Return empty array on error to prevent app crash
@@ -89,7 +154,16 @@ export async function getStudents(): Promise<User[]> {
 export async function getAdvisers(): Promise<User[]> {
   try {
     const res = await api.get('users/', { params: { role: 'ADVISER', limit: 100 } });
-    return res.data;
+    // Ensure we always return an array
+    if (Array.isArray(res.data)) {
+      return res.data;
+    } else if (res.data && Array.isArray(res.data.results)) {
+      // Handle paginated response
+      return res.data.results;
+    } else {
+      console.warn('Unexpected response format from getAdvisers:', res.data);
+      return [];
+    }
   } catch (error) {
     console.error('Error fetching advisers:', error);
     // Return empty array on error to prevent app crash
