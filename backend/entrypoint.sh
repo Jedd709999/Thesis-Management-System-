@@ -21,6 +21,8 @@ if [ -z "$RENDER" ]; then
   echo "Database is ready!"
 else
   echo "Skipping database wait for Render deployment"
+  echo "RENDER environment detected"
+  echo "DATABASE_URL: ${DATABASE_URL}"
 fi
 
 # Apply database migrations

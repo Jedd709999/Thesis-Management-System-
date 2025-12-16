@@ -94,20 +94,38 @@ if os.getenv('DATABASE_URL'):  # Render sets this for PostgreSQL
         'default': dj_database_url.parse(os.environ.get('DATABASE_URL')),
     }
 else:
-    # Default to MySQL for local development
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.getenv('DATABASE_NAME', 'thesis_db'),
-            'USER': os.getenv('DATABASE_USER', 'thesis_user'),
-            'PASSWORD': os.getenv('DATABASE_PASSWORD', 'thesis_pass'),
-            'HOST': os.getenv('DATABASE_HOST', 'localhost'),
-            'PORT': os.getenv('DATABASE_PORT', '3306'),
-            'OPTIONS': {
-                'charset': 'utf8mb4',
-            },
+    # Check if we're in a Render environment but DATABASE_URL is missing
+    # This can happen during build process or if env vars aren't set properly
+    if 'RENDER' in os.environ:
+        # Log a warning but still try to use PostgreSQL
+        import logging
+        logging.warning("RENDER environment detected but DATABASE_URL not set. This may cause issues.")
+        # Still try to configure for PostgreSQL if possible
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': os.getenv('POSTGRES_DB', 'thesis_db'),
+                'USER': os.getenv('POSTGRES_USER', 'thesis_user'),
+                'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
+                'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+                'PORT': os.getenv('POSTGRES_PORT', '5432'),
+            }
         }
-    }
+    else:
+        # Default to MySQL for local development
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.mysql',
+                'NAME': os.getenv('DATABASE_NAME', 'thesis_db'),
+                'USER': os.getenv('DATABASE_USER', 'thesis_user'),
+                'PASSWORD': os.getenv('DATABASE_PASSWORD', 'thesis_pass'),
+                'HOST': os.getenv('DATABASE_HOST', 'localhost'),
+                'PORT': os.getenv('DATABASE_PORT', '3306'),
+                'OPTIONS': {
+                    'charset': 'utf8mb4',
+                },
+            }
+        }
 
 # Test database configuration
 if 'test' in sys.argv:

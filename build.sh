@@ -21,6 +21,8 @@ if [ -z "$RENDER" ]; then
 else
   # Render deployment
   echo "Running Render deployment setup"
+  echo "RENDER environment detected"
+  echo "DATABASE_URL: ${DATABASE_URL}"
   
   # Collect static files
   python backend/manage.py collectstatic --no-input
