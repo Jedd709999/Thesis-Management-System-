@@ -68,19 +68,28 @@ TEMPLATES = [
 # WSGI_APPLICATION = 'backend.wsgi.application'
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DATABASE_NAME', 'thesis_db'),
-        'USER': os.getenv('DATABASE_USER', 'thesis_user'),
-        'PASSWORD': os.getenv('DATABASE_PASSWORD', 'thesis_pass'),
-        'HOST': os.getenv('DATABASE_HOST', 'localhost'),
-        'PORT': os.getenv('DATABASE_PORT', '3306'),
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-        },
+# Use PostgreSQL for production, MySQL for development
+if os.getenv('DATABASE_URL'):  # Render sets this for PostgreSQL
+    # Parse the DATABASE_URL for PostgreSQL
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.parse(os.environ.get('DATABASE_URL')),
     }
-}
+else:
+    # Default to MySQL for local development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('DATABASE_NAME', 'thesis_db'),
+            'USER': os.getenv('DATABASE_USER', 'thesis_user'),
+            'PASSWORD': os.getenv('DATABASE_PASSWORD', 'thesis_pass'),
+            'HOST': os.getenv('DATABASE_HOST', 'localhost'),
+            'PORT': os.getenv('DATABASE_PORT', '3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+            },
+        }
+    }
 
 # Test database configuration
 if 'test' in sys.argv:

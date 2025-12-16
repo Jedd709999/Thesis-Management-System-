@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: thesis-backend
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn backend.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: thesis-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DEBUG
+        value: False
+      - key: WEB_CONCURRENCY
+        value: 4
+
+databases:
+  - name: thesis-db
+    databaseName: thesis_db
+    user: thesis_user
