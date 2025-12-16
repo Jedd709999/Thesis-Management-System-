@@ -27,6 +27,10 @@ if 'RENDER' in os.environ:
         ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
     # Add the specific service from the error message
     ALLOWED_HOSTS.append('thesis-management-system-9bb4.onrender.com')
+else:
+    # For local development, allow all hosts (NOT for production)
+    if DEBUG:
+        ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
@@ -215,6 +219,10 @@ if 'RENDER' in os.environ:
         CORS_ALLOWED_ORIGINS.append(f"https://{RENDER_SERVICE_NAME}.onrender.com")
     # For development, we can allow all origins on Render (be careful in production)
     # CORS_ALLOW_ALL_ORIGINS = True
+else:
+    # For local development, allow all origins
+    if DEBUG:
+        CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 
