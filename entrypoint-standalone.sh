@@ -26,6 +26,21 @@ if nc -z db 3306 2>/dev/null; then
     # Apply database migrations
     echo "Applying database migrations..."
     export DJANGO_SETTINGS_MODULE=backend.settings
+    
+    # Handle email configuration for Render deployments to prevent startup errors
+    if [ -n "$RENDER" ]; then
+        # Set dummy email values if not configured to prevent startup errors
+        if [ -z "$EMAIL_HOST" ]; then
+            export EMAIL_HOST="localhost"
+        fi
+        if [ -z "$EMAIL_HOST_USER" ]; then
+            export EMAIL_HOST_USER="dummy"
+        fi
+        if [ -z "$EMAIL_HOST_PASSWORD" ]; then
+            export EMAIL_HOST_PASSWORD="dummy"
+        fi
+    fi
+    
     python -c "import pymysql; pymysql.install_as_MySQLdb(); import django; django.setup()" && python manage.py migrate --noinput
     
     # Collect static files

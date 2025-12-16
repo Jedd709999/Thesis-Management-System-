@@ -29,6 +29,20 @@ fi
 echo "Applying database migrations..."
 export DJANGO_SETTINGS_MODULE=backend.settings
 
+# Handle email configuration for Render deployments to prevent startup errors
+if [ -n "$RENDER" ]; then
+    # Set dummy email values if not configured to prevent startup errors
+    if [ -z "$EMAIL_HOST" ]; then
+        export EMAIL_HOST="localhost"
+    fi
+    if [ -z "$EMAIL_HOST_USER" ]; then
+        export EMAIL_HOST_USER="dummy"
+    fi
+    if [ -z "$EMAIL_HOST_PASSWORD" ]; then
+        export EMAIL_HOST_PASSWORD="dummy"
+    fi
+fi
+
 # Handle database setup differently for Render vs local development
 if [ -z "$RENDER" ]; then
   # Local development with MySQL

@@ -261,12 +261,23 @@ else:
     EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
     DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@thesis-system.com')
     
-    # Validate required email settings in production
-    if not all([EMAIL_HOST, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD]):
-        raise ImproperlyConfigured(
-            "Email settings are not properly configured. "
-            "Please set EMAIL_HOST, EMAIL_HOST_USER, and EMAIL_HOST_PASSWORD in your environment variables."
-        )
+    # For Render deployments, we allow dummy values to prevent startup errors
+    # Actual email functionality will be disabled when using dummy values
+    if 'RENDER' in os.environ:
+        # Set defaults if not configured to prevent startup errors
+        if not EMAIL_HOST:
+            EMAIL_HOST = 'localhost'
+        if not EMAIL_HOST_USER:
+            EMAIL_HOST_USER = 'dummy'
+        if not EMAIL_HOST_PASSWORD:
+            EMAIL_HOST_PASSWORD = 'dummy'
+    else:
+        # For other production environments, validate email settings
+        if not all([EMAIL_HOST, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD]):
+            raise ImproperlyConfigured(
+                "Email settings are not properly configured. "
+                "Please set EMAIL_HOST, EMAIL_HOST_USER, and EMAIL_HOST_PASSWORD in your environment variables."
+            )
 
 # Site settings
 SITE_URL = os.getenv('SITE_URL', 'http://localhost:8001')

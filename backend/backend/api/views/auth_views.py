@@ -39,8 +39,8 @@ class PublicRegisterView(generics.CreateAPIView):
         
         # Send verification email
         try:
-            send_verification_email(user, request)
-            email_sent_successfully = True
+            email_sent = send_verification_email(user, request)
+            email_sent_successfully = email_sent
         except Exception as e:
             # Log the error
             import logging
@@ -53,11 +53,28 @@ class PublicRegisterView(generics.CreateAPIView):
             'user': UserSerializer(user).data
         }
         
-        if email_sent_successfully:
+        # Check if email settings are configured
+        from django.conf import settings
+        email_configured = (
+            hasattr(settings, 'EMAIL_HOST') and 
+            settings.EMAIL_HOST and 
+            settings.EMAIL_HOST != 'localhost' and
+            hasattr(settings, 'EMAIL_HOST_USER') and 
+            settings.EMAIL_HOST_USER and
+            settings.EMAIL_HOST_USER != 'dummy'
+        )
+        
+        if email_configured and email_sent_successfully:
             response_data['detail'] = _('Registration successful. Please check your email to verify your account.')
-        else:
+        elif email_configured and not email_sent_successfully:
             response_data['detail'] = _('Registration successful, but we couldn\'t send the verification email. Please contact support or request a new verification email after logging in.')
             response_data['email_verification_needed'] = True
+        else:
+            # Email not configured, allow immediate login
+            user.is_email_verified = True
+            user.save(update_fields=['is_email_verified'])
+            response_data['detail'] = _('Registration successful. Email verification is currently disabled, so you can log in immediately.')
+            response_data['email_verified'] = True
             
         return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -89,7 +106,18 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             )
         
         # Check if email is verified
-        if not user.is_email_verified:
+        # Only require email verification if email settings are configured
+        from django.conf import settings
+        email_configured = (
+            hasattr(settings, 'EMAIL_HOST') and 
+            settings.EMAIL_HOST and 
+            settings.EMAIL_HOST != 'localhost' and
+            hasattr(settings, 'EMAIL_HOST_USER') and 
+            settings.EMAIL_HOST_USER and
+            settings.EMAIL_HOST_USER != 'dummy'
+        )
+        
+        if email_configured and not user.is_email_verified:
             return Response(
                 {
                     'detail': 'Please verify your email address before logging in.', 
@@ -99,6 +127,11 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 },
                 status=status.HTTP_403_FORBIDDEN
             )
+        elif not email_configured and not user.is_email_verified:
+            # If email is not configured, we can allow login but should log a warning
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f'Allowing login for unverified user {user.email} because email is not configured')
         
         # If we get here, user is authenticated and email is verified
         # Generate tokens

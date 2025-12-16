@@ -17,6 +17,25 @@ services:
         value: 4
       - key: RENDER
         value: "true"
+      # Email Configuration - Using dummy values to prevent startup errors
+      # Replace with actual values in Render dashboard
+      - key: EMAIL_HOST
+        value: "localhost"
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        value: "dummy"
+      - key: EMAIL_HOST_PASSWORD
+        value: "dummy"
+      - key: DEFAULT_FROM_EMAIL
+        value: "noreply@thesis-system.com"
+      # Google OAuth Configuration
+      - key: GOOGLE_OAUTH2_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH2_CLIENT_SECRET
+        sync: false
 
 databases:
   - name: thesis-db

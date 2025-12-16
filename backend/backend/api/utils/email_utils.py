@@ -13,6 +13,15 @@ logger = logging.getLogger(__name__)
 
 def send_notification_email(subject, body, to_email, html_message=None):
     """Send a plain text or HTML email notification"""
+    # Check if email settings are configured
+    if not hasattr(settings, 'EMAIL_HOST') or not settings.EMAIL_HOST or settings.EMAIL_HOST == 'localhost':
+        logger.warning("Email settings not configured or using dummy values. Skipping email send.")
+        return False
+        
+    if not to_email:
+        logger.warning("No recipient email provided. Skipping email send.")
+        return False
+    
     logger.info(f"Sending email notification: subject='{subject}', to_email='{to_email}'")
     try:
         # For Gmail SMTP, we need to handle SSL/TLS properly
@@ -22,7 +31,7 @@ def send_notification_email(subject, body, to_email, html_message=None):
             context.check_hostname = False
             context.verify_mode = ssl.CERT_NONE
             
-            server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT, timeout=settings.EMAIL_TIMEOUT)
+            server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT, timeout=getattr(settings, 'EMAIL_TIMEOUT', 30))
             server.starttls(context=context)
             server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
             
@@ -61,6 +70,11 @@ def send_notification_email(subject, body, to_email, html_message=None):
 
 def send_verification_email(user, request):
     """Send an email verification link to the user"""
+    # Check if email settings are configured
+    if not hasattr(settings, 'EMAIL_HOST') or not settings.EMAIL_HOST or settings.EMAIL_HOST == 'localhost':
+        logger.warning("Email settings not configured or using dummy values. Skipping verification email send.")
+        return False
+        
     try:
         token = user.generate_verification_token()
         
@@ -68,36 +82,24 @@ def send_verification_email(user, request):
         verification_path = f'/api/auth/verify-email/{user.id}/{token}/'
         verification_url = f"{getattr(settings, 'SITE_URL', '')}{verification_path}"
         
-        # Email content
-        subject = 'Verify your email address'
+        # Render email template
         context = {
             'user': user,
             'verification_url': verification_url,
-            'support_email': settings.DEFAULT_FROM_EMAIL,
             'site_name': getattr(settings, 'SITE_NAME', 'Thesis Management System')
         }
         
-        # Render HTML email
         html_message = render_to_string('emails/verify_email.html', context)
-        plain_message = f"""
-        Hello {user.get_full_name() or 'there'},
+        plain_message = strip_tags(html_message)
         
-        Thank you for registering with {context['site_name']}. 
-        Please click the following link to verify your email address:
-        
-        {verification_url}
-        
-        This link will expire in 24 hours.
-        
-        If you didn't create an account, please ignore this email.
-        """
+        subject = f"Verify your email address for {context['site_name']}"
         
         return send_notification_email(
             subject=subject,
-            body=strip_tags(plain_message),
+            body=plain_message,
             to_email=user.email,
             html_message=html_message
         )
     except Exception as e:
-        logger.error(f"Failed to prepare verification email: {e}")
-        raise
+        logger.error(f"Failed to send verification email: {e}")
+        return False
