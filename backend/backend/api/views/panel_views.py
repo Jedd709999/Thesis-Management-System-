@@ -27,30 +27,56 @@ class PanelActionViewSet(viewsets.ViewSet):
         # Filter by thesis ID if provided in query parameters
         thesis_id = self.request.query_params.get('thesis', None)
         if thesis_id:
-            queryset = queryset.filter(schedule__thesis__id=thesis_id)
+            # Instead of filtering by schedule__thesis__id, we'll filter by any panel action
+            # related to the thesis, regardless of whether it has a schedule or not
+            queryset = queryset.filter(
+                Q(schedule__thesis__id=thesis_id) | 
+                Q(schedule=None)
+            )
         
-        # For panel members, return actions they've created
-        if user.role == 'PANEL':
-            return queryset.filter(panel_member=user).select_related('schedule__thesis', 'panel_member')
+        # For all authenticated users, if they're accessing a specific thesis,
+        # check if they have permission to view that thesis
+        if thesis_id:
+            try:
+                # Import here to avoid circular imports
+                from api.models.thesis_models import Thesis
+                thesis = Thesis.objects.get(id=thesis_id)
+                
+                # Check if user has access to this thesis based on their role
+                has_access = False
+                if user.role == 'ADMIN':
+                    # Admins can access all theses
+                    has_access = True
+                elif user.role == 'STUDENT':
+                    # Students can access theses they proposed, or are members of the group
+                    has_access = (
+                        thesis.proposer == user or
+                        (thesis.group and (
+                            user in thesis.group.members.all() or
+                            user == thesis.group.leader
+                        ))
+                    )
+                elif user.role == 'ADVISER':
+                    # Advisers can access theses from their assigned groups
+                    has_access = thesis.group and thesis.group.adviser == user
+                elif user.role == 'PANEL':
+                    # Panel members can access theses from their assigned groups
+                    has_access = thesis.group and user in thesis.group.panels.all()
+                
+                # If user doesn't have access to the thesis, return empty queryset
+                if not has_access:
+                    print(f"User {user.email} with role {user.role} does not have access to thesis {thesis_id}")
+                    return PanelAction.objects.none()
+            except Thesis.DoesNotExist:
+                # If thesis doesn't exist, return empty queryset
+                print(f"Thesis {thesis_id} does not exist")
+                return PanelAction.objects.none()
         
-        # For students, return actions related to their theses
-        elif user.role == 'STUDENT':
-            return queryset.filter(
-                schedule__thesis__group__members=user
-            ).select_related('schedule__thesis', 'panel_member')
+        # Apply select_related for performance
+        queryset = queryset.select_related('schedule__thesis', 'panel_member')
         
-        # For advisers, return actions related to theses they advise
-        elif user.role == 'ADVISER':
-            return queryset.filter(
-                schedule__thesis__adviser=user
-            ).select_related('schedule__thesis', 'panel_member')
-        
-        # For admins, return all actions
-        elif user.role == 'ADMIN':
-            return queryset.select_related('schedule__thesis', 'panel_member')
-        
-        # For other roles, return empty queryset
-        return PanelAction.objects.none()
+        print(f"Returning {queryset.count()} panel actions for user {user.email} with role {user.role}")
+        return queryset
     
     def list(self, request):
         """List all panel actions accessible to the current user."""
@@ -83,51 +109,91 @@ class PanelActionViewSet(viewsets.ViewSet):
         return self._handle_action(pk, 'rejected', request.data.get('comments', ''))
 
     def _handle_action(self, schedule_id, action_type, comments):
-        # Get the schedule with proper permissions
-        schedule_queryset = OralDefenseSchedule.objects.filter(
-            panel_members=self.request.user,
-            status='scheduled'
-        ).select_related('thesis')
+        # Instead of requiring a schedule, we'll work directly with the thesis
+        # This allows panel members to provide feedback on theses with scheduled statuses
+        # even when no formal defense schedule exists
         
-        schedule = get_object_or_404(schedule_queryset, pk=schedule_id)
-        thesis = schedule.thesis
-        
-        with transaction.atomic():
-            # Update thesis status based on action
-            if action_type == 'approved':
-                if thesis.status == 'CONCEPT_SCHEDULED':
-                    thesis.status = 'CONCEPT_APPROVED'
-                elif thesis.status == 'PROPOSAL_SCHEDULED':
-                    thesis.status = 'PROPOSAL_APPROVED'
-                elif thesis.status == 'FINAL_SCHEDULED':
-                    thesis.status = 'FINAL_APPROVED'
-            elif action_type == 'needs_revision':
-                # Update thesis status to stage-specific revision status
-                if thesis.status == 'CONCEPT_SCHEDULED':
-                    thesis.status = 'CONCEPT_REVISIONS_REQUIRED'
-                elif thesis.status == 'PROPOSAL_SCHEDULED':
-                    thesis.status = 'PROPOSAL_REVISIONS_REQUIRED'
-                elif thesis.status == 'FINAL_SCHEDULED':
-                    thesis.status = 'FINAL_REVISIONS_REQUIRED'
-            elif action_type == 'rejected':
-                thesis.status = 'REJECTED'
+        try:
+            # Import here to avoid circular imports
+            from api.models.thesis_models import Thesis
             
-            thesis.save(update_fields=['status', 'updated_at'])
+            # Get the thesis directly by ID (passed as schedule_id for backward compatibility)
+            thesis = Thesis.objects.get(id=schedule_id)
             
-            # Record the panel action
-            action = PanelAction.objects.create(
-                schedule=schedule,
-                panel_member=self.request.user,
-                action=action_type,
-                comments=comments
-            )
+            # Check if the thesis has a scheduled status that allows panel actions
+            if thesis.status not in ['CONCEPT_SCHEDULED', 'PROPOSAL_SCHEDULED', 'FINAL_SCHEDULED']:
+                return Response({
+                    'status': 'error',
+                    'message': 'Panel actions can only be performed on theses with scheduled statuses'
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Serialize the action for the response
-            serializer = self.serializer_class(action, context={'request': self.request})
-        
-        return Response({
-            'status': 'success',
-            'message': f'Thesis has been {action_type}',
-            'new_status': thesis.get_status_display(),
-            'action': serializer.data
-        }, status=status.HTTP_200_OK)
+            # Check if the current user is a panel member for this thesis
+            if not (thesis.group and self.request.user in thesis.group.panels.all()):
+                return Response({
+                    'status': 'error',
+                    'message': 'You are not authorized to perform actions on this thesis'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            with transaction.atomic():
+                # Update thesis status based on action
+                if action_type == 'approved':
+                    if thesis.status == 'CONCEPT_SCHEDULED':
+                        thesis.status = 'CONCEPT_APPROVED'
+                    elif thesis.status == 'PROPOSAL_SCHEDULED':
+                        thesis.status = 'PROPOSAL_APPROVED'
+                    elif thesis.status == 'FINAL_SCHEDULED':
+                        thesis.status = 'FINAL_APPROVED'
+                elif action_type == 'needs_revision':
+                    # Update thesis status to stage-specific revision status
+                    if thesis.status == 'CONCEPT_SCHEDULED':
+                        thesis.status = 'CONCEPT_REVISIONS_REQUIRED'
+                    elif thesis.status == 'PROPOSAL_SCHEDULED':
+                        thesis.status = 'PROPOSAL_REVISIONS_REQUIRED'
+                    elif thesis.status == 'FINAL_SCHEDULED':
+                        thesis.status = 'FINAL_REVISIONS_REQUIRED'
+                elif action_type == 'rejected':
+                    thesis.status = 'REJECTED'
+                
+                thesis.save(update_fields=['status', 'updated_at'])
+                
+                # Create a dummy schedule for the panel action (since we don't have a real one)
+                from api.models.schedule_models import OralDefenseSchedule
+                # Try to get an existing schedule for this thesis, or create a dummy one
+                schedule, created = OralDefenseSchedule.objects.get_or_create(
+                    thesis=thesis,
+                    defaults={
+                        'date_time': timezone.now(),
+                        'location': 'Online',
+                        'status': 'completed',  # Mark as completed since action is already taken
+                    }
+                )
+                
+                # Record the panel action
+                action = PanelAction.objects.create(
+                    schedule=schedule,
+                    panel_member=self.request.user,
+                    action=action_type,
+                    comments=comments
+                )
+                
+                # Serialize the action for the response
+                serializer = self.serializer_class(action, context={'request': self.request})
+            
+            return Response({
+                'status': 'success',
+                'message': f'Thesis has been {action_type}',
+                'new_status': thesis.get_status_display(),
+                'action': serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except Thesis.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Thesis not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"Error in _handle_action: {e}")
+            return Response({
+                'status': 'error',
+                'message': 'An error occurred while processing the action'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -177,6 +177,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:8080",  # Added for frontend running on port 8080
+    "http://localhost:8081",  # Added for frontend running on port 8081
 ]
 
 CORS_ALLOW_CREDENTIALS = True

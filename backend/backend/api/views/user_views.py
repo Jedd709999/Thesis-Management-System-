@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
 from api.models.user_models import User
+from api.models.group_models import Group
 from api.serializers.user_serializers import UserSerializer, ProfileUpdateSerializer, ChangePasswordSerializer
 from rest_framework.permissions import IsAuthenticated
 from api.permissions.role_permissions import CanViewUsers, IsAdmin
@@ -22,6 +23,16 @@ class UserViewSet(viewsets.ModelViewSet):
         
         if role:
             queryset = queryset.filter(role=role.upper())
+            
+        # If requesting students and exclude_in_group parameter is set,
+        # filter out students who are already in a group
+        if role and role.upper() == 'STUDENT':
+            exclude_in_group = self.request.query_params.get('exclude_in_group', '').lower() == 'true'
+            if exclude_in_group:
+                # Get all student IDs that are currently in groups
+                students_in_groups = Group.objects.values_list('members', flat=True)
+                # Exclude these students from the queryset
+                queryset = queryset.exclude(id__in=students_in_groups)
             
         return queryset
     

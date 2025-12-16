@@ -10,7 +10,7 @@ import {
 import { Button } from '../../components/ui/button';
 import { Label } from '../../components/ui/label';
 import { Search, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
-import { searchUsers } from '../../api/groupService';
+import { searchUsers } from '../../api/userService';
 import { Group, User } from '../../types/group';
 
 interface AssignPanelDialogProps {
@@ -63,12 +63,20 @@ export function AssignPanelDialog({ open, onOpenChange, group, onAssignPanel }: 
   const loadPanelMembers = async () => {
     try {
       setIsLoading(true);
-      const response = await searchUsers('');
-      const users = response.data.results || response.data;
-      // Ensure users is an array before filtering
-      const usersArray = Array.isArray(users) ? users : [];
-      const panels = usersArray.filter((user: User) => user.role === 'PANEL');
-      setAvailablePanels(panels);
+      // Fetch only PANEL users
+      const panels = await searchUsers('', 'PANEL');
+      // Convert User objects from index.ts format to group.ts format
+      const convertedPanels = panels.map(panel => ({
+        id: panel.id,
+        first_name: panel.first_name || '',
+        last_name: panel.last_name || '',
+        email: panel.email,
+        role: panel.role.toUpperCase() as 'STUDENT' | 'ADVISER' | 'PANEL' | 'ADMIN',
+        is_active: panel.is_active ?? true,
+        is_staff: panel.is_staff ?? false,
+        assigned_groups_count: panel.assigned_groups_count ?? 0
+      }));
+      setAvailablePanels(convertedPanels);
     } catch (error) {
       console.error('Error loading panel members:', error);
     } finally {

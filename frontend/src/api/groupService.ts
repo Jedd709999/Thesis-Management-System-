@@ -492,10 +492,11 @@ export const addMember = addGroupMember
 export const removeMember = removeGroupMember
 export const getGroup = fetchGroup
 export const assignPanels = assignPanel
-export const searchUsers = async (query: string, role?: string): Promise<User[]> => {
+export const searchUsers = async (query: string, role?: string, excludeInGroup?: boolean): Promise<User[]> => {
   const params: any = {};
   if (query) params.search = query;
   if (role) params.role = role;
+  if (excludeInGroup && role === 'STUDENT') params.exclude_in_group = 'true';
   
   try {
     const res = await api.get('users/', { params });

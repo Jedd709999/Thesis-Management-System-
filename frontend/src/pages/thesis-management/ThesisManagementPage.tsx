@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Search, Filter, Plus, Eye, Edit, Trash2, AlertCircle, Check, X, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Search, Filter, Plus, Eye, Edit, Trash2, AlertCircle, Check, X, AlertTriangle, RotateCcw, Clock, FileText } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -615,78 +615,56 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
                         </>
                       )}
                       
-                      {/* Panel Action Buttons - Show only for panel members when viewing theses with scheduled defenses in the "my" tab */}
-                      {(() => {
-                        const isPanel = userRole?.toUpperCase() === 'PANEL';
-                        const isMember = isPanelMemberForThesis(thesis);
-                        const hasDefense = hasScheduledDefenses(thesis);
-                        const showPanelActions = isPanel && isMember && hasDefense && tabType === 'my';
-                        
-                        console.log('Panel action button check:', { 
-                          thesisId: thesis.id, 
-                          isPanel, 
-                          isMember, 
-                          hasDefense, 
-                          tabType,
-                          thesisStatus: thesis.status,
-                          showPanelActions 
-                        });
-                        
-                        // Additional debugging to understand why panel actions aren't showing
-                        if (isPanel && isMember && tabType === 'my' && !hasDefense) {
-                          console.log('Panel member viewing own thesis in "my" tab, but no scheduled defenses. Thesis status:', thesis.status);
-                        }
-                        
-                        return showPanelActions && (
-                          <>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  variant="default" 
-                                  size="sm"
-                                  onClick={() => handlePanelAction(thesis, 'approve')}
-                                  className="bg-green-600 hover:bg-green-700 text-white p-2"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </Button>                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Approve Thesis</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  variant="default" 
-                                  size="sm"
-                                  onClick={() => handlePanelAction(thesis, 'request_revision')}
-                                  className="bg-yellow-600 hover:bg-yellow-700 text-white p-2"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Request Revisions</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  variant="default" 
-                                  size="sm"
-                                  onClick={() => handlePanelAction(thesis, 'reject')}
-                                  className="bg-red-600 hover:bg-red-700 text-white p-2"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Reject Thesis</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </>
-                        );
-                      })()}
-                    </div>
+                      {/* Panel Action Buttons - Check if user is a panel member and thesis has scheduled defense */}
+                      {userRole?.toUpperCase() === 'PANEL' && isPanelMemberForThesis(thesis) && hasScheduledDefenses(thesis) && tabType === 'my' && (
+                        <>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handlePanelAction(thesis, 'approve')}
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2"
+                              >
+                                <Check className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Approve Thesis</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handlePanelAction(thesis, 'request_revision')}
+                                className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 p-2"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Request Revisions</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handlePanelAction(thesis, 'reject')}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Reject Thesis</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </>
+                      )}                    </div>
                   </td>
                 </tr>
               ))}
@@ -1318,9 +1296,9 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
   const hasExistingThesis = useMemo(() => {
     if (userRole?.toLowerCase() !== 'student' || !currentUser) return false;
 
-    // Check if any thesis in the 'my' group belongs to the current user
+    // Check if any thesis belongs to the current user
     // A student has a thesis if they are the proposer
-    const result = groupedTheses.my.some(thesis => {
+    const result = theses.some(thesis => {
       // Check if the current user is the proposer of the thesis
       const proposerId = typeof thesis.proposer === 'object' && thesis.proposer !== null
         ? thesis.proposer.id
@@ -1331,8 +1309,8 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     console.log('hasExistingThesis check:', {
       userRole,
       currentUser: currentUser?.id,
-      myThesesCount: Array.isArray(groupedTheses.my) ? groupedTheses.my.length : 0,
-      myTheses: Array.isArray(groupedTheses.my) ? groupedTheses.my.map(t => ({
+      thesesCount: Array.isArray(theses) ? theses.length : 0,
+      theses: Array.isArray(theses) ? theses.map(t => ({
         id: t.id,
         title: t.title,
         proposer: t.proposer,
@@ -1342,7 +1320,7 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
     });
     
     return result;
-  }, [groupedTheses, userRole, currentUser]);
+  }, [theses, userRole, currentUser]);
 
   if (loading || groupsLoading) {
     return (
@@ -1370,6 +1348,62 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
       </div>
     );
   }
+
+  // Simple Progress Bar Component
+  const SimpleProgressBar = ({ thesis }: { thesis: Thesis }) => {
+    // Define progress percentages for different thesis statuses
+    const getStatusProgress = (status: string): number => {
+      switch (status) {
+        case 'DRAFT':
+          return 10;
+        case 'TOPIC_SUBMITTED':
+          return 15;
+        case 'TOPIC_APPROVED':
+          return 20;
+        case 'CONCEPT_SUBMITTED':
+          return 30;
+        case 'CONCEPT_APPROVED':
+          return 40;
+        case 'PROPOSAL_SUBMITTED':
+          return 50;
+        case 'PROPOSAL_APPROVED':
+          return 60;
+        case 'RESEARCH_IN_PROGRESS':
+          return 70;
+        case 'FINAL_SUBMITTED':
+          return 85;
+        case 'FINAL_APPROVED':
+          return 100;
+        case 'TOPIC_REJECTED':
+        case 'REJECTED':
+          return 15; // Reset to early stage if rejected
+        default:
+          return 0;
+      }
+    };
+
+    const progress = getStatusProgress(thesis.status);
+    
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-600">Thesis Progress</span>
+          <span className="font-medium">{progress}%</span>
+        </div>
+        <div className="w-full bg-slate-200 rounded-full h-3">
+          <div 
+            className="bg-green-500 h-3 rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
+        <div className="text-xs text-slate-500 mt-2">
+          Current status: {thesis.status.replace(/_/g, ' ')}
+        </div>
+      </div>
+    );
+  };
+
+
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -1511,97 +1545,150 @@ export function ThesisManagement({ userRole, onViewDetail }: ThesisManagementPro
         )}
       </div>
 
-      {/* Filters */}
-      <Card className="p-6 border-0 shadow-sm">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by thesis title..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-            />
+      {/* Show filters only for advisers and panel members, not for students */}
+      {(userRole === 'adviser' || userRole === 'panel') && (
+        <Card className="p-6 border-0 shadow-sm">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by thesis title..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              />
+            </div>
+            <div className="flex gap-3">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="DRAFT">Draft</SelectItem>
+                  <SelectItem value="TOPIC_SUBMITTED">Topic Submitted</SelectItem>
+                  <SelectItem value="TOPIC_APPROVED">Topic Approved</SelectItem>
+                  <SelectItem value="TOPIC_REJECTED">Topic Rejected</SelectItem>
+                  <SelectItem value="CONCEPT_SUBMITTED">Concept Submitted</SelectItem>
+                  <SelectItem value="CONCEPT_APPROVED">Concept Approved</SelectItem>
+                  <SelectItem value="PROPOSAL_SUBMITTED">Proposal Submitted</SelectItem>
+                  <SelectItem value="PROPOSAL_APPROVED">Proposal Approved</SelectItem>
+                  <SelectItem value="RESEARCH_IN_PROGRESS">Research In Progress</SelectItem>
+                  <SelectItem value="FINAL_SUBMITTED">Final Submitted</SelectItem>
+                  <SelectItem value="FINAL_APPROVED">Final Approved</SelectItem>
+                  <SelectItem value="REVISIONS_REQUIRED">Revisions Required</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                  <SelectItem value="ARCHIVED">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="flex gap-3">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="TOPIC_SUBMITTED">Topic Submitted</SelectItem>
-                <SelectItem value="TOPIC_APPROVED">Topic Approved</SelectItem>
-                <SelectItem value="TOPIC_REJECTED">Topic Rejected</SelectItem>
-                <SelectItem value="CONCEPT_SUBMITTED">Concept Submitted</SelectItem>
-                <SelectItem value="CONCEPT_APPROVED">Concept Approved</SelectItem>
-                <SelectItem value="PROPOSAL_SUBMITTED">Proposal Submitted</SelectItem>
-                <SelectItem value="PROPOSAL_APPROVED">Proposal Approved</SelectItem>
-                <SelectItem value="RESEARCH_IN_PROGRESS">Research In Progress</SelectItem>
-                <SelectItem value="FINAL_SUBMITTED">Final Submitted</SelectItem>
-                <SelectItem value="FINAL_APPROVED">Final Approved</SelectItem>
-                <SelectItem value="REVISIONS_REQUIRED">Revisions Required</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
-                <SelectItem value="ARCHIVED">Archived</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        </Card>
+      )}
+
+      {/* Display only assigned theses without tabs for non-admin users */}
+      {userRole === 'admin' ? (
+        <Tabs defaultValue="my">
+          <TabsList>
+            <TabsTrigger value="my">All Theses</TabsTrigger>
+          </TabsList>
+          <TabsContent value="my">{renderThesisTable(groupedTheses.my, 'my')}</TabsContent>
+        </Tabs>
+      ) : (
+        /* For students, advisers, and panel members, show only their assigned theses without tabs */
+        <div>
+          <h2 className="text-xl font-semibold mb-4">
+            {userRole === 'student' ? 'My Thesis' : 'Assigned Theses'}
+          </h2>
+          {renderThesisTable(groupedTheses.my, 'my')}
+          
+          {/* Statistic Cards for Advisers and Panel Members - placed below thesis table */}
+          {(userRole === 'adviser' || userRole === 'panel') && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-16">
+              {/* Total Theses Card */}
+              <Card className="p-6 border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-700">Total Theses</p>
+                    <p className="text-2xl font-bold text-blue-900">{groupedTheses.my.length}</p>
+                  </div>
+                  <div className="p-3 bg-blue-200 rounded-full">
+                    <FileText className="w-6 h-6 text-blue-700" />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Pending Reviews Card */}
+              <Card className="p-6 border-0 shadow-sm bg-gradient-to-br from-amber-50 to-amber-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-amber-700">Pending Reviews</p>
+                    <p className="text-2xl font-bold text-amber-900">
+                      {groupedTheses.my.filter(thesis => 
+                        thesis.status.includes('SUBMITTED') || 
+                        thesis.status.includes('SCHEDULED')
+                      ).length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-amber-200 rounded-full">
+                    <Clock className="w-6 h-6 text-amber-700" />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Completed Evaluations Card */}
+              <Card className="p-6 border-0 shadow-sm bg-gradient-to-br from-green-50 to-green-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-green-700">Completed</p>
+                    <p className="text-2xl font-bold text-green-900">
+                      {groupedTheses.my.filter(thesis => 
+                        thesis.status.includes('APPROVED') || 
+                        thesis.status === 'FINAL_DEFENDED' ||
+                        thesis.status === 'REJECTED' ||
+                        thesis.status === 'ARCHIVED'
+                      ).length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-green-200 rounded-full">
+                    <Check className="w-6 h-6 text-green-700" />
+                  </div>
+                </div>
+              </Card>
+
+              {/* In Progress Card */}
+              <Card className="p-6 border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-purple-700">In Progress</p>
+                    <p className="text-2xl font-bold text-purple-900">
+                      {groupedTheses.my.filter(thesis => 
+                        thesis.status === 'RESEARCH_IN_PROGRESS' || 
+                        thesis.status === 'DRAFT' ||
+                        thesis.status.includes('CONCEPT') ||
+                        thesis.status.includes('PROPOSAL')
+                      ).length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-purple-200 rounded-full">
+                    <RotateCcw className="w-6 h-6 text-purple-700" />
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
         </div>
-      </Card>
+      )}
 
-      {/* Tabs for different thesis views */}
-      <Tabs defaultValue={userRole === 'student' ? "my" : (userRole === 'adviser' || userRole === 'panel') ? "my" : "my"}>
-        {userRole === 'student' ? (
-          <>
-            <TabsList>
-              <TabsTrigger value="my">My Thesis</TabsTrigger>
-              <TabsTrigger value="others">Others' Theses</TabsTrigger>
-            </TabsList>
-            <TabsContent value="my">{renderThesisTable(groupedTheses.my, 'my')}</TabsContent>
-            <TabsContent value="others">{renderThesisTable(groupedTheses.others, 'others')}</TabsContent>
-          </>
-        ) : (userRole === 'adviser' || userRole === 'panel') ? (
-          <>
-            <TabsList>
-              <TabsTrigger value="my">My Theses</TabsTrigger>
-              <TabsTrigger value="others">Others' Theses</TabsTrigger>
-            </TabsList>
-            <TabsContent value="my">{renderThesisTable(groupedTheses.my, 'my')}</TabsContent>
-            <TabsContent value="others">{renderThesisTable(groupedTheses.others, 'others')}</TabsContent>
-          </>
-        ) : (
-          <>
-            <TabsList>
-              <TabsTrigger value="my">All Theses</TabsTrigger>
-            </TabsList>
-            <TabsContent value="my">{renderThesisTable(groupedTheses.my, 'my')}</TabsContent>
-          </>
-        )}
-      </Tabs>
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {[
-          'DRAFT',
-          'TOPIC_SUBMITTED',
-          'TOPIC_APPROVED',
-          'PROPOSAL_SUBMITTED',
-          'FINAL_APPROVED'
-        ].map((status) => {
-          // Ensure theses is an array before filtering
-          const thesesArray = Array.isArray(theses) ? theses : [];
-          const count = thesesArray.filter((t) => t.status === status).length;
-          return (
-            <Card key={status} className="p-4 border-0 shadow-sm">
-              <p className="text-sm text-slate-600 mb-1">{status.replace('_', ' ')}</p>
-              <p className="text-2xl text-slate-900">{count}</p>
-            </Card>
-          );
-        })}
-      </div>
+      {/* Simple Progress Bar - Only show for students with a thesis */}
+      {userRole === 'student' && theses.length > 0 && (
+        <Card className="p-6 border-0 shadow-sm mb-6">
+          <h3 className="text-lg font-semibold mb-4">Thesis Progress</h3>
+          <SimpleProgressBar thesis={theses[0]} />
+        </Card>
+      )}
 
       {/* Approve Thesis Dialog */}
       <Dialog open={isApproveDialogOpen} onOpenChange={(open) => {

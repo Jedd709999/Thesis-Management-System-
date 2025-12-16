@@ -66,49 +66,31 @@ export async function changePassword(data: {
 /**
  * Search users by query
  */
-export async function searchUsers(query: string): Promise<User[]> {
-  // For empty queries, fetch all users (limited to a reasonable number)
-  if (!query || query.trim().length === 0) {
-    try {
-      const res = await api.get('users/', { params: { limit: 50 } });
-      // Ensure we always return an array
-      if (Array.isArray(res.data)) {
-        return res.data;
-      } else if (res.data && Array.isArray(res.data.results)) {
-        // Handle paginated response
-        return res.data.results;
-      } else {
-        console.warn('Unexpected response format from searchUsers (empty query):', res.data);
-        return [];
-      }
-    } catch (error) {
-      console.error('Error in searchUsers (empty query):', error);
-      return [];
-    }
+export async function searchUsers(query: string, role?: string, excludeInGroup?: boolean): Promise<User[]> {
+  const params: any = {};
+  
+  // Add search parameter if query is provided
+  if (query) {
+    params.search = query;
   }
   
-  // For short queries, still search but with a minimum length requirement
-  if (query.trim().length < 2) {
-    try {
-      const res = await api.get('users/', { params: { search: query, limit: 50 } });
-      // Ensure we always return an array
-      if (Array.isArray(res.data)) {
-        return res.data;
-      } else if (res.data && Array.isArray(res.data.results)) {
-        // Handle paginated response
-        return res.data.results;
-      } else {
-        console.warn('Unexpected response format from searchUsers (short query):', res.data);
-        return [];
-      }
-    } catch (error) {
-      console.error('Error in searchUsers (short query):', error);
-      return [];
-    }
+  // Add role parameter if provided
+  if (role) {
+    params.role = role;
+  }
+  
+  // Add exclude_in_group parameter if requesting students and excludeInGroup is true
+  if (excludeInGroup && role === 'STUDENT') {
+    params.exclude_in_group = 'true';
+  }
+  
+  // Set a reasonable limit for empty queries
+  if (!query || query.trim().length === 0) {
+    params.limit = 50;
   }
   
   try {
-    const res = await api.get('users/', { params: { search: query } });
+    const res = await api.get('users/', { params });
     // Ensure we always return an array
     if (Array.isArray(res.data)) {
       return res.data;
@@ -128,9 +110,16 @@ export async function searchUsers(query: string): Promise<User[]> {
 /**
  * Get all students (convenience function)
  */
-export async function getStudents(): Promise<User[]> {
+export async function getStudents(excludeInGroup?: boolean): Promise<User[]> {
   try {
-    const res = await api.get('users/', { params: { role: 'STUDENT', limit: 100 } });
+    const params: any = { role: 'STUDENT', limit: 100 };
+    
+    // Add exclude_in_group parameter if excludeInGroup is true
+    if (excludeInGroup) {
+      params.exclude_in_group = 'true';
+    }
+    
+    const res = await api.get('users/', { params });
     // Ensure we always return an array
     if (Array.isArray(res.data)) {
       return res.data;

@@ -549,10 +549,9 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
     // Load advisers if not already loaded
     if (availableAdvisers.length === 0) {
       try {
-        const users = await searchUsers('');
-        const advisers = users.filter((user: User) => user.role === 'ADVISER');
-        setAvailableAdvisers(advisers);
-        setFilteredAdvisers(advisers);
+        const users = await searchUsers('', 'ADVISER');
+        setAvailableAdvisers(users);
+        setFilteredAdvisers(users);
       } catch (error) {
         console.error('Error loading advisers:', error);
       }
@@ -724,32 +723,12 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
 
   const handleSearchUsers = async (query: string) => {
     setSearchQuery(query);
-    // Load all users when query is empty (for initial load)
     try {
-      const users = await searchUsers(query || '', 'ADVISER');
+      // Search for students, excluding those already in groups
+      const students = await searchUsers(query || '', 'STUDENT', true);
       
-      // Filter users by role
-      let students = users.filter((user: User) => user.role === 'STUDENT');
-      const advisers = users.filter((user: User) => user.role === 'ADVISER');
-      
-      // Only filter out students who are already in groups if we have group data
-      if (groups.my.length > 0 || groups.others.length > 0) {
-        // Flatten all group members from both my groups and other groups
-        const allGroupMembers = [
-          ...groups.my.flatMap(group => group.members || []),
-          ...groups.others.flatMap(group => group.members || [])
-        ];
-        
-        // Get IDs of students who are already in groups
-        const studentsInGroups = new Set(
-          allGroupMembers
-            .filter(member => member && member.id)
-            .map(member => member.id)
-        );
-        
-        // Filter out students who are already in groups
-        students = students.filter((student: User) => !studentsInGroups.has(student.id));
-      }
+      // Search for advisers
+      const advisers = await searchUsers(query || '', 'ADVISER');
       
       setAvailableUsers(students);
       setAvailableAdvisers(advisers);
@@ -855,8 +834,7 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
 
     const loadAdvisers = async () => {
       try {
-        const users = await searchUsers('');
-        const advisers = users.filter((user: User) => user.role === 'ADVISER');
+        const advisers = await searchUsers('', 'ADVISER');
         setAvailableAdvisers(advisers);
       } catch (error) {
         console.error('Error loading advisers:', error);
@@ -874,50 +852,22 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
   // Load all users when dialog opens
   useEffect(() => {
     if (isCreateDialogOpen || isEditDialogOpen) {
-      // Ensure we have the latest groups data
+      // Search for users, excluding students who are already in groups
       const refreshAndSearch = async () => {
         try {
-          // Fetch all groups to get complete data for filtering
-          const allGroupsResponse = await fetchGroups();
-          const allGroups = allGroupsResponse.map(transformGroup);
+          // Search for students, excluding those already in groups
+          const students = await searchUsers('', 'STUDENT', true);
           
-          // Get all student IDs that are already in groups
-          const studentIdsInGroups = new Set<string>();
-          allGroups.forEach(group => {
-            if (group.members && Array.isArray(group.members)) {
-              group.members.forEach(member => {
-                if (member && member.id) {
-                  // Keep ID as string
-                  studentIdsInGroups.add(member.id);
-                }
-              });
-            }
-          });
+          // Search for advisers
+          const advisers = await searchUsers('', 'ADVISER');
           
-          console.log('Student IDs already in groups:', Array.from(studentIdsInGroups));
-          
-          // Now search for all users
-          const users = await searchUsers('');
-          
-          // Filter users by role
-          const students = users.filter((user: User) => user.role === 'STUDENT');
-          const advisers = users.filter((user: User) => user.role === 'ADVISER');
-          
-          // Filter out students who are already in groups
-          const availableStudents = students.filter((student: User) => {
-            const isAlreadyInGroup = studentIdsInGroups.has(student.id);
-            console.log(`Student ${student.first_name} ${student.last_name} (ID: ${student.id}) - Already in group: ${isAlreadyInGroup}`);
-            return !isAlreadyInGroup;
-          });
-          
-          console.log('Available students after filtering:', availableStudents);
-          
-          setAvailableUsers(availableStudents);
+          setAvailableUsers(students);
           setAvailableAdvisers(advisers);
         } catch (error) {
-          console.error('Error refreshing groups and searching users:', error);
-          // Still try to search users even if groups refresh fails
-          handleSearchUsers('');
+          console.error('Error searching users:', error);
+          // On error, at least set empty arrays to avoid undefined issues
+          setAvailableUsers([]);
+          setAvailableAdvisers([]);
         }
       };
       
@@ -1789,97 +1739,79 @@ const GroupManagementPage: React.FC<GroupManagementProps> = ({ userRole, onViewD
         onAssignPanel={handleAssignPanel}
       />
 
-      <Card className="p-6 border-0 shadow-sm mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search groups..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            />
-          </div>
-          <div className="flex gap-3">
-            <Select value={searchType} onValueChange={setSearchType}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Search Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="general">General</SelectItem>
-                <SelectItem value="keywords">Keywords</SelectItem>
-                <SelectItem value="topics">Topics</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px]">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
-                <SelectItem value="DRAFT">Draft</SelectItem>
-              </SelectContent>
-            </Select>
-            {userRole === 'admin' && (
-              <Select value={adviserFilter} onValueChange={setAdviserFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <UserIcon className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Adviser" />
+      {/* Show search bar only for advisers and panel members, not for students */}
+      {(userRole === 'adviser' || userRole === 'panel') && (
+        <Card className="p-6 border-0 shadow-sm mb-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search groups..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex gap-3">
+              <Select value={searchType} onValueChange={setSearchType}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Search Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Advisers</SelectItem>
-                  {availableAdvisers.map((adviser) => (
-                    <SelectItem key={adviser.id} value={String(adviser.id)}>
-                      {adviser.first_name} {adviser.last_name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="keywords">Keywords</SelectItem>
+                  <SelectItem value="topics">Topics</SelectItem>
                 </SelectContent>
               </Select>
-            )}
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('all');
-                setSearchType('general');
-                if (userRole === 'admin') {
-                  setAdviserFilter('all');
-                }
-              }}
-              className="flex items-center gap-2"
-            >
-              <span>Reset</span>
-            </Button>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="APPROVED">Approved</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                  <SelectItem value="DRAFT">Draft</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                  setSearchType('general');
+                }}
+                className="flex items-center gap-2"
+              >
+                <span>Reset</span>
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
-      <Tabs defaultValue={(userRole === 'admin') ? "all" : "my"}>
-        {(userRole === 'admin') ? (
-          <>
-            <TabsList>
-              <TabsTrigger value="all">Groups</TabsTrigger>
-              <TabsTrigger value="proposals">Group Proposals</TabsTrigger>
-            </TabsList>
-            <TabsContent value="all">{renderGroups(filteredGroups.all, 'all')}</TabsContent>
-            <TabsContent value="proposals">{renderGroups(filteredGroups.proposals, 'proposals')}</TabsContent>
-          </>
-        ) : (
-          <>
-            <TabsList>
-              <TabsTrigger value="my">{userRole === 'adviser' || userRole === 'panel' ? 'My Groups' : 'My Group'}</TabsTrigger>
-              <TabsTrigger value="others">Other Groups</TabsTrigger>
-            </TabsList>
-            <TabsContent value="my">{renderGroups(filteredGroups.my, 'my')}</TabsContent>
-            <TabsContent value="others">{renderGroups(filteredGroups.others, 'others')}</TabsContent>
-          </>
-        )}
-      </Tabs>
+      {/* Display only assigned groups without tabs for non-admin users */}
+      {userRole === 'admin' ? (
+        <Tabs defaultValue="all">
+          <TabsList>
+            <TabsTrigger value="all">Groups</TabsTrigger>
+            <TabsTrigger value="proposals">Group Proposals</TabsTrigger>
+          </TabsList>
+          <TabsContent value="all">{renderGroups(filteredGroups.all, 'all')}</TabsContent>
+          <TabsContent value="proposals">{renderGroups(filteredGroups.proposals, 'proposals')}</TabsContent>
+        </Tabs>
+      ) : (
+        /* For students, advisers, and panel members, show only their assigned groups without tabs */
+        <div>
+          <h2 className="text-xl font-semibold mb-4">
+            {userRole === 'adviser' || userRole === 'panel' ? 'My Groups' : 'My Group'}
+          </h2>
+          {renderGroups(filteredGroups.my, 'my')}
+        </div>
+      )}
     </div>
 
   );

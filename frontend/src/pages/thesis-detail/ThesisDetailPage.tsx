@@ -51,6 +51,7 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
       try {
         const actions = await fetchPanelActions(thesisId!);
         console.log('Panel actions fetched:', actions); // Debug log
+        console.log('Number of panel actions:', actions.length); // Debug log
         setPanelActions(actions);
       } catch (err) {
         console.error('Error fetching panel actions:', err);
@@ -192,11 +193,20 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
     return typeof group === 'object' && group !== null && 'id' in group;
   };
 
-  // Extract group object if available
+  // Extract group object if available, with additional safety checks
   const groupObj = isGroupObject(thesis.group) ? thesis.group : null;
+  
+  // Additional safety check for groupObj properties
+  const safeGroupObj = groupObj && typeof groupObj === 'object' ? groupObj : null;
+  
+  // Debug logs to check what's happening
+  console.log('Thesis data:', thesis);
+  console.log('Group object:', groupObj);
+  console.log('Safe group object:', safeGroupObj);
+  console.log('Panel actions:', panelActions);
 
   // Check if current user is the adviser for this thesis
-  const isAdviser = user?.role === 'ADVISER' && groupObj?.adviser && groupObj.adviser.id === user.id;
+  const isAdviser = user?.role === 'ADVISER' && safeGroupObj?.adviser && safeGroupObj.adviser.id === user.id;
   const isStudent = user?.role === 'STUDENT';
   const isPanel = user?.role === 'PANEL';
   const canSubmit = isStudent && (
@@ -270,7 +280,7 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
             {thesis.status.replace('_', ' ')}
           </Badge>
           <h1 className="text-3xl text-slate-900 mb-2">{thesis.title}</h1>
-          <p className="text-slate-600">{groupObj && groupObj.name ? groupObj.name : 'No Group Assigned'}</p>
+          <p className="text-slate-600">{safeGroupObj && safeGroupObj.name ? safeGroupObj.name : 'No Group Assigned'}</p>
         </div>
         <div className="flex gap-2">
           {isStudent && (
@@ -296,8 +306,7 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
                 Upload Document
               </Button>
             </DocumentUploadDialog>
-          )}
-          
+          )}          
           {isStudent && canSubmit && (
             <Button 
               className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2"
@@ -862,14 +871,14 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Group Members */}
-          {groupObj && groupObj.members && groupObj.members.length > 0 && (
+          {safeGroupObj && safeGroupObj.members && safeGroupObj.members.length > 0 && (
             <Card className="p-6 border-0 shadow-sm">
               <h2 className="text-slate-900 mb-4 flex items-center gap-2">
                 <Users className="w-5 h-5 text-green-600" />
                 Group Members
               </h2>
               <div className="space-y-3">
-                {groupObj.members.map((member: User) => (
+                {safeGroupObj.members.map((member: User) => (
                   <div key={member.id} className="flex items-center gap-3">
                     <Avatar>
                       <AvatarFallback className="bg-green-100 text-green-800 text-xs">
@@ -889,34 +898,34 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
           )}
 
           {/* Adviser */}
-          {groupObj && groupObj.adviser && (
+          {safeGroupObj && safeGroupObj.adviser && (
             <Card className="p-6 border-0 shadow-sm">
               <h2 className="text-slate-900 mb-4">Adviser</h2>
               <div className="flex items-center gap-3">
                 <Avatar>
                   <AvatarFallback className="bg-blue-100 text-blue-800">
-                    {`${groupObj.adviser.first_name?.charAt(0) || ''}${groupObj.adviser.last_name?.charAt(0) || ''}`}
+                    {`${safeGroupObj.adviser.first_name?.charAt(0) || ''}${safeGroupObj.adviser.last_name?.charAt(0) || ''}`}
                   </AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="text-sm text-slate-900">
-                    {groupObj.adviser.first_name} {groupObj.adviser.last_name}
+                    {safeGroupObj.adviser.first_name} {safeGroupObj.adviser.last_name}
                   </p>
-                  <p className="text-xs text-slate-600">{groupObj.adviser.email}</p>
+                  <p className="text-xs text-slate-600">{safeGroupObj.adviser.email}</p>
                 </div>
               </div>
             </Card>
           )}
 
           {/* Panel Members */}
-          {groupObj && groupObj.panels && groupObj.panels.length > 0 && (
+          {safeGroupObj && Array.isArray(safeGroupObj.panels) && safeGroupObj.panels.length > 0 && (
             <Card className="p-6 border-0 shadow-sm">
               <h2 className="text-slate-900 mb-4 flex items-center gap-2">
                 <Users className="w-5 h-5 text-purple-600" />
                 Panel Members
               </h2>
               <div className="space-y-3">
-                {groupObj.panels.map((panel: User) => (
+                {safeGroupObj.panels.map((panel: User) => (
                   <div key={panel.id} className="flex items-center gap-3">
                     <Avatar>
                       <AvatarFallback className="bg-purple-100 text-purple-800 text-xs">
@@ -935,13 +944,13 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
             </Card>
           )}
 
-          {/* Panel Feedback */}
-          {panelActions && panelActions.length > 0 && (
-            <Card className="p-6 border-0 shadow-sm">
-              <h2 className="text-slate-900 mb-4 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-purple-600" />
-                Panel Feedback
-              </h2>
+          {/* Panel Feedback - Visible to all users with thesis access */}
+          <Card className="p-6 border-0 shadow-sm">
+            <h2 className="text-slate-900 mb-4 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-purple-600" />
+              Panel Feedback
+            </h2>
+            {panelActions && panelActions.length > 0 ? (
               <div className="space-y-4">
                 {panelActions.map((action) => (
                   <div key={action.id} className="border-l-4 border-purple-200 pl-4 py-2">
@@ -961,22 +970,29 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
                         >
                           {action.action_display}
                         </Badge>
+                        <Badge className="ml-2 bg-purple-100 text-purple-800 text-xs">
+                          Panel Member
+                        </Badge>
                       </div>
                       <p className="text-xs text-slate-500">
                         {new Date(action.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                    {action.comments && (
+                    {action.comments ? (
                       <p className="text-sm text-slate-700 mt-2">{action.comments}</p>
+                    ) : (
+                      <p className="text-sm text-slate-500 italic mt-2">No comments provided</p>
                     )}
                   </div>
                 ))}
               </div>
-            </Card>
-          )}
+            ) : (
+              <p className="text-sm text-slate-500 italic">No panel feedback provided yet</p>
+            )}
+          </Card>
 
-          {/* Adviser Feedback */}
-          {thesis.adviser_feedback && groupObj?.adviser && (
+          {/* Adviser Feedback - Visible to all users with thesis access */}
+          {safeGroupObj && safeGroupObj.adviser && (
             <Card className="p-6 border-0 shadow-sm">
               <h2 className="text-slate-900 mb-4 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-blue-600" />
@@ -986,17 +1002,24 @@ export function ThesisDetail({ thesisId: propThesisId, onBack }: ThesisDetailPro
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-slate-900">
-                      {groupObj.adviser.first_name} {groupObj.adviser.last_name}
+                      {safeGroupObj.adviser.first_name} {safeGroupObj.adviser.last_name}
                     </p>
                     <Badge className="bg-blue-100 text-blue-800 text-xs">
                       Adviser Review
+                    </Badge>
+                    <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">
+                      Adviser
                     </Badge>
                   </div>
                   <p className="text-xs text-slate-500">
                     {new Date(thesis.updated_at).toLocaleDateString()}
                   </p>
                 </div>
-                <p className="text-sm text-slate-700 mt-2">{thesis.adviser_feedback}</p>
+                {thesis.adviser_feedback ? (
+                  <p className="text-sm text-slate-700 mt-2">{thesis.adviser_feedback}</p>
+                ) : (
+                  <p className="text-sm text-slate-500 italic mt-2">No feedback provided yet</p>
+                )}
               </div>
             </Card>
           )}
