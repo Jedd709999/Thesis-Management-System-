@@ -20,15 +20,16 @@ echo "Database is ready!"
 
 # Apply database migrations
 echo "Applying database migrations..."
-python -c "import pymysql; pymysql.install_as_MySQLdb()" && python backend/manage.py migrate --noinput
+export DJANGO_SETTINGS_MODULE=backend.settings
+python -c "import pymysql; pymysql.install_as_MySQLdb(); import django; django.setup()" && python manage.py migrate --noinput
 
 # Collect static files
 echo "Collecting static files..."
-python -c "import pymysql; pymysql.install_as_MySQLdb()" && python backend/manage.py collectstatic --noinput
+python -c "import pymysql; pymysql.install_as_MySQLdb(); import django; django.setup()" && python manage.py collectstatic --noinput
 
 # Create superuser if it doesn't exist
 echo "Creating superuser if needed..."
-python -c "import pymysql; pymysql.install_as_MySQLdb()" && python backend/manage.py shell -c "
+python -c "import pymysql; pymysql.install_as_MySQLdb(); import django; django.setup()" && python manage.py shell -c "
 from django.contrib.auth import get_user_model;
 User = get_user_model();
 if not User.objects.filter(is_superuser=True).exists():

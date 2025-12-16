@@ -17,6 +17,9 @@ ENV PYTHONUNBUFFERED=1
 # Updated to include both /app and /app/backend
 ENV PYTHONPATH=/app:/app/backend
 
+# Upgrade pip first
+RUN pip install --upgrade pip
+
 # Install Python dependencies
 COPY ./requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
