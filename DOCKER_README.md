@@ -2,6 +2,13 @@
 
 This document explains how to containerize and run the Thesis Management System using Docker.
 
+## Two Ways to Run with Docker
+
+1. **Using Docker Compose (Recommended)**: Runs all services (database, backend, frontend) together
+2. **Using Root Dockerfile**: Builds and runs just the backend service
+
+For most development and production scenarios, we recommend using Docker Compose as it handles all services and their dependencies.
+
 ## Prerequisites
 
 - Docker Engine 20.10 or higher
@@ -9,12 +16,29 @@ This document explains how to containerize and run the Thesis Management System 
 
 ## Quick Start
 
+### Option 1: Using Docker Compose (Recommended)
+
 1. Clone the repository (if not already done)
 2. Navigate to the project root directory
 3. Run the application:
    ```bash
    docker-compose up --build
    ```
+
+### Option 2: Using Root Dockerfile (Backend Only)
+
+1. Clone the repository (if not already done)
+2. Navigate to the project root directory
+3. Build the image:
+   ```bash
+   docker build -t thesis-backend .
+   ```
+4. Run the container:
+   ```bash
+   docker run -p 8000:8000 thesis-backend
+   ```
+
+Note: When using the root Dockerfile, you'll need to separately manage the database and other services.
 
 ## Services Overview
 
