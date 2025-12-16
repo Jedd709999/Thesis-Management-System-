@@ -1,6 +1,7 @@
 # Root Dockerfile for the Thesis Management System Backend
 # This file builds the backend service directly
 # For the full application with all services, use docker-compose instead
+# This Dockerfile supports both docker-compose and standalone usage
 
 FROM python:3.11-slim
 
@@ -32,11 +33,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend project
 COPY ./backend .
 
-# Copy entrypoint script
-COPY ./backend/entrypoint.sh ./entrypoint.sh
+# Copy entrypoint scripts
+COPY ./backend/entrypoint.sh ./entrypoint-compose.sh
+COPY ./entrypoint-standalone.sh ./entrypoint.sh
 
-# Make entrypoint script executable
-RUN chmod +x /app/entrypoint.sh
+# Make entrypoint scripts executable
+RUN chmod +x /app/entrypoint.sh /app/entrypoint-compose.sh
 
 # Run the application
 ENTRYPOINT ["/app/entrypoint.sh"]
