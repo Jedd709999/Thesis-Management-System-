@@ -12,7 +12,21 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'changeme')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
+# Allow hosts dynamically based on environment
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'backend']
+
+# Add Render hosts if deployed on Render
+if 'RENDER' in os.environ:
+    ALLOWED_HOSTS.append('.onrender.com')
+    # Add the specific Render service URL if available
+    if 'RENDER_SERVICE_NAME' in os.environ:
+        ALLOWED_HOSTS.append(f"{os.environ['RENDER_SERVICE_NAME']}.onrender.com")
+    # Also allow the full service URL
+    RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+    if RENDER_EXTERNAL_HOSTNAME:
+        ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+    # Add the specific service from the error message
+    ALLOWED_HOSTS.append('thesis-management-system-9bb4.onrender.com')
 
 # Application definition
 INSTALLED_APPS = [
@@ -187,7 +201,20 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:8080",  # Added for frontend running on port 8080
     "http://localhost:8081",  # Added for frontend running on port 8081
+    "https://thesis-management-system-9bb4.onrender.com",  # Specific Render frontend
 ]
+
+# Add Render frontend URL if deployed on Render
+if 'RENDER' in os.environ:
+    RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+    if RENDER_EXTERNAL_HOSTNAME:
+        CORS_ALLOWED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
+    # Add the specific Render service URL pattern
+    RENDER_SERVICE_NAME = os.environ.get('RENDER_SERVICE_NAME')
+    if RENDER_SERVICE_NAME:
+        CORS_ALLOWED_ORIGINS.append(f"https://{RENDER_SERVICE_NAME}.onrender.com")
+    # For development, we can allow all origins on Render (be careful in production)
+    # CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 
