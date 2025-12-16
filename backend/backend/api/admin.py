@@ -7,6 +7,8 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.utils.safestring import mark_safe
 from django.forms import ModelForm
+from django.core.exceptions import PermissionDenied
+from django.utils.translation import gettext_lazy as _
 
 from .models.user_models import User
 from .models.group_models import Group, GroupMember
@@ -44,6 +46,14 @@ class UserAdmin(BaseUserAdmin):
         }),
     )
     readonly_fields = ('email_verification_sent_at', 'last_login', 'date_joined')
+    
+    def get_search_results(self, request, queryset, search_term):
+        try:
+            return super().get_search_results(request, queryset, search_term)
+        except Exception as e:
+            import logging
+            logging.error(f"Error in UserAdmin.get_search_results: {e}")
+            return super().get_search_results(request, queryset, search_term)
 
 class GroupMemberInline(admin.TabularInline):
     model = GroupMember
@@ -87,29 +97,46 @@ class GroupAdmin(admin.ModelAdmin):
         return super().get_form(request, obj, **kwargs)
         
     def view_members_link(self, obj):
-        count = obj.members.count()
-        url = reverse('admin:api_groupmember_changelist') + f'?group__id__exact={obj.id}'
-        return format_html('<a href="{}">{} Members</a>', url, count)
+        try:
+            count = obj.members.count()
+            url = reverse('admin:api_groupmember_changelist') + f'?group__id__exact={obj.id}'
+            return format_html('<a href="{}">{} Members</a>', url, count)
+        except Exception as e:
+            return f"Error: {str(e)}"
     view_members_link.short_description = 'Members'
     view_members_link.allow_tags = True
 
     def member_count(self, obj):
-        return obj.members.count()
+        try:
+            return obj.members.count()
+        except Exception as e:
+            return f"Error: {str(e)}"
     member_count.short_description = 'Total Members'
     
     def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related('members')
+        try:
+            return super().get_queryset(request).prefetch_related('members')
+        except Exception as e:
+            import logging
+            logging.error(f"Error in GroupAdmin.get_queryset: {e}")
+            return super().get_queryset(request)
         
     def change_view(self, request, object_id, form_url='', extra_context=None):
-        extra_context = extra_context or {}
-        group = self.get_object(request, object_id)
-        extra_context['show_add_member'] = True
-        extra_context['available_students'] = User.objects.filter(
-            role='STUDENT'
-        ).exclude(
-            id__in=group.members.values_list('id', flat=True)
-        ).order_by('last_name', 'first_name')
-        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+        try:
+            extra_context = extra_context or {}
+            group = self.get_object(request, object_id)
+            if group:
+                extra_context['show_add_member'] = True
+                extra_context['available_students'] = User.objects.filter(
+                    role='STUDENT'
+                ).exclude(
+                    id__in=group.members.values_list('id', flat=True)
+                ).order_by('last_name', 'first_name')
+            return super().change_view(request, object_id, form_url, extra_context=extra_context)
+        except Exception as e:
+            import logging
+            logging.error(f"Error in GroupAdmin.change_view: {e}")
+            return super().change_view(request, object_id, form_url, extra_context=extra_context)
         
     def get_urls(self):
         from django.urls import path
@@ -124,43 +151,66 @@ class GroupAdmin(admin.ModelAdmin):
         return custom_urls + urls
         
     def add_members(self, request, object_id):
-        if request.method == 'POST':
-            group = self.get_object(request, object_id)
-            user_ids = request.POST.getlist('users')
-            for user_id in user_ids:
-                user = User.objects.get(id=user_id)
-                GroupMember.objects.get_or_create(group=group, user=user)
-            self.message_user(request, f"Successfully added {len(user_ids)} members to the group.")
+        try:
+            if request.method == 'POST':
+                group = self.get_object(request, object_id)
+                if not group:
+                    self.message_user(request, _("Group not found."), messages.ERROR)
+                    return HttpResponseRedirect('..')
+                    
+                user_ids = request.POST.getlist('users')
+                added_count = 0
+                for user_id in user_ids:
+                    try:
+                        user = User.objects.get(id=user_id)
+                        GroupMember.objects.get_or_create(group=group, user=user)
+                        added_count += 1
+                    except User.DoesNotExist:
+                        self.message_user(request, _("User with ID {} not found.").format(user_id), messages.WARNING)
+                        
+                self.message_user(request, _("Successfully added {} members to the group.").format(added_count))
+                return HttpResponseRedirect('..')
             return HttpResponseRedirect('..')
-        return HttpResponseRedirect('..')
+        except Exception as e:
+            import logging
+            logging.error(f"Error in GroupAdmin.add_members: {e}")
+            self.message_user(request, _("An error occurred while adding members."), messages.ERROR)
+            return HttpResponseRedirect('..')
         
     def response_change(self, request, obj):
-        if "_add_members" in request.POST:
-            user_ids = request.POST.getlist('users')
-            for user_id in user_ids:
-                user = User.objects.get(id=user_id)
-                GroupMember.objects.get_or_create(group=obj, user=user)
-            self.message_user(request, f"Successfully added {len(user_ids)} members to the group.")
-            return HttpResponseRedirect('.')
-        return super().response_change(request, obj)
+        try:
+            if "_add_members" in request.POST:
+                user_ids = request.POST.getlist('users')
+                added_count = 0
+                for user_id in user_ids:
+                    try:
+                        user = User.objects.get(id=user_id)
+                        GroupMember.objects.get_or_create(group=obj, user=user)
+                        added_count += 1
+                    except User.DoesNotExist:
+                        self.message_user(request, _("User with ID {} not found.").format(user_id), messages.WARNING)
+                        
+                self.message_user(request, _("Successfully added {} members to the group.").format(added_count))
+                return HttpResponseRedirect('.')
+            return super().response_change(request, obj)
+        except Exception as e:
+            import logging
+            logging.error(f"Error in GroupAdmin.response_change: {e}")
+            self.message_user(request, _("An error occurred while adding members."), messages.ERROR)
+            return super().response_change(request, obj)
         
     def save_formset(self, request, form, formset, change):
-        instances = formset.save(commit=False)
-        for instance in instances:
-            if isinstance(instance, GroupMember) and not instance.pk and not instance.group_id:
-                instance.group = form.instance
-            instance.save()
-        formset.save_m2m()
-    
-    def response_change(self, request, obj):
-        if "_add_members" in request.POST:
-            user_ids = request.POST.getlist('users')
-            for user_id in user_ids:
-                user = User.objects.get(id=user_id)
-                GroupMember.objects.get_or_create(group=obj, user=user)
-            self.message_user(request, f"Successfully added {len(user_ids)} members to the group.")
-            return HttpResponseRedirect('.')
-        return super().response_change(request, obj)
+        try:
+            instances = formset.save(commit=False)
+            for instance in instances:
+                if isinstance(instance, GroupMember) and not instance.pk and not instance.group_id:
+                    instance.group = form.instance
+                instance.save()
+            formset.save_m2m()
+        except Exception as e:
+            import logging
+            logging.error(f"Error in GroupAdmin.save_formset: {e}")
+            raise
 
 class DocumentAdmin(admin.ModelAdmin):
     list_display = ('thesis', 'uploaded_by', 'document_type', 'created_at')

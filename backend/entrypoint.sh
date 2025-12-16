@@ -50,6 +50,10 @@ if [ -z "$RENDER" ]; then
 else
   # Render deployment with PostgreSQL
   python -c "import django; django.setup()" && python manage.py migrate --noinput
+  
+  # Also run makemigrations to ensure all migrations are up to date
+  python -c "import django; django.setup()" && python manage.py makemigrations --no-input
+  python -c "import django; django.setup()" && python manage.py migrate --noinput
 fi
 
 # Collect static files

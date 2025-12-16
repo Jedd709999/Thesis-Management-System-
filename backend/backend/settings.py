@@ -26,7 +26,8 @@ if 'RENDER' in os.environ:
     if RENDER_EXTERNAL_HOSTNAME:
         ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
     # Add the specific service from the error message
-    ALLOWED_HOSTS.append('thesis-management-system-9bb4.onrender.com')
+    if 'thesis-management-system-9bb4.onrender.com' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('thesis-management-system-9bb4.onrender.com')
 else:
     # For local development, allow all hosts (NOT for production)
     if DEBUG:
@@ -93,6 +94,12 @@ if os.getenv('DATABASE_URL'):  # Render sets this for PostgreSQL
     DATABASES = {
         'default': dj_database_url.parse(os.environ.get('DATABASE_URL')),
     }
+    # Add connection options for better reliability
+    DATABASES['default']['CONN_MAX_AGE'] = 600  # 10 minutes
+    DATABASES['default']['OPTIONS'] = {
+        'MAX_CONNS': 20,
+        'MIN_CONNS': 5,
+    }
 else:
     # Check if we're in a Render environment but DATABASE_URL is missing
     # This can happen during build process or if env vars aren't set properly
@@ -109,8 +116,16 @@ else:
                 'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
                 'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
                 'PORT': os.getenv('POSTGRES_PORT', '5432'),
+                'CONN_MAX_AGE': 600,  # 10 minutes
+                'OPTIONS': {
+                    'MAX_CONNS': 20,
+                    'MIN_CONNS': 5,
+                },
             }
         }
+        # Add a check to ensure we have the required database credentials
+        if not os.getenv('POSTGRES_PASSWORD'):
+            logging.warning("POSTGRES_PASSWORD not set. Database connection may fail.")
     else:
         # Default to MySQL for local development
         DATABASES = {
@@ -124,6 +139,7 @@ else:
                 'OPTIONS': {
                     'charset': 'utf8mb4',
                 },
+                'CONN_MAX_AGE': 600,  # 10 minutes
             }
         }
 
@@ -159,6 +175,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Ensure static files are collected properly for Render deployments
+if 'RENDER' in os.environ:
+    # Make sure STATIC_ROOT exists
+    import os
+    os.makedirs(STATIC_ROOT, exist_ok=True)
 
 # Media files
 MEDIA_URL = '/media/'
@@ -284,6 +306,40 @@ SITE_URL = os.getenv('SITE_URL', 'http://localhost:8001')
 SITE_NAME = os.getenv('SITE_NAME', 'Thesis Management System')
 SITE_ID = 1  # Required for django.contrib.sites
 
+# Ensure the Site object exists
+if 'RENDER' in os.environ:
+    # In Render environment, we need to make sure the Site object is properly configured
+    import threading
+    _setup_site_lock = threading.Lock()
+    
+    def setup_site():
+        with _setup_site_lock:
+            try:
+                from django.contrib.sites.models import Site
+                import django
+                if django.apps.apps.ready:
+                    site, created = Site.objects.get_or_create(
+                        pk=1,
+                        defaults={
+                            'domain': os.getenv('RENDER_EXTERNAL_HOSTNAME', 'thesis-management-system-9bb4.onrender.com'),
+                            'name': SITE_NAME
+                        }
+                    )
+                    if not created and site.domain != os.getenv('RENDER_EXTERNAL_HOSTNAME', 'thesis-management-system-9bb4.onrender.com'):
+                        site.domain = os.getenv('RENDER_EXTERNAL_HOSTNAME', 'thesis-management-system-9bb4.onrender.com')
+                        site.name = SITE_NAME
+                        site.save()
+            except Exception as e:
+                import logging
+                logging.warning(f"Failed to setup Site object: {e}")
+    
+    # Try to setup the site object, but don't block if Django isn't ready yet
+    try:
+        setup_site()
+    except:
+        # If we can't setup the site now, it will be setup later when Django is ready
+        pass
+
 # Email verification settings
 EMAIL_VERIFICATION_TOKEN_LIFETIME_DAYS = 1  # Token expires in 1 day
 
@@ -311,6 +367,18 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+# For Render deployments, we might need to adjust the Redis configuration
+if 'RENDER' in os.environ:
+    # Check if REDIS_URL is provided
+    redis_url = os.getenv('REDIS_URL')
+    if redis_url:
+        # Use the provided Redis URL
+        CHANNEL_LAYERS['default']['CONFIG']['hosts'] = [redis_url]
+    else:
+        # Log a warning that Redis might not be properly configured
+        import logging
+        logging.warning("REDIS_URL not set in Render environment. WebSocket functionality may not work properly.")
 
 # Google Docs API settings
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
@@ -366,3 +434,29 @@ LOGGING = {
     },
 }
 
+# For Render deployments, we might need to adjust some settings to prevent 500 errors
+if 'RENDER' in os.environ:
+    # Increase the logging level for debugging
+    LOGGING['loggers']['django']['level'] = 'DEBUG'
+    LOGGING['loggers']['api']['level'] = 'DEBUG'
+    
+    # Ensure we have proper error handling
+    DEBUG_PROPAGATE_EXCEPTIONS = False
+    
+    # Make sure we have a proper allowed hosts configuration
+    if 'thesis-management-system-9bb4.onrender.com' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('thesis-management-system-9bb4.onrender.com')
+        
+    # Add additional debugging for admin issues
+    LOGGING['loggers']['django.request'] = {
+        'handlers': ['console', 'file'],
+        'level': 'DEBUG',
+        'propagate': False,
+    }
+    
+    # Add database connection debugging
+    LOGGING['loggers']['django.db.backends'] = {
+        'handlers': ['console', 'file'],
+        'level': 'DEBUG',
+        'propagate': False,
+    }

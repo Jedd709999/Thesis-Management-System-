@@ -51,3 +51,18 @@
 {% endif %}
 
 {% endblock %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
+<script>
+// Add error handling for the custom admin form
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.querySelector('form[action*="add_members"]');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // Add any client-side validation if needed
+        });
+    }
+});
+</script>
+{% endblock %}
