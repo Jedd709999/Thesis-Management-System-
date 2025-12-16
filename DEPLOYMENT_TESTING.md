@@ -73,6 +73,13 @@ Test the connection between frontend and backend:
 2. Verify all environment variables are set
 3. Ensure `build.sh` runs without errors
 
+**Issue**: Build process fails (Exited with status 1)
+**Solution**:
+1. Check if `DJANGO_SETTINGS_MODULE` is properly set in the build script
+2. Verify that all dependencies in `requirements.txt` install correctly
+3. Ensure the build script commands are formatted correctly for the Render environment
+4. Check that database migrations can run without connecting to the database during build
+
 **Issue**: Database connection fails
 **Solution**:
 1. Verify `DATABASE_URL` environment variable is present
